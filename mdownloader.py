@@ -1,12 +1,13 @@
-import http.client
 import sys
-import json
 import os
-import urllib.request
-import shutil
 import time
+import requests
+import asyncio
+from aiohttp import ClientSession
+from tqdm import tqdm
 
 current_request = 0
+headers = { 'User-Agent': 'mDownloader/1.0' }
 
 def createFolder(folder_name):
     try:
@@ -18,34 +19,50 @@ def createFolder(folder_name):
     except OSError:
         sys.exit('Error creating folder')
 
-def downloadChapter(chapter_id, folder):
+@asyncio.coroutine
+def wait_with_progress(coros):
+    for f in tqdm(asyncio.as_completed(coros), total=len(coros)):
+        yield from f
+
+async def downloadImages(image, url, folder):
 
     global current_request
 
-    conn = http.client.HTTPSConnection('mangadex.org')
-    conn.request("GET", "/api/chapter/" + chapter_id )
-    response = conn.getresponse()
+    async with ClientSession() as session:
+        async with session.get( url + image ) as response:
 
-    if ( response.status != 200 ):
-        sys.exit('Request status error: ' + response.status)
+            response = await response.read()
 
-    image_data = json.loads( response.read().decode() )
-    conn.close()
+            with open( folder + '/' + image , 'wb') as file:
+                file.write(response)
 
-    image_location = 'https://mangadex.org' + image_data['server'] + image_data['hash'] + '/'
+            current_request += 1
+
+def downloadChapter(chapter_id, folder):
+
+    # Connect to API and get chapter info
+    url = f'https://mangadex.org/api/chapter/{chapter_id}'
+
+    response = requests.get( url, headers = headers)
+
+    if ( response.status_code != 200 ):
+        sys.exit('Request status error: ' + response.status_code)
+
+    image_data = response.json()
+    url        = 'https://mangadex.org' + image_data['server'] + image_data['hash'] + '/'
+
+    # ASYNC FUNCTION
+
+    loop = asyncio.get_event_loop()
+    tasks = []
 
     for image in image_data['page_array']:
-        print ('Downloading image ' + image )
+        task = asyncio.ensure_future( downloadImages(image, url, folder) )
+        tasks.append(task)
 
-        req = urllib.request.Request( image_location + image, data=None, headers = { 'User-Agent': 'mDownloader/1.0' } )
-
-        response = urllib.request.urlopen( req )
-
-        with open( folder + '/' + image , 'wb') as out_file:
-            shutil.copyfileobj(response, out_file)
-
-        current_request += 1
-
+    runner = wait_with_progress(tasks)
+    loop.run_until_complete(runner)
+    loop.close()
 
 def main(manga_id):
 
@@ -53,30 +70,33 @@ def main(manga_id):
 
     print ('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
 
+    # Check the manga id is valid
     if ( not manga_id.isdigit() ):
         sys.exit('Invalid Manga ID')
 
-    conn = http.client.HTTPSConnection('mangadex.org')
-    conn.request("GET", "/api/manga/" + manga_id )
-    response = conn.getresponse()
+    # Connect to API and get manga info
+    url = f'https://mangadex.org/api/manga/{manga_id}'
 
-    if ( response.status != 200 ):
-       sys.exit('Request status error: ' + response.status)
+    response = requests.get( url, headers = headers)
+
+    if ( response.status_code != 200 ):
+       sys.exit('Request status error: ' + response.status_code)
 
     current_request += 1
 
-    data = json.loads( response.read().decode() )
-    conn.close()
+    data = response.json()
 
     title = data['manga']['title']
 
     createFolder(title)
 
+    # Loop chapters
     for chapter_id in data['chapter']:
 
         if ( current_request == 600 ):
             sys.exit( 'Max requests allowed. Trying again will result on your IP banned.' )
 
+        # Only English chapters
         if ( data['chapter'][chapter_id]['lang_code'] == 'gb' ):
             volume        = data['chapter'][chapter_id]['volume']
             chapter       = data['chapter'][chapter_id]['chapter']
@@ -93,6 +113,7 @@ def main(manga_id):
             chapter_folder = '[Vol. ' + volume + ' Ch. ' + chapter + '][' + groups + '] - ' + chapter_title
             chapter_route = title + '/' + chapter_folder
 
+            # Check if the current folder exist. If it exists, skip it
             exists = createFolder(chapter_route)
 
             if (exists):
