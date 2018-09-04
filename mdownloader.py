@@ -3,6 +3,7 @@ import os
 import time
 import requests
 import asyncio
+import argparse
 from aiohttp import ClientSession
 from tqdm import tqdm
 
@@ -28,6 +29,9 @@ async def downloadImages(image, url, folder):
 
     global current_request
 
+    if ( current_request == 600 ):
+        sys.exit( 'Max requests allowed. Trying again will result on your IP banned.' )
+
     async with ClientSession() as session:
         async with session.get( url + image ) as response:
 
@@ -48,11 +52,14 @@ def downloadChapter(chapter_id, folder):
     if ( response.status_code != 200 ):
         sys.exit('Request status error: ' + response.status_code)
 
+    global current_request
+
+    current_request += 1
+
     image_data = response.json()
-    url        = 'https://mangadex.org' + image_data['server'] + image_data['hash'] + '/'
+    url        = f'https://mangadex.org{image_data["server"]}{image_data["hash"]}/'
 
     # ASYNC FUNCTION
-
     loop = asyncio.get_event_loop()
     tasks = []
 
@@ -62,9 +69,8 @@ def downloadChapter(chapter_id, folder):
 
     runner = wait_with_progress(tasks)
     loop.run_until_complete(runner)
-    loop.close()
 
-def main(manga_id):
+def main(manga_id, language, route):
 
     global current_request
 
@@ -90,6 +96,46 @@ def main(manga_id):
 
     createFolder(title)
 
+    languages = {
+        'sa' : 'Arabic',
+        'bd' : 'Bengali',
+        'bg' : 'Bulgarian',
+        'mm' : 'Burmese',
+        'ct' : 'Catalan',
+        'cn' : 'Chinese (Simp)',
+        'hk' : 'Chinese (Trad)',
+        'cz' : 'Czech',
+        'dk' : 'Danish',
+        'nl' : 'Dutch',
+        'gb' : 'English',
+        'ph' : 'Filipino',
+        'fi' : 'Finnish',
+        'fr' : 'French',
+        'de' : 'German',
+        'gr' : 'Greek',
+        'hu' : 'Hungarian',
+        'id' : 'Indonesian',
+        'it' : 'Italian',
+        'jp' : 'Japanese',
+        'kr' : 'Korean',
+        'my' : 'Malay',
+        'mn' : 'Mongolian',
+        'ir' : 'Persian',
+        'pl' : 'Polish',
+        'br' : 'Portuguese (Br)',
+        'pt' : 'Portuguese (Pt)',
+        'ro' : 'Romanian',
+        'ru' : 'Russian',
+        'rs' : 'Serbo-Croatian',
+        'es' : 'Spanish (Es)',
+        'mx' : 'Spanish (LATAM)',
+        'se' : 'Swedish',
+        'th' : 'Thai',
+        'tr' : 'Turkish',
+        'ua' : 'Ukrainian',
+        'vn' : 'Vietnamese'
+    }
+
     # Loop chapters
     for chapter_id in data['chapter']:
 
@@ -97,21 +143,19 @@ def main(manga_id):
             sys.exit( 'Max requests allowed. Trying again will result on your IP banned.' )
 
         # Only English chapters
-        if ( data['chapter'][chapter_id]['lang_code'] == 'gb' ):
-            volume        = data['chapter'][chapter_id]['volume']
-            chapter       = data['chapter'][chapter_id]['chapter']
-            chapter_title = data['chapter'][chapter_id]['title']
+        if ( data['chapter'][chapter_id]['lang_code'] == language ):
 
-            groups = data['chapter'][chapter_id]['group_name']
+            chapter        = data['chapter'][chapter_id]
+            volume_number  = chapter['volume']
+            chapter_number = chapter['chapter']
+            chapter_title  = chapter['title']
 
-            if ( data['chapter'][chapter_id]['group_id_2'] > 0 ):
-                groups += ', ' + data['chapter'][chapter_id]['group_name_2']
+            # Thanks, Teasday
+            group_keys = filter(lambda s: s.startswith('group_name'), chapter.keys())
+            groups = ', '.join( filter( None, [chapter[x] for x in group_keys ] ) )
 
-            if ( data['chapter'][chapter_id]['group_id_3'] > 0 ):
-                groups += ', ' + data['chapter'][chapter_id]['group_name_3']
-
-            chapter_folder = '[Vol. ' + volume + ' Ch. ' + chapter + '][' + groups + '] - ' + chapter_title
-            chapter_route = title + '/' + chapter_folder
+            chapter_folder = f'[{languages[language]}][Vol. {volume_number} Ch. {chapter_number}][{groups}] - {chapter_title}'
+            chapter_route  = f'{route}{title}/{chapter_folder}'
 
             # Check if the current folder exist. If it exists, skip it
             exists = createFolder(chapter_route)
@@ -119,12 +163,23 @@ def main(manga_id):
             if (exists):
                 continue
 
-            print ('Downloading Volume ' + volume + ' Chapter ' + chapter + ', Title: ' + chapter_title)
+            print ( f'Downloading Volume {volume_number} Chapter {chapter_number} Title: {chapter_title}' )
 
             downloadChapter(chapter_id, chapter_route)
 
-    print ('Total request: %d' % ( current_request ) )
+    print('Total request: %d' % ( current_request ) )
+
+    if (current_request == 1):
+        print('No chapters downloaded')
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--language',  '-l', default='gb')
+    parser.add_argument('--directory', '-d', default='')
+    parser.add_argument('manga_id')
+
+    args = parser.parse_args()
+
+    main(args.manga_id, args.language, args.directory)
