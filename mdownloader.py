@@ -4,11 +4,15 @@ import time
 import requests
 import asyncio
 import argparse
+import re
+import html
+import json
+
 from aiohttp import ClientSession
 from tqdm import tqdm
 
-current_request = 0
 headers = { 'User-Agent': 'mDownloader/1.0' }
+domain  = 'https://mangadex.org'
 
 def createFolder(folder_name):
     try:
@@ -27,11 +31,6 @@ def wait_with_progress(coros):
 
 async def downloadImages(image, url, folder):
 
-    global current_request
-
-    if ( current_request == 600 ):
-        sys.exit( 'Max requests allowed. Trying again will result on your IP banned.' )
-
     async with ClientSession() as session:
         async with session.get( url + image ) as response:
 
@@ -40,27 +39,47 @@ async def downloadImages(image, url, folder):
             with open( folder + '/' + image , 'wb') as file:
                 file.write(response)
 
-            current_request += 1
-
-def downloadChapter(chapter_id, folder):
+# type 0 -> chapter
+# type 1 -> title
+def downloadChapter(chapter_id, folder, type):
 
     # Connect to API and get chapter info
-    url = f'https://mangadex.org/api/chapter/{chapter_id}'
+    url = f'{domain}/api?id={chapter_id}&type=chapter'
 
     response = requests.get( url, headers = headers)
 
     if ( response.status_code != 200 ):
-        sys.exit('Request status error: ' + response.status_code)
-
-    global current_request
-
-    current_request += 1
+        sys.exit(f'Request status error: {response.status_code}')
 
     image_data = response.json()
-    url        = f'https://mangadex.org{image_data["server"]}{image_data["hash"]}/'
+    server_url = ''
+
+    if 'mangadex.org' in image_data["server"]:
+        server_url = image_data["server"]
+    else:
+        server_url = f'{domain}{image_data["server"]}'
+
+    url = f'{server_url}{image_data["hash"]}/'
+
+    # Only for chapter downloads
+    # It is not possible at the moment to get the groups names from the chapter API endpoint
+    # Only the group IDs are added to the chapter folder
+    if( type ):
+        group_keys = filter(lambda s: s.startswith('group_id'), image_data.keys())
+        groups = ', '.join( filter( lambda zero: zero != '0', [ str( image_data[x] ) for x in group_keys ] ) )
+
+        folder = f'[{image_data["lang_name"]}][Vol. {image_data["volume"]} Ch. {image_data["chapter"]}][{groups}] - {image_data["title"]}'
+
+        # Check if the current folder exist. If it exists, skip it
+        exists = createFolder(folder)
+
+        if (exists):
+            sys.exit('Chapter already downloaded')
+
+        print ( f'Downloading Volume {image_data["volume"]} Chapter {image_data["chapter"]} Title: {image_data["title"]}' )
 
     # ASYNC FUNCTION
-    loop = asyncio.get_event_loop()
+    loop  = asyncio.get_event_loop()
     tasks = []
 
     for image in image_data['page_array']:
@@ -70,116 +89,77 @@ def downloadChapter(chapter_id, folder):
     runner = wait_with_progress(tasks)
     loop.run_until_complete(runner)
 
-def main(manga_id, language, route):
+def main(id, language, route, type):
 
-    global current_request
+    # Check the id is valid number
+    if ( not id.isdigit() ):
+        sys.exit('Invalid Title/Chapter ID')
 
     print ('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
 
-    # Check the manga id is valid
-    if ( not manga_id.isdigit() ):
-        sys.exit('Invalid Manga ID')
+    if ( 'title' == type ):
+        # Connect to API and get manga info
+        url = f'{domain}/api?id={id}&type=manga'
 
-    # Connect to API and get manga info
-    url = f'https://mangadex.org/api/manga/{manga_id}'
+        response = requests.get( url, headers = headers)
 
-    response = requests.get( url, headers = headers)
+        if ( response.status_code != 200 ):
+            sys.exit('Request status error: ' + response.status_code)
 
-    if ( response.status_code != 200 ):
-       sys.exit('Request status error: ' + response.status_code)
+        re_regrex = re.compile('[\\\\/:*?"<>|]')
 
-    current_request += 1
+        data = response.json()
 
-    data = response.json()
+        title  = re_regrex.sub( '_', html.unescape( data['manga']['title'] ) )
 
-    title = data['manga']['title']
+        createFolder( title )
 
-    createFolder(title)
+        # Read languages file
+        with open('languages.json', 'r') as json_file:
+            languages = json.load(json_file)
 
-    languages = {
-        'sa' : 'Arabic',
-        'bd' : 'Bengali',
-        'bg' : 'Bulgarian',
-        'mm' : 'Burmese',
-        'ct' : 'Catalan',
-        'cn' : 'Chinese (Simp)',
-        'hk' : 'Chinese (Trad)',
-        'cz' : 'Czech',
-        'dk' : 'Danish',
-        'nl' : 'Dutch',
-        'gb' : 'English',
-        'ph' : 'Filipino',
-        'fi' : 'Finnish',
-        'fr' : 'French',
-        'de' : 'German',
-        'gr' : 'Greek',
-        'hu' : 'Hungarian',
-        'id' : 'Indonesian',
-        'it' : 'Italian',
-        'jp' : 'Japanese',
-        'kr' : 'Korean',
-        'my' : 'Malay',
-        'mn' : 'Mongolian',
-        'ir' : 'Persian',
-        'pl' : 'Polish',
-        'br' : 'Portuguese (Br)',
-        'pt' : 'Portuguese (Pt)',
-        'ro' : 'Romanian',
-        'ru' : 'Russian',
-        'rs' : 'Serbo-Croatian',
-        'es' : 'Spanish (Es)',
-        'mx' : 'Spanish (LATAM)',
-        'se' : 'Swedish',
-        'th' : 'Thai',
-        'tr' : 'Turkish',
-        'ua' : 'Ukrainian',
-        'vn' : 'Vietnamese'
-    }
+        # Loop chapters
+        for chapter_id in data['chapter']:
 
-    # Loop chapters
-    for chapter_id in data['chapter']:
+            # Only English chapters
+            if ( data['chapter'][chapter_id]['lang_code'] == language ):
 
-        if ( current_request == 600 ):
-            sys.exit( 'Max requests allowed. Trying again will result on your IP banned.' )
+                chapter        = data['chapter'][chapter_id]
+                volume_number  = chapter['volume']
+                chapter_number = chapter['chapter']
+                chapter_title  = re_regrex.sub( '_', html.unescape( chapter['title'] ) )
 
-        # Only English chapters
-        if ( data['chapter'][chapter_id]['lang_code'] == language ):
+                # Thanks, Teasday
+                group_keys = filter(lambda s: s.startswith('group_name'), chapter.keys())
+                groups = ', '.join( filter( None, [chapter[x] for x in group_keys ] ) )
+                groups = re_regrex.sub( '_', html.unescape( groups ) )
 
-            chapter        = data['chapter'][chapter_id]
-            volume_number  = chapter['volume']
-            chapter_number = chapter['chapter']
-            chapter_title  = chapter['title']
+                chapter_folder = f'[{languages[language]}][Vol. {volume_number} Ch. {chapter_number}][{groups}] - {chapter_title}'
+                chapter_route  = f'{route}{title}/{chapter_folder}'
 
-            # Thanks, Teasday
-            group_keys = filter(lambda s: s.startswith('group_name'), chapter.keys())
-            groups = ', '.join( filter( None, [chapter[x] for x in group_keys ] ) )
+                # Check if the current folder exist. If it exists, skip it
+                exists = createFolder(chapter_route)
 
-            chapter_folder = f'[{languages[language]}][Vol. {volume_number} Ch. {chapter_number}][{groups}] - {chapter_title}'
-            chapter_route  = f'{route}{title}/{chapter_folder}'
+                if (exists):
+                    continue
 
-            # Check if the current folder exist. If it exists, skip it
-            exists = createFolder(chapter_route)
+                print ( f'Downloading Volume {volume_number} Chapter {chapter_number} Title: {chapter_title}' )
+    
+                downloadChapter(chapter_id, chapter_route, 0)
 
-            if (exists):
-                continue
-
-            print ( f'Downloading Volume {volume_number} Chapter {chapter_number} Title: {chapter_title}' )
-
-            downloadChapter(chapter_id, chapter_route)
-
-    print('Total request: %d' % ( current_request ) )
-
-    if (current_request == 1):
-        print('No chapters downloaded')
-
+    elif ( 'chapter' == type ):
+        downloadChapter(id, '', 1)
+    else:
+        sys.exit('Invalid type! Must be "title" or "chapter"')
 
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--language',  '-l', default='gb')
     parser.add_argument('--directory', '-d', default='')
-    parser.add_argument('manga_id')
+    parser.add_argument('--type',      '-t', default='title') #Title or Chapter
+    parser.add_argument('id')
 
     args = parser.parse_args()
 
-    main(args.manga_id, args.language, args.directory)
+    main(args.id, args.language, args.directory, args.type)
