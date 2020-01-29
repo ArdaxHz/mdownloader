@@ -1,11 +1,16 @@
 # mDownloader
 
-`python3 mdownloader.py [options] manga_id`
+## Install requirements
+`pip install -r requirements.txt`
+
+## Excecute 
+`python3 mdownloader.py [options] [title or chapter id]`
 
 ## Options
 ```
     -l --language (optional. Default: English)
     -d --directory (optional. Must be the absolute path (i.e. /Users/bocchi/Desktop/). Default: Current script folder.)
+    -t --type (optional. You can choose between 'title' and 'chapter' option. Use the title id or the chapter id. Default: title.)
 ```
 
 Images will be downloaded in the same directory as this script with the following structure:
@@ -17,6 +22,7 @@ Images will be downloaded in the same directory as this script with the followin
             |
             ----> Images
 ```
+Downloading a chapter will create a chapter folder with the Group IDs instead of the names.
 
 ## Languages
 
