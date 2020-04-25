@@ -8,7 +8,7 @@ import re
 import html
 import json
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
 headers = { 'User-Agent': 'mDownloader/1.0' }
@@ -29,15 +29,31 @@ def wait_with_progress(coros):
     for f in tqdm(asyncio.as_completed(coros), total=len(coros)):
         yield from f
 
-async def downloadImages(image, url, folder):
+async def downloadImages(image, url, folder, retry):
 
-    async with ClientSession() as session:
-        async with session.get( url + image ) as response:
+    #try to download it 3 times
+    while( retry < 3 ):
+        async with ClientSession() as session:
+            try:
+                async with session.get( url + image ) as response:
+    
+                    assert response.status == 200
+    
+                    response = await response.read()
+    
+                    with open( folder + '/' + image , 'wb') as file:
+                        file.write(response)
 
-            response = await response.read()
+                    retry = 3
+            except (ClientError, AssertionError):
+                print( f'An error happened when downloading image {image}. Trying again...' )
+                await asyncio.sleep(1)
 
-            with open( folder + '/' + image , 'wb') as file:
-                file.write(response)
+                retry += 1
+
+                if( retry == 3 ):
+                    print( f'Could not download image {image} after 3 times.' )
+                    await asyncio.sleep(1)
 
 # type 0 -> chapter
 # type 1 -> title
@@ -83,7 +99,7 @@ def downloadChapter(chapter_id, folder, type):
     tasks = []
 
     for image in image_data['page_array']:
-        task = asyncio.ensure_future( downloadImages(image, url, folder) )
+        task = asyncio.ensure_future( downloadImages(image, url, folder, 0) )
         tasks.append(task)
 
     runner = wait_with_progress(tasks)
