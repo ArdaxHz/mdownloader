@@ -62,48 +62,61 @@ def downloadChapter(chapter_id, folder, type):
     # Connect to API and get chapter info
     url = f'{domain}/api?id={chapter_id}&type=chapter'
 
-    response = requests.get( url, headers = headers)
+    response = requests.get( url, headers = headers )
 
     if ( response.status_code != 200 ):
-        sys.exit(f'Request status error: {response.status_code}')
 
-    image_data = response.json()
-    server_url = ''
-
-    if 'mangadex.org' in image_data["server"]:
-        server_url = image_data["server"]
+        #Unavailable chapters
+        if ( response.status_code == 300 ):
+            print ( "Unavailable Chapter. This could be because the chapter was deleted by the group or you're not allowed to read it." )
+        else:
+            #Restricted Chapters. Like korean webtoons
+            if ( response.status_code == 451 ):
+                print ( "Restricted Chapter. You're not allowed to read this chapter." )
+            else:
+                print ( f'Request status error: {response.status_code}' )
     else:
-        server_url = f'{domain}{image_data["server"]}'
+        image_data = response.json()
+        server_url = ''
 
-    url = f'{server_url}{image_data["hash"]}/'
+        #Extenal chapters
+        if( 'external' == image_data["status"] ):
+            print ( f'Chapter external to Mangadex. Unable to download.' )
+        else:
+            if 'mangadex.org' in image_data["server"]:
+                server_url = image_data["server"]
+            else:
+                server_url = f'{domain}{image_data["server"]}'
 
-    # Only for chapter downloads
-    # It is not possible at the moment to get the groups names from the chapter API endpoint
-    # Only the group IDs are added to the chapter folder
-    if( type ):
-        group_keys = filter(lambda s: s.startswith('group_id'), image_data.keys())
-        groups = ', '.join( filter( lambda zero: zero != '0', [ str( image_data[x] ) for x in group_keys ] ) )
+            url = f'{server_url}{image_data["hash"]}/'
 
-        folder = f'[{image_data["lang_name"]}][Vol. {image_data["volume"]} Ch. {image_data["chapter"]}][{groups}] - {image_data["title"]}'
+            # Only for chapter downloads
+            # It is not possible at the moment to get the groups names from the chapter API endpoint
+            # Only the group IDs are added to the chapter folder
+            if( type ):
+                group_keys = filter(lambda s: s.startswith('group_id'), image_data.keys())
+                groups = ', '.join( filter( lambda zero: zero != '0', [ str( image_data[x] ) for x in group_keys ] ) )
 
-        # Check if the current folder exist. If it exists, skip it
-        exists = createFolder(folder)
+                folder = f'[{image_data["lang_name"]}][Vol. {image_data["volume"]} Ch. {image_data["chapter"]}][{groups}] - {image_data["title"]}'
 
-        if (exists):
-            sys.exit('Chapter already downloaded')
+                # Check if the current folder exist. If it exists, skip it
+                exists = createFolder(folder)
 
-        print ( f'Downloading Volume {image_data["volume"]} Chapter {image_data["chapter"]} Title: {image_data["title"]}' )
+                if (exists):
+                    sys.exit('Chapter already downloaded')
 
-    # ASYNC FUNCTION
-    loop  = asyncio.get_event_loop()
-    tasks = []
+                print ( f'Downloading Volume {image_data["volume"]} Chapter {image_data["chapter"]} Title: {image_data["title"]}' )
 
-    for image in image_data['page_array']:
-        task = asyncio.ensure_future( downloadImages(image, url, folder, 0) )
-        tasks.append(task)
+            # ASYNC FUNCTION
+            loop  = asyncio.get_event_loop()
+            tasks = []
 
-    runner = wait_with_progress(tasks)
-    loop.run_until_complete(runner)
+            for image in image_data['page_array']:
+                task = asyncio.ensure_future( downloadImages(image, url, folder, 0) )
+                tasks.append(task)
+
+            runner = wait_with_progress(tasks)
+            loop.run_until_complete(runner)
 
 def main(id, language, route, type):
 
@@ -120,7 +133,7 @@ def main(id, language, route, type):
         response = requests.get( url, headers = headers)
 
         if ( response.status_code != 200 ):
-            sys.exit('Request status error: ' + response.status_code)
+            sys.exit( f'Request status error: {response.status_code}' )
 
         re_regrex = re.compile('[\\\\/:*?"<>|]')
 
@@ -137,7 +150,7 @@ def main(id, language, route, type):
         # Loop chapters
         for chapter_id in data['chapter']:
 
-            # Only English chapters
+            # Only chapters of language selected. Default language: English.
             if ( data['chapter'][chapter_id]['lang_code'] == language ):
 
                 chapter        = data['chapter'][chapter_id]
@@ -147,8 +160,8 @@ def main(id, language, route, type):
 
                 # Thanks, Teasday
                 group_keys = filter(lambda s: s.startswith('group_name'), chapter.keys())
-                groups = ', '.join( filter( None, [chapter[x] for x in group_keys ] ) )
-                groups = re_regrex.sub( '_', html.unescape( groups ) )
+                groups     = ', '.join( filter( None, [chapter[x] for x in group_keys ] ) )
+                groups     = re_regrex.sub( '_', html.unescape( groups ) )
 
                 chapter_folder = f'[{languages[language]}][Vol. {volume_number} Ch. {chapter_number}][{groups}] - {chapter_title}'
                 chapter_route  = f'{route}{title}/{chapter_folder}'
