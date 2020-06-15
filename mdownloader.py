@@ -60,7 +60,7 @@ async def downloadImages(image, url, folder, retry):
 def downloadChapter(chapter_id, folder, type):
 
     # Connect to API and get chapter info
-    url = f'{domain}/api?id={chapter_id}&type=chapter'
+    url = f'{domain}/api?id={chapter_id}&type=chapter&saver=0'
 
     response = requests.get( url, headers = headers )
 
@@ -83,10 +83,7 @@ def downloadChapter(chapter_id, folder, type):
         if( 'external' == image_data["status"] ):
             print ( f'Chapter external to Mangadex. Unable to download.' )
         else:
-            if 'mangadex.org' in image_data["server"]:
-                server_url = image_data["server"]
-            else:
-                server_url = f'{domain}{image_data["server"]}'
+            server_url = image_data["server"]
 
             url = f'{server_url}{image_data["hash"]}/'
 
