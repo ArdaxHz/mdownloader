@@ -27,7 +27,10 @@ def createFolder(folder_name):
 @asyncio.coroutine
 def wait_with_progress(coros):
     for f in tqdm(asyncio.as_completed(coros), total=len(coros)):
-        yield from f
+        try:
+            yield from f
+        except Exception as e:
+            print(e)
 
 async def downloadImages(image, url, folder, retry):
 
@@ -115,13 +118,14 @@ def downloadChapter(chapter_id, folder, type):
             runner = wait_with_progress(tasks)
             loop.run_until_complete(runner)
 
-def main(id, language, route, type):
+def main(id, language, route, type, languages):
 
     # Check the id is valid number
     if ( not id.isdigit() ):
         sys.exit('Invalid Title/Chapter ID')
 
-    print ('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
+    if( languages == '' ):
+        print ('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
 
     if ( 'title' == type ):
         # Connect to API and get manga info
@@ -140,9 +144,14 @@ def main(id, language, route, type):
 
         createFolder( title )
 
-        # Read languages file
-        with open('languages.json', 'r') as json_file:
-            languages = json.load(json_file)
+        if( languages == '' ):
+            # Read languages file
+            with open('languages.json', 'r') as json_file:
+                languages = json.load(json_file)
+
+        print( '---------------------------------------------------------------------' )
+        print( f'Downloading Title: {title}' )
+        print( '---------------------------------------------------------------------' )
 
         # Loop chapters
         for chapter_id in data['chapter']:
@@ -178,6 +187,32 @@ def main(id, language, route, type):
     else:
         sys.exit('Invalid type! Must be "title" or "chapter"')
 
+def bulkDownloader(filename, language, route, type):
+
+    titles = []
+
+    if( os.path.exists(filename) ):
+
+        # Read languages file
+        with open('languages.json', 'r') as json_file:
+            languages = json.load(json_file)
+
+        # Open file and read lines
+        with open(filename, 'r') as item:
+            titles = [ line.rstrip('\n') for line in item ]
+
+        if( len(titles) == 0 ):
+            sys.exit('Empty file!')
+        else:
+            print ('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
+
+            for id in titles:
+                main(id, language, route, type, languages)
+                print( 'Download Complete. Waiting 30 seconds...' )
+                time.sleep(30) # wait 30 secons
+    else:
+        sys.exit('File not found!')
+
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
@@ -188,4 +223,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(args.id, args.language, args.directory, args.type)
+    # If the ID is not a number, try to bulk download from file
+    if ( not args.id.isdigit() ):
+        bulkDownloader(args.id, args.language, args.directory, args.type)
+    else:
+        main(args.id, args.language, args.directory, args.type, '')

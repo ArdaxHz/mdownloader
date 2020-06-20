@@ -4,7 +4,18 @@
 `pip install -r requirements.txt`
 
 ## Excecute 
-`python3 mdownloader.py [options] [title or chapter id]`
+`python3 mdownloader.py [options] [title, chapter id or filename]`
+
+To bulk download titles, create a file in the same folder as the downloader. Inside, add one title id per line. Instead of typing the title id when executing, enter the filename.
+
+`python3 mdownloader.py mylist.txt`
+
+```
+id_1
+id_2
+id_3
+...
+```
 
 ## Options
 ```
