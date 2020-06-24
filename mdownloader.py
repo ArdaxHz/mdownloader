@@ -134,13 +134,24 @@ def main(id, language, route, type, languages):
         response = requests.get( url, headers = headers)
 
         if ( response.status_code != 200 ):
-            sys.exit( f'Request status error: {response.status_code}' )
+            if (languages == ''):
+                sys.exit( f'Request status error: {response.status_code}' )
+            else:
+                print( f'Title {id}. Request status error: {response.status_code}. Skipping...' )
+                return;
 
         re_regrex = re.compile('[\\\\/:*?"<>|]')
 
         data = response.json()
 
         title  = re_regrex.sub( '_', html.unescape( data['manga']['title'] ) )
+
+        if 'chapter' not in data:
+            if (languages == ''):
+                sys.exit( f'Title {id} - {title} has no chapters.' )
+            else:
+                print( f'Title {id} - {title} has no chapters. Skipping...' )
+                return;
 
         createFolder( title )
 
@@ -217,7 +228,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--language',  '-l', default='gb')
-    parser.add_argument('--directory', '-d', default='')
+    parser.add_argument('--directory', '-d', default='downloads/')
     parser.add_argument('--type',      '-t', default='title') #Title or Chapter
     parser.add_argument('id')
 
