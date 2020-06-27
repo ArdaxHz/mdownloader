@@ -24,11 +24,10 @@ def createFolder(folder_name):
     except OSError:
         sys.exit('Error creating folder')
 
-@asyncio.coroutine
-def wait_with_progress(coros):
+async def wait_with_progress(coros):
     for f in tqdm(asyncio.as_completed(coros), total=len(coros)):
         try:
-            yield from f
+            await f
         except Exception as e:
             print(e)
 
@@ -49,7 +48,6 @@ async def downloadImages(image, url, folder, retry):
 
                     retry = 3
             except (ClientError, AssertionError):
-                print( f'An error happened when downloading image {image}. Trying again...' )
                 await asyncio.sleep(1)
 
                 retry += 1
@@ -97,7 +95,12 @@ def downloadChapter(chapter_id, folder, type):
                 group_keys = filter(lambda s: s.startswith('group_id'), image_data.keys())
                 groups = ', '.join( filter( lambda zero: zero != '0', [ str( image_data[x] ) for x in group_keys ] ) )
 
-                folder = f'[{image_data["lang_name"]}][Vol. {image_data["volume"]} Ch. {image_data["chapter"]}][{groups}] - {image_data["title"]}'
+                chapter_title = image_data["title"]
+
+                folder = f'[{image_data["lang_name"]}][Vol. {image_data["volume"]} Ch. {image_data["chapter"]}][{groups}]'
+
+                if( chapter_title != '' ):
+                    folder += f' - {chapter_title}'
 
                 # Check if the current folder exist. If it exists, skip it
                 exists = createFolder(folder)
@@ -105,7 +108,7 @@ def downloadChapter(chapter_id, folder, type):
                 if (exists):
                     sys.exit('Chapter already downloaded')
 
-                print ( f'Downloading Volume {image_data["volume"]} Chapter {image_data["chapter"]} Title: {image_data["title"]}' )
+                print ( f'Downloading Volume {image_data["volume"]} Chapter {image_data["chapter"]} Title: {chapter_title}' )
 
             # ASYNC FUNCTION
             loop  = asyncio.get_event_loop()
@@ -118,7 +121,7 @@ def downloadChapter(chapter_id, folder, type):
             runner = wait_with_progress(tasks)
             loop.run_until_complete(runner)
 
-def main(id, language, route, type, languages):
+def main(id, language, route, type, languages, re_regrex):
 
     # Check the id is valid number
     if ( not id.isdigit() ):
@@ -140,7 +143,9 @@ def main(id, language, route, type, languages):
                 print( f'Title {id}. Request status error: {response.status_code}. Skipping...' )
                 return;
 
-        re_regrex = re.compile('[\\\\/:*?"<>|]')
+        if( re_regrex == '' ):
+            #Compile regrex
+            re_regrex = re.compile('[\\\\/:*?"<>|]')
 
         data = response.json()
 
@@ -153,16 +158,14 @@ def main(id, language, route, type, languages):
                 print( f'Title {id} - {title} has no chapters. Skipping...' )
                 return;
 
-        createFolder( title )
+        createFolder( f'{route}{title}' )
 
         if( languages == '' ):
             # Read languages file
             with open('languages.json', 'r') as json_file:
                 languages = json.load(json_file)
 
-        print( '---------------------------------------------------------------------' )
-        print( f'Downloading Title: {title}' )
-        print( '---------------------------------------------------------------------' )
+        print( f'---------------------------------------------------------------------\nDownloading Title: {title}\n---------------------------------------------------------------------' )
 
         # Loop chapters
         for chapter_id in data['chapter']:
@@ -180,7 +183,11 @@ def main(id, language, route, type, languages):
                 groups     = ', '.join( filter( None, [chapter[x] for x in group_keys ] ) )
                 groups     = re_regrex.sub( '_', html.unescape( groups ) )
 
-                chapter_folder = f'[{languages[language]}][Vol. {volume_number} Ch. {chapter_number}][{groups}] - {chapter_title}'
+                chapter_folder = f'[{languages[language]}][Vol. {volume_number} Ch. {chapter_number}][{groups}]'
+
+                if( chapter_title != '' ):
+                    chapter_folder += f' - {chapter_title}'
+
                 chapter_route  = f'{route}{title}/{chapter_folder}'
 
                 # Check if the current folder exist. If it exists, skip it
@@ -204,10 +211,6 @@ def bulkDownloader(filename, language, route, type):
 
     if( os.path.exists(filename) ):
 
-        # Read languages file
-        with open('languages.json', 'r') as json_file:
-            languages = json.load(json_file)
-
         # Open file and read lines
         with open(filename, 'r') as item:
             titles = [ line.rstrip('\n') for line in item ]
@@ -217,8 +220,15 @@ def bulkDownloader(filename, language, route, type):
         else:
             print ('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
 
+            # Read languages file
+            with open('languages.json', 'r') as json_file:
+                languages = json.load(json_file)
+
+            #Compile regex
+            compiled = re.compile('[\\\\/:*?"<>|]')
+
             for id in titles:
-                main(id, language, route, type, languages)
+                main(id, language, route, type, languages, compiled)
                 print( 'Download Complete. Waiting 30 seconds...' )
                 time.sleep(30) # wait 30 secons
     else:
@@ -238,4 +248,4 @@ if __name__ == "__main__":
     if ( not args.id.isdigit() ):
         bulkDownloader(args.id, args.language, args.directory, args.type)
     else:
-        main(args.id, args.language, args.directory, args.type, '')
+        main(args.id, args.language, args.directory, args.type, '', '')

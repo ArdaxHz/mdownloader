@@ -37,46 +37,27 @@ Downloading a chapter will create a chapter folder with the Group IDs instead of
 
 ## Languages
 
-| Code          | Language        |
-| ------------- |:---------------:|
-| sa            | Arabic          |
-| bd            | Bengali         |
-| bg            | Bulgarian       |
-| mm            | Burmese         |
-| ct            | Catalan         |
-| cn            | Chinese (Simp)  |
-| hk            | Chinese (Trad)  |
-| cz            | Czech           |
-| dk            | Danish          |
-| nl            | Dutch           |
-| gb            | English         |
-| ph            | Filipino        |
-| fi            | Finnish         |
-| fr            | French          |
-| de            | German          |
-| gr            | Greek           |
-| hu            | Hungarian       |
-| id            | Indonesian      |
+| Code          | Language        | Code          | Language        |
+| ------------- |:---------------:| ------------- |:---------------:|
+| sa            | Arabic          | jp            | Japanese        |
+| bd            | Bengali         | kr            | Korean          |
+| bg            | Bulgarian       | my            | Malay           |
+| mm            | Burmese         | mn            | Mongolian       |
+| ct            | Catalan         | ir            | Persian         |
+| cn            | Chinese (Simp)  | pl            | Polish          |
+| hk            | Chinese (Trad)  | br            | Portuguese (Br) |
+| cz            | Czech           | pt            | Portuguese (Pt) |
+| dk            | Danish          | ro            | Romanian        |
+| nl            | Dutch           | ru            | Russian         |
+| gb            | English         | rs            | Serbo-Croatian  |
+| ph            | Filipino        | es            | Spanish (Es)    |
+| fi            | Finnish         | mx            | Spanish (LATAM) |
+| fr            | French          | se            | Swedish         |
+| de            | German          | th            | Thai            |
+| gr            | Greek           | tr            | Turkish         |
+| hu            | Hungarian       | ua            | Ukrainian       |
+| id            | Indonesian      | vn            | Vietnamese      |
 | it            | Italian         |
-| jp            | Japanese        |
-| kr            | Korean          |
-| my            | Malay           |
-| mn            | Mongolian       |
-| ir            | Persian         |
-| pl            | Polish          |
-| br            | Portuguese (Br) |
-| pt            | Portuguese (Pt) |
-| ro            | Romanian        |
-| ru            | Russian         |
-| rs            | Serbo-Croatian  |
-| es            | Spanish (Es)    |
-| mx            | Spanish (LATAM) |
-| se            | Swedish         |
-| th            | Thai            |
-| tr            | Turkish         |
-| ua            | Ukrainian       |
-| vn            | Vietnamese      |
 
 ## TODO
-* Retry when it fails to download an image
 * Continue on the last image downloaded of the last downloaded chapter
