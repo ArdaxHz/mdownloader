@@ -40,14 +40,16 @@ async def downloadImages(image, url, folder, retry):
                 async with session.get( url + image ) as response:
     
                     assert response.status == 200
-    
+
                     response = await response.read()
     
                     with open( folder + '/' + image , 'wb') as file:
                         file.write(response)
 
                     retry = 3
-            except (ClientError, AssertionError):
+
+                    return { "image": image, "status": "Success" }
+            except (ClientError, AssertionError, asyncio.TimeoutError):
                 await asyncio.sleep(1)
 
                 retry += 1
@@ -55,6 +57,7 @@ async def downloadImages(image, url, folder, retry):
                 if( retry == 3 ):
                     print( f'Could not download image {image} after 3 times.' )
                     await asyncio.sleep(1)
+                    return { "image": image, "status": "Fail" }
 
 # type 0 -> chapter
 # type 1 -> title
@@ -76,17 +79,25 @@ def downloadChapter(chapter_id, folder, type):
                 print ( "Restricted Chapter. You're not allowed to read this chapter." )
             else:
                 print ( f'Request status error: {response.status_code}' )
+
+        return { "error": "There was an error while downloading the chapter", "response_code": response.status_code }
     else:
         image_data = response.json()
         server_url = ''
 
         #Extenal chapters
         if( 'external' == image_data["status"] ):
-            print ( f'Chapter external to Mangadex. Unable to download.' )
+
+            print ( 'Chapter external to Mangadex. Unable to download.' )
+            return { "error": "There was an error while downloading the chapter", "response_code": 'Chapter external to Mangadex. Unable to download.' }
         else:
+
             server_url = image_data["server"]
 
             url = f'{server_url}{image_data["hash"]}/'
+
+            response = { "url": url }
+            response['images'] = {}
 
             # Only for chapter downloads
             # It is not possible at the moment to get the groups names from the chapter API endpoint
@@ -121,6 +132,13 @@ def downloadChapter(chapter_id, folder, type):
             runner = wait_with_progress(tasks)
             loop.run_until_complete(runner)
 
+            if( not type ):
+                for t in tasks:
+                    result = t.result()
+                    response['images'][ result['image'] ] = result['status']
+
+                return response
+
 def main(id, language, route, type, languages, re_regrex):
 
     # Check the id is valid number
@@ -149,14 +167,14 @@ def main(id, language, route, type, languages, re_regrex):
 
         data = response.json()
 
-        title  = re_regrex.sub( '_', html.unescape( data['manga']['title'] ) )
+        title = re_regrex.sub( '_', html.unescape( data['manga']['title'] ) )
 
         if 'chapter' not in data:
             if (languages == ''):
                 sys.exit( f'Title {id} - {title} has no chapters.' )
             else:
                 print( f'Title {id} - {title} has no chapters. Skipping...' )
-                return;
+                return
 
         createFolder( f'{route}{title}' )
 
@@ -166,6 +184,9 @@ def main(id, language, route, type, languages, re_regrex):
                 languages = json.load(json_file)
 
         print( f'---------------------------------------------------------------------\nDownloading Title: {title}\n---------------------------------------------------------------------' )
+
+        json_data = { "id": id, "title": title }
+        json_data["chapters"] = []
 
         # Loop chapters
         for chapter_id in data['chapter']:
@@ -183,6 +204,8 @@ def main(id, language, route, type, languages, re_regrex):
                 groups     = ', '.join( filter( None, [chapter[x] for x in group_keys ] ) )
                 groups     = re_regrex.sub( '_', html.unescape( groups ) )
 
+                json_chapter = { "chapter_id": chapter_id, "chapter": chapter_number, "volume": volume_number, "title": chapter_title, "groups": groups  }
+
                 chapter_folder = f'[{languages[language]}][Vol. {volume_number} Ch. {chapter_number}][{groups}]'
 
                 if( chapter_title != '' ):
@@ -198,7 +221,17 @@ def main(id, language, route, type, languages, re_regrex):
 
                 print ( f'Downloading Volume {volume_number} Chapter {chapter_number} Title: {chapter_title}' )
     
-                downloadChapter(chapter_id, chapter_route, 0)
+                chapter_response = downloadChapter(chapter_id, chapter_route, 0)
+
+                if( 'error' in chapter_response ):
+                    json_chapter["error"] = chapter_response
+                else:
+                    json_chapter["images"] = chapter_response
+
+                json_data['chapters'].append( json_chapter )
+
+        with open( route+title+'/data.json' , 'w') as file:
+            file.write( json.dumps(json_data) )
 
     elif ( 'chapter' == type ):
         downloadChapter(id, '', 1)
