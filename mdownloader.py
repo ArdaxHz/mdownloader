@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import sys
 import os
 import time
@@ -7,22 +8,82 @@ import argparse
 import re
 import html
 import json
+import zipfile
+import shutil
 
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
-headers = { 'User-Agent': 'mDownloader/1.0' }
+headers = { 'User-Agent': 'mDownloader/2.0.1' }
 domain  = 'https://mangadex.org'
 
 def createFolder(folder_name):
     try:
-        if not os.path.exists(folder_name):
+        if not os.path.isdir(folder_name):
             os.makedirs(folder_name)
             return 0
         else:
             return 1
     except OSError:
         sys.exit('Error creating folder')
+
+#add images to zip with no folders
+def appendZip(chapter_zip, folder, image_name):
+    try:
+        current_dir = os.getcwd()
+        os.chdir(folder)
+        chapter_zip.write(image_name, compress_type=zipfile.ZIP_DEFLATED)
+        os.chdir(current_dir)        
+    except UserWarning:
+        print('Error adding images to zip')
+
+def createZip(zip_route):
+    try:
+        if os.path.isfile(zip_route) == False:
+            chapter_zip = zipfile.ZipFile(zip_route, 'w')
+            return 0, chapter_zip
+        else:
+            chapter_zip = zipfile.ZipFile(zip_route, 'a')
+            return 1, chapter_zip
+    except zipfile.BadZipFile:
+        os.remove(zip_route)
+        sys.exit('Bad zip file detected, deleting.')
+
+#download images 
+def createImages(response, folder, image_name, chapter_zip):
+    with open( folder + '/' + image_name , 'wb') as file:
+        file.write(response)
+    appendZip(chapter_zip, folder, image_name)
+    return chapter_zip
+
+def checkImages(response, folder, image_name, chapter_zip, image_data):
+    pages = []
+    for root, dirs, files in os.walk(folder):
+        for filename in files:
+            if filename == image_name:
+                appendZip(chapter_zip, folder, image_name)
+                pages.append(filename)
+                continue
+        break
+    
+    #check for missing images
+    if image_name not in pages:
+        createImages(response, folder, image_name, chapter_zip)
+        return image_name, chapter_zip
+
+def checkZip(folder, zip_route, chapter_zip, image_name):
+    pages = []
+    for i in chapter_zip.namelist():
+        if i == image_name:
+            pages.append(i)
+    
+    #folder_exists > 1 - yes
+    #folder_exists > 0 - no
+    
+    if image_name not in pages:
+        return 1, image_name
+    else:
+        return 0, image_name
 
 async def wait_with_progress(coros):
     for f in tqdm(asyncio.as_completed(coros), total=len(coros)):
@@ -31,37 +92,95 @@ async def wait_with_progress(coros):
         except Exception as e:
             print(e)
 
-async def downloadImages(image, url, folder, retry):
+async def downloadImages(image, url, language, folder, retry, folder_exists, zip_exists, image_data, groups, title, chapter_zip, zip_route):
 
-    #try to download it 3 times
-    while( retry < 3 ):
+    #try to download it 5 times
+    while( retry < 5 ):
         async with ClientSession() as session:
             try:
                 async with session.get( url + image ) as response:
     
                     assert response.status == 200
 
+                    #compile regex for the image names
+                    old_name = re.compile(r'^[a-zA-Z]{1}([0-9]+)(\..*)')
+                    new_name = re.compile(r'(^[0-9]+)-.*(\..*)')
+                    chapter_no = re.compile(r'([0-9]+)\.([0-9]+)')
+
                     response = await response.read()
-    
-                    with open( folder + '/' + image , 'wb') as file:
-                        file.write(response)
 
-                    retry = 3
+                    if old_name.match(image):
+                        pattern = old_name.match(image)
+                        page_no = pattern.group(1)
+                        extension = pattern.group(2)
+                    elif new_name.match(image):
+                        pattern = new_name.match(image)
+                        page_no = pattern.group(1)
+                        extension = pattern.group(2)
+                    else:
+                        page_no = image_data["page_array"].index(image) + 1
+                        page_no = str(page_no)
+                        extension = re.match(r'.*(\..*)', image).group(1)
 
+                    if chapter_no.match(image_data["chapter"]):
+                        pattern = chapter_no.match(image_data["chapter"])
+                        chap_no = pattern.group(1).zfill(3)
+                        decimal_no = pattern.group(2)
+                        chapter_number = (f'{chap_no}.{decimal_no}')
+                    else:
+                        chapter_number = image_data["chapter"].zfill(3)
+
+                    volume_no = image_data["volume"]
+
+                    if image_data["lang_code"] == 'gb':                            
+                        if image_data["volume"] == '':
+                            image_name = f'{title} - c{chapter_number} - p{page_no.zfill(3)} [{groups}]{extension}'
+                        else:
+                            image_name = f'{title} - c{chapter_number} (v{volume_no.zfill(2)}) - p{page_no.zfill(3)} [{groups}]{extension}'
+                    else:
+                        if image_data["volume"] == '':
+                            image_name = f'{title} [{language}] - c{chapter_number} - p{page_no.zfill(3)} [{groups}]{extension}'
+                        else:
+                            image_name = f'{title} [{language}] - c{chapter_number} (v{volume_no.zfill(2)}) - p{page_no.zfill(3)} [{groups}]{extension}'
+                    
+                    #The zip doesn't exist
+                    if not zip_exists:
+                        #returns true if the folder doesn't exist
+                        if not folder_exists:
+                            createImages(response, folder, image_name, chapter_zip)
+                        elif folder_exists:
+                            checkImages(response, folder, image_name, chapter_zip, image_data)
+
+                    #The zip exists
+                    else:
+                        check, image_name = checkZip(folder, zip_route, chapter_zip, image_name)
+
+                        #add missing images to zip
+                        if check == 1:
+                            if not folder_exists:
+                                createImages(response, folder, image_name, chapter_zip)
+                            if folder_exists:
+                                checkImages(response, folder, image_name, chapter_zip, image_data)
+                        else:
+                            return { "image": image, "status": "Success" }
+                    
+                    retry = 5
+                    
                     return { "image": image, "status": "Success" }
+
             except (ClientError, AssertionError, asyncio.TimeoutError):
-                await asyncio.sleep(1)
+                await asyncio.sleep(3)
 
                 retry += 1
 
-                if( retry == 3 ):
-                    print( f'Could not download image {image} after 3 times.' )
+                if( retry == 5 ):
+                    print( f'Could not download image {image} after 5 times.' )
                     await asyncio.sleep(1)
                     return { "image": image, "status": "Fail" }
 
 # type 0 -> chapter
 # type 1 -> title
-def downloadChapter(chapter_id, folder, type):
+def downloadChapter(chapter_id, series_route, route, languages, type, remove, title):
 
     # Connect to API and get chapter info
     url = f'{domain}/api?id={chapter_id}&type=chapter&saver=0'
@@ -97,49 +216,89 @@ def downloadChapter(chapter_id, folder, type):
             url = f'{server_url}{image_data["hash"]}/'
 
             response = { "url": url }
-            response['images'] = {}
+            response["images"] = {}
+            
+            #chapter download
+            if type == 0:              
+                manga_id = image_data["manga_id"]
+                manga_url = f'{domain}/api?id={manga_id}&type=manga'
 
-            # Only for chapter downloads
-            # It is not possible at the moment to get the groups names from the chapter API endpoint
-            # Only the group IDs are added to the chapter folder
-            if( type ):
-                group_keys = filter(lambda s: s.startswith('group_id'), image_data.keys())
-                groups = ', '.join( filter( lambda zero: zero != '0', [ str( image_data[x] ) for x in group_keys ] ) )
+                manga_data = requests.get( manga_url, headers= headers ).json()
+                title = re.sub( r'[\\\\/:*?"<>|]', '_', html.unescape( manga_data['manga']['title'] ) )
+                if series_route == '':
+                    series_route = f'{route}{title}'
+                with open('languages.json', 'r') as json_file:
+                    languages = json.load(json_file)
 
-                chapter_title = image_data["title"]
+            group_keys = filter(lambda s: s.startswith('group_name'), image_data.keys())
+            groups     = ', '.join( filter( None, [image_data[x] for x in group_keys ] ) )
+            groups     = re.sub( r'[\\\\/:*?"<>|]', '_', html.unescape( groups ) )
+            
+            language = languages[image_data["lang_code"]]
+            chapter_title = image_data["title"]
+            chapter_no = re.compile(r'([0-9]+)\.([0-9]+)')
 
-                folder = f'[{image_data["lang_name"]}][Vol. {image_data["volume"]} Ch. {image_data["chapter"]}][{groups}]'
+            if chapter_no.match(image_data["chapter"]):
+                pattern = chapter_no.match(image_data["chapter"])
+                chap_no = pattern.group(1).zfill(3)
+                decimal_no = pattern.group(2)
+                chapter_number = (f'{chap_no}.{decimal_no}')
+            else:
+                chapter_number = image_data["chapter"].zfill(3)
+            
+            if image_data["lang_code"] == 'gb':
+                if image_data["volume"] == '':
+                    folder = f'{title} - c{chapter_number} [{groups}]'
+                else:
+                    folder = f'{title} - c{chapter_number} (v{image_data["volume"].zfill(2)}) [{groups}]'                    
+            else:
+                if image_data["volume"] == '': 
+                    folder = f'{title} [{language}] - c{chapter_number} [{groups}]'
+                else:
+                    folder = f'{title} [{language}] - c{chapter_number} (v{image_data["volume"].zfill(2)}) [{groups}]'          
 
-                if( chapter_title != '' ):
-                    folder += f' - {chapter_title}'
+            chapter_route  = f'{series_route}/{folder}'
+            zip_route = f'{series_route}/{folder}.zip'
 
-                # Check if the current folder exist. If it exists, skip it
-                exists = createFolder(folder)
+            # Check if the folder and zip exist. If it exists, check if images are the same as on mangadex
+            chapter_exists = createFolder(chapter_route)
+            zip_exists, chapter_zip = createZip(zip_route)            
 
-                if (exists):
-                    sys.exit('Chapter already downloaded')
+            if (zip_exists):
+                zip_exists = 1
+            else:
+                if (chapter_exists):
+                    chapter_exists = 1
+                    print( 'The folder exists, checking if all the files downloaded.' )
+                else:
+                    chapter_exists = 0
 
-                print ( f'Downloading Volume {image_data["volume"]} Chapter {image_data["chapter"]} Title: {chapter_title}' )
+            print ( f'Downloading Volume {image_data["volume"]} Chapter {image_data["chapter"]} Title: {chapter_title}' )
 
             # ASYNC FUNCTION
             loop  = asyncio.get_event_loop()
             tasks = []
-
+            
             for image in image_data['page_array']:
-                task = asyncio.ensure_future( downloadImages(image, url, folder, 0) )
+                task = asyncio.ensure_future( downloadImages(image, url, language, chapter_route, 0, chapter_exists, zip_exists, image_data, groups, title, chapter_zip, zip_route) )
                 tasks.append(task)
 
             runner = wait_with_progress(tasks)
             loop.run_until_complete(runner)
+            chapter_zip.close()
+            
+            #removes chapter folder
+            if remove == 'yes' or zip_exists == 1:
+                shutil.rmtree(chapter_route)
 
-            if( not type ):
+            if type == 1:
                 for t in tasks:
                     result = t.result()
                     response['images'][ result['image'] ] = result['status']
 
                 return response
 
-def main(id, language, route, type, languages, re_regrex):
+def main(id, language, route, type, remove, languages, re_regrex):
 
     # Check the id is valid number
     if ( not id.isdigit() ):
@@ -147,7 +306,9 @@ def main(id, language, route, type, languages, re_regrex):
 
     if( languages == '' ):
         print ('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
-
+    
+    title = ''
+    
     if ( 'title' == type ):
         # Connect to API and get manga info
         url = f'{domain}/api?id={id}&type=manga'
@@ -159,12 +320,12 @@ def main(id, language, route, type, languages, re_regrex):
                 sys.exit( f'Request status error: {response.status_code}' )
             else:
                 print( f'Title {id}. Request status error: {response.status_code}. Skipping...' )
-                return;
+                return
 
         if( re_regrex == '' ):
             #Compile regrex
             re_regrex = re.compile('[\\\\/:*?"<>|]')
-
+            
         data = response.json()
 
         title = re_regrex.sub( '_', html.unescape( data['manga']['title'] ) )
@@ -176,8 +337,6 @@ def main(id, language, route, type, languages, re_regrex):
                 print( f'Title {id} - {title} has no chapters. Skipping...' )
                 return
 
-        createFolder( f'{route}{title}' )
-
         if( languages == '' ):
             # Read languages file
             with open('languages.json', 'r') as json_file:
@@ -188,12 +347,15 @@ def main(id, language, route, type, languages, re_regrex):
         json_data = { "id": id, "title": title }
         json_data["chapters"] = []
 
+        series_route = f'{route}{title}'
+
         # Loop chapters
         for chapter_id in data['chapter']:
 
             # Only chapters of language selected. Default language: English.
             if ( data['chapter'][chapter_id]['lang_code'] == language ):
 
+                lang_code = data['chapter'][chapter_id]['lang_code']
                 chapter        = data['chapter'][chapter_id]
                 volume_number  = chapter['volume']
                 chapter_number = chapter['chapter']
@@ -204,24 +366,9 @@ def main(id, language, route, type, languages, re_regrex):
                 groups     = ', '.join( filter( None, [chapter[x] for x in group_keys ] ) )
                 groups     = re_regrex.sub( '_', html.unescape( groups ) )
 
-                json_chapter = { "chapter_id": chapter_id, "chapter": chapter_number, "volume": volume_number, "title": chapter_title, "groups": groups  }
-
-                chapter_folder = f'[{languages[language]}][Vol. {volume_number} Ch. {chapter_number}][{groups}]'
-
-                if( chapter_title != '' ):
-                    chapter_folder += f' - {chapter_title}'
-
-                chapter_route  = f'{route}{title}/{chapter_folder}'
-
-                # Check if the current folder exist. If it exists, skip it
-                exists = createFolder(chapter_route)
-
-                if (exists):
-                    continue
-
-                print ( f'Downloading Volume {volume_number} Chapter {chapter_number} Title: {chapter_title}' )
-    
-                chapter_response = downloadChapter(chapter_id, chapter_route, 0)
+                json_chapter = { "chapter_id": chapter_id, "lang_code": lang_code, "chapter": chapter_number, "volume": volume_number, "title": chapter_title, "groups": groups  }
+                    
+                chapter_response = downloadChapter(chapter_id, series_route, route, languages, 1, remove, title)
 
                 if( 'error' in chapter_response ):
                     json_chapter["error"] = chapter_response
@@ -230,15 +377,15 @@ def main(id, language, route, type, languages, re_regrex):
 
                 json_data['chapters'].append( json_chapter )
 
-        with open( route+title+'/data.json' , 'w') as file:
-            file.write( json.dumps(json_data) )
+        with open( f'{series_route}/{id}_data.json' , 'w') as file:
+            file.write( json.dumps( json_data, indent=4 ) )
 
     elif ( 'chapter' == type ):
-        downloadChapter(id, '', 1)
+        downloadChapter(id, '', route, languages, 0, remove, title)
     else:
         sys.exit('Invalid type! Must be "title" or "chapter"')
 
-def bulkDownloader(filename, language, route, type):
+def bulkDownloader(filename, language, route, type, remove):
 
     titles = []
 
@@ -261,24 +408,30 @@ def bulkDownloader(filename, language, route, type):
             compiled = re.compile('[\\\\/:*?"<>|]')
 
             for id in titles:
-                main(id, language, route, type, languages, compiled)
-                print( 'Download Complete. Waiting 30 seconds...' )
-                time.sleep(30) # wait 30 secons
+                main(id, language, route, type, remove, languages, compiled)
+                
+                if type == 'title':
+                    print( 'Download Complete. Waiting 30 seconds...' )
+                    time.sleep(30) # wait 30 seconds
+                else:
+                    print( 'Download Complete.' )
+
     else:
         sys.exit('File not found!')
 
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--language',  '-l', default='gb')
+    parser.add_argument('--language', '-l', default='gb')
     parser.add_argument('--directory', '-d', default='downloads/')
-    parser.add_argument('--type',      '-t', default='title') #Title or Chapter
-    parser.add_argument('id')
+    parser.add_argument('--type', '-t', default='title') #title or chapter
+    parser.add_argument('--remove', '-r', default='yes') #yes or no
+    parser.add_argument('--id', default='35067')
 
     args = parser.parse_args()
 
     # If the ID is not a number, try to bulk download from file
     if ( not args.id.isdigit() ):
-        bulkDownloader(args.id, args.language, args.directory, args.type)
+        bulkDownloader(args.id, args.language, args.directory, args.type, args.remove)
     else:
-        main(args.id, args.language, args.directory, args.type, '', '')
+        main(args.id, args.language, args.directory, args.type, args.remove, '', '')
