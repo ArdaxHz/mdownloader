@@ -14,7 +14,7 @@ import shutil
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
-headers = { 'User-Agent': 'mDownloader/2.1.1' }
+headers = { 'User-Agent': 'mDownloader/2.1.2' }
 domain  = 'https://mangadex.org'
 
 def createFolder(folder_name):
@@ -56,18 +56,23 @@ def createImages(response, folder, image_name, chapter_zip):
     appendZip(chapter_zip, folder, image_name)
     return chapter_zip
 
-def checkImages(response, folder, image_name, chapter_zip, image_data):
+def checkImages(response, folder, image_name, chapter_zip, image_data, check_images):
     pages = []
     for root, dirs, files in os.walk(folder):
         for filename in files:
             if filename == image_name:
-                with open( folder + '/' + image_name, 'rb') as file:
-                    f = file.read()
-                    b = bytearray(f)
-                    if b == response:
-                        appendZip(chapter_zip, folder, image_name)
-                        pages.append(image_name)
-                continue
+                if check_images == 'yes':
+                    with open( folder + '/' + image_name, 'rb') as file:
+                        f = file.read()
+                        b = bytearray(f)
+                        if b == response:
+                            appendZip(chapter_zip, folder, image_name)
+                            pages.append(image_name)
+                            continue
+                else:
+                    appendZip(chapter_zip, folder, image_name)
+                    pages.append(filename)
+                    continue
         break
 
     #check for missing images
@@ -76,20 +81,28 @@ def checkImages(response, folder, image_name, chapter_zip, image_data):
         return image_name, chapter_zip
 
 #extract zip and compare the byte information of the images
-def checkZip(response, folder, zip_files, chapter_zip, image_name):
+def checkZip(response, folder, zip_files, chapter_zip, image_name, check_images):
     pages = []
-    for root, dirs, files in os.walk(zip_files):
-        for filename in files:
-            if filename == image_name:
-                with open( zip_files + '/' + image_name, 'rb') as file:
-                    f = file.read()
-                    b = bytearray(f)
-                    if b == response:
-                        # shutil.copy(f'{zip_files}/{filename}', f'{folder}/{filename}')
-                        appendZip(chapter_zip, zip_files, image_name)
-                        pages.append(image_name)
-                continue
-        break
+
+    #checks if image data is the same
+    if check_images == 'yes':
+        for root, dirs, files in os.walk(zip_files):
+            for filename in files:
+                if filename == image_name:
+                    with open( zip_files + '/' + image_name, 'rb') as file:
+                        f = file.read()
+                        b = bytearray(f)
+                        if b == response:
+                            shutil.copy(f'{zip_files}/{filename}', f'{folder}/{filename}')
+                            appendZip(chapter_zip, folder, image_name)
+                            pages.append(image_name)
+                    continue
+            break
+    #checks if the images are the same name
+    else:
+        for i in chapter_zip.namelist():
+            if i == image_name:
+                pages.append(i)
     
     #folder_exists > 1 - yes
     #folder_exists > 0 - no
@@ -106,7 +119,7 @@ async def wait_with_progress(coros):
         except Exception as e:
             print(e)
 
-async def downloadImages(image, url, language, folder, retry, folder_exists, zip_exists, image_data, groups, title, chapter_zip, zip_route, zip_files):
+async def downloadImages(image, url, language, folder, retry, folder_exists, zip_exists, image_data, groups, title, chapter_zip, zip_route, zip_files, check_images):
 
     #try to download it 3 times
     while( retry < 3 ):
@@ -163,18 +176,18 @@ async def downloadImages(image, url, language, folder, retry, folder_exists, zip
                         if not folder_exists:
                             createImages(response, folder, image_name, chapter_zip)
                         elif folder_exists:
-                            checkImages(response, folder, image_name, chapter_zip, image_data)
+                            checkImages(response, folder, image_name, chapter_zip, image_data, check_images)
 
                     #The zip exists
                     else:
-                        check, image_name = checkZip(response, folder, zip_files, chapter_zip, image_name)
+                        check, image_name = checkZip(response, folder, zip_files, chapter_zip, image_name, check_images)
 
                         #add missing images to zip
                         if check == 1:
                             if not folder_exists:
                                 createImages(response, folder, image_name, chapter_zip)
                             if folder_exists:
-                                checkImages(response, folder, image_name, chapter_zip, image_data)
+                                checkImages(response, folder, image_name, chapter_zip, image_data, check_images)
                         else:
                             return { "image": image, "status": "Success" }
                     
@@ -194,7 +207,7 @@ async def downloadImages(image, url, language, folder, retry, folder_exists, zip
 
 # type 0 -> chapter
 # type 1 -> title
-def downloadChapter(chapter_id, series_route, route, langauges, type, remove, title):
+def downloadChapter(chapter_id, series_route, route, languages, type, remove, title, check_images):
 
     # Connect to API and get chapter info
     url = f'{domain}/api?id={chapter_id}&type=chapter&saver=0'
@@ -259,7 +272,7 @@ def downloadChapter(chapter_id, series_route, route, langauges, type, remove, ti
                 chapter_number = (f'{chap_no}.{decimal_no}')
             else:
                 chapter_number = image_data["chapter"].zfill(3)
-
+            
             if image_data["lang_code"] == 'gb':
                 if image_data["volume"] == '':
                     folder = f'{title} - c{chapter_number} [{groups}]'
@@ -280,11 +293,14 @@ def downloadChapter(chapter_id, series_route, route, langauges, type, remove, ti
 
             if (zip_exists):
                 zip_exists = 1
-                zip_files = f'{chapter_route}_zip'
-                chapter_zip.extractall(zip_files)
-                chapter_zip.close()
-                os.remove(zip_route)
-                _, chapter_zip = createZip(zip_route)
+                if check_images == 'yes':
+                    zip_files = f'{chapter_route}_zip'
+                    chapter_zip.extractall(zip_files)
+                    chapter_zip.close()
+                    os.remove(zip_route)
+                    _, chapter_zip = createZip(zip_route)
+                else:
+                    zip_files = ''
             else:
                 zip_files = ''
                 if (chapter_exists):
@@ -300,19 +316,19 @@ def downloadChapter(chapter_id, series_route, route, langauges, type, remove, ti
             tasks = []
             
             for image in image_data['page_array']:
-                task = asyncio.ensure_future( downloadImages(image, url, language, chapter_route, 0, chapter_exists, zip_exists, image_data, groups, title, chapter_zip, zip_route, zip_files) )
+                task = asyncio.ensure_future( downloadImages(image, url, language, chapter_route, 0, chapter_exists, zip_exists, image_data, groups, title, chapter_zip, zip_route, zip_files, check_images) )
                 tasks.append(task)
 
             runner = wait_with_progress(tasks)
             loop.run_until_complete(runner)
             chapter_zip.close()
-
-            #removes extracted zip folder
-            if zip_exists == 1:
-                shutil.rmtree(zip_files)
             
+            #removes extracted zip folder
+            if os.path.isdir(zip_files):
+                shutil.rmtree(zip_files)
+
             #removes chapter folder
-            if remove == 'yes' or zip_exists == 1:
+            if remove == 'yes':
                 shutil.rmtree(chapter_route)
 
             if type == 1:
@@ -322,7 +338,7 @@ def downloadChapter(chapter_id, series_route, route, langauges, type, remove, ti
 
                 return response
 
-def main(id, language, route, type, remove, languages, re_regrex):
+def main(id, language, route, type, remove, check_images, languages, re_regrex):
 
     # Check the id is valid number
     if ( not id.isdigit() ):
@@ -368,10 +384,11 @@ def main(id, language, route, type, remove, languages, re_regrex):
 
         print( f'---------------------------------------------------------------------\nDownloading Title: {title}\n---------------------------------------------------------------------' )
 
-        json_data = { "id": id, "title": title }
-        json_data["chapters"] = []
+        json_data = { "id": id, "title": title, "language": data["manga"]["lang_name"], "author": data["manga"]["author"], "artist": data["manga"]["artist"], "last_chapter": data["manga"]["last_chapter"], "link": domain + '/manga/' + id, "cover_url": domain + data["manga"]["cover_url"]}
+        json_data["links"] = data["manga"]["links"]
+        json_data["chapters"] = {}
 
-        series_route = f'{route}{title}'    
+        series_route = f'{route}{title}'
 
         # Loop chapters
         for chapter_id in data['chapter']:
@@ -379,7 +396,7 @@ def main(id, language, route, type, remove, languages, re_regrex):
             # Only chapters of language selected. Default language: English.
             if ( data['chapter'][chapter_id]['lang_code'] == language ):
 
-                #lang_code = data['chapter'][chapter_id]['lang_code']
+                lang_code = data['chapter'][chapter_id]['lang_code']
                 chapter        = data['chapter'][chapter_id]
                 volume_number  = chapter['volume']
                 chapter_number = chapter['chapter']
@@ -390,26 +407,26 @@ def main(id, language, route, type, remove, languages, re_regrex):
                 groups     = ', '.join( filter( None, [chapter[x] for x in group_keys ] ) )
                 groups     = re_regrex.sub( '_', html.unescape( groups ) )
 
-                json_chapter = { "chapter_id": chapter_id, "chapter": chapter_number, "volume": volume_number, "title": chapter_title, "groups": groups  }
+                json_chapter = { "chapter_id": chapter_id, "lang_code": lang_code, "chapter": chapter_number, "volume": volume_number, "title": chapter_title, "groups": groups  }
                     
-                chapter_response = downloadChapter(chapter_id, series_route, route, languages, 1, remove, title)
+                chapter_response = downloadChapter(chapter_id, series_route, route, languages, 1, remove, title, check_images)
 
                 if( 'error' in chapter_response ):
                     json_chapter["error"] = chapter_response
                 else:
                     json_chapter["images"] = chapter_response
 
-                json_data['chapters'].append( json_chapter )
+                json_data['chapters'] = json_chapter
 
         with open( f'{series_route}/{id}_data.json' , 'w') as file:
             file.write( json.dumps( json_data, indent=4 ) )
 
     elif ( 'chapter' == type ):
-        downloadChapter(id, '', route, languages, 0, remove, title)
+        downloadChapter(id, '', route, languages, 0, remove, title, check_images)
     else:
         sys.exit('Invalid type! Must be "title" or "chapter"')
 
-def bulkDownloader(filename, language, route, type, remove):
+def bulkDownloader(filename, language, route, type, remove, check_images):
 
     titles = []
 
@@ -432,16 +449,17 @@ def bulkDownloader(filename, language, route, type, remove):
             compiled = re.compile('[\\\\/:*?"<>|]')
 
             for id in titles:
-                main(id, language, route, type, remove, languages, compiled)
-                
+                main(id, language, route, type, remove, check_images, languages, compiled)
+
                 if type == 'title':
                     print( 'Download Complete. Waiting 30 seconds...' )
                     time.sleep(30) # wait 30 seconds
                 else:
-                    print( 'Download Complete.' )
+                    print( 'Download Complete. Waiting 5 seconds...' )
+                    time.sleep(5) # wait 5 seconds
     else:
         sys.exit('File not found!')
-
+        
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
@@ -449,12 +467,13 @@ if __name__ == "__main__":
     parser.add_argument('--directory', '-d', default='downloads/')
     parser.add_argument('--type', '-t', default='title') #title or chapter
     parser.add_argument('--remove', '-r', default='yes') #yes or no
+    parser.add_argument('--check_images', '-c', default='no') #yes or no
     parser.add_argument('id')
 
     args = parser.parse_args()
 
     # If the ID is not a number, try to bulk download from file
     if ( not args.id.isdigit() ):
-        bulkDownloader(args.id, args.language, args.directory, args.type, args.remove)
+        bulkDownloader(args.id, args.language, args.directory, args.type, args.remove, args.check_images)
     else:
-        main(args.id, args.language, args.directory, args.type, args.remove, '', '')
+        main(args.id, args.language, args.directory, args.type, args.remove, args.check_images, '', '')
