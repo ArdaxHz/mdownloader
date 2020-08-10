@@ -14,7 +14,7 @@ import shutil
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
-headers = { 'User-Agent': 'mDownloader/2.1.2' }
+headers = { 'User-Agent': 'mDownloader/2.1.3' }
 domain  = 'https://mangadex.org'
 
 def createFolder(folder_name):
@@ -39,7 +39,7 @@ def appendZip(chapter_zip, folder, image_name):
 
 def createZip(zip_route):
     try:
-        if os.path.isfile(zip_route) == False:
+        if not os.path.isfile(zip_route):
             chapter_zip = zipfile.ZipFile(zip_route, 'w')
             return 0, chapter_zip
         else:
@@ -61,7 +61,7 @@ def checkImages(response, folder, image_name, chapter_zip, image_data, check_ima
     for root, dirs, files in os.walk(folder):
         for filename in files:
             if filename == image_name:
-                if check_images == 'yes':
+                if check_images == 'data':
                     with open( folder + '/' + image_name, 'rb') as file:
                         f = file.read()
                         b = bytearray(f)
@@ -85,7 +85,7 @@ def checkZip(response, folder, zip_files, chapter_zip, image_name, check_images)
     pages = []
 
     #checks if image data is the same
-    if check_images == 'yes':
+    if check_images == 'data':
         for root, dirs, files in os.walk(zip_files):
             for filename in files:
                 if filename == image_name:
@@ -98,6 +98,7 @@ def checkZip(response, folder, zip_files, chapter_zip, image_name, check_images)
                             pages.append(image_name)
                     continue
             break
+    
     #checks if the images are the same name
     else:
         for i in chapter_zip.namelist():
@@ -119,10 +120,10 @@ async def wait_with_progress(coros):
         except Exception as e:
             print(e)
 
-async def downloadImages(image, url, language, folder, retry, folder_exists, zip_exists, image_data, groups, title, chapter_zip, zip_route, zip_files, check_images):
+async def downloadImages(image, url, language, folder, retry, folder_exists, zip_exists, image_data, groups, title, chapter_zip, zip_files, check_images):
 
-    #try to download it 3 times
-    while( retry < 3 ):
+    #try to download it 5 times
+    while( retry < 5 ):
         async with ClientSession() as session:
             try:
                 async with session.get( url + image ) as response:
@@ -191,23 +192,23 @@ async def downloadImages(image, url, language, folder, retry, folder_exists, zip
                         else:
                             return { "image": image, "status": "Success" }
                     
-                    retry = 3
+                    retry = 5
                     
                     return { "image": image, "status": "Success" }
 
             except (ClientError, AssertionError, asyncio.TimeoutError):
-                await asyncio.sleep(1)
+                await asyncio.sleep(3)
 
                 retry += 1
 
-                if( retry == 3 ):
+                if( retry == 5 ):
                     print( f'Could not download image {image} after 3 times.' )
                     await asyncio.sleep(1)
                     return { "image": image, "status": "Fail" }
 
 # type 0 -> chapter
 # type 1 -> title
-def downloadChapter(chapter_id, series_route, route, languages, type, remove, title, check_images):
+def downloadChapter(chapter_id, series_route, route, languages, type, remove_folder, title, check_images, save_format):
 
     # Connect to API and get chapter info
     url = f'{domain}/api?id={chapter_id}&type=chapter&saver=0'
@@ -252,8 +253,10 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove, ti
 
                 manga_data = requests.get( manga_url, headers= headers ).json()
                 title = re.sub( r'[\\\\/:*?"<>|]', '_', html.unescape( manga_data['manga']['title'] ) )
+                
                 if series_route == '':
-                    series_route = f'{route}{title}'
+                    series_route = f'{route}/{title}'
+                
                 with open('languages.json', 'r') as json_file:
                     languages = json.load(json_file)
 
@@ -285,7 +288,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove, ti
                     folder = f'{title} [{language}] - c{chapter_number} (v{image_data["volume"].zfill(2)}) [{groups}]'          
 
             chapter_route  = f'{series_route}/{folder}'
-            zip_route = f'{series_route}/{folder}.zip'
+            zip_route = f'{chapter_route}.{save_format}'
 
             # Check if the folder and zip exist. If it exists, check if images are the same as on mangadex
             chapter_exists = createFolder(chapter_route)
@@ -293,7 +296,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove, ti
 
             if (zip_exists):
                 zip_exists = 1
-                if check_images == 'yes':
+                if check_images == 'data':
                     zip_files = f'{chapter_route}_zip'
                     chapter_zip.extractall(zip_files)
                     chapter_zip.close()
@@ -316,7 +319,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove, ti
             tasks = []
             
             for image in image_data['page_array']:
-                task = asyncio.ensure_future( downloadImages(image, url, language, chapter_route, 0, chapter_exists, zip_exists, image_data, groups, title, chapter_zip, zip_route, zip_files, check_images) )
+                task = asyncio.ensure_future( downloadImages(image, url, language, chapter_route, 0, chapter_exists, zip_exists, image_data, groups, title, chapter_zip, zip_files, check_images) )
                 tasks.append(task)
 
             runner = wait_with_progress(tasks)
@@ -328,7 +331,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove, ti
                 shutil.rmtree(zip_files)
 
             #removes chapter folder
-            if remove == 'yes':
+            if remove_folder == 'yes':
                 shutil.rmtree(chapter_route)
 
             if type == 1:
@@ -338,16 +341,24 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove, ti
 
                 return response
 
-def main(id, language, route, type, remove, check_images, languages, re_regrex):
+def main(id, language, route, type, remove_folder, check_images, save_format, languages, re_regrex):
 
     # Check the id is valid number
     if ( not id.isdigit() ):
         sys.exit('Invalid Title/Chapter ID')
 
+    if save_format == 'zip':
+        save_format = 'zip'
+    elif save_format == 'cbz':
+        save_format == 'cbz'
+    else:
+        print( 'Please either use zip or cbz as the save formats.')
+        return
+
     if( languages == '' ):
         print ('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
     
-    title = ''
+    title = ''  
     
     if ( 'title' == type ):
         # Connect to API and get manga info
@@ -370,11 +381,26 @@ def main(id, language, route, type, remove, check_images, languages, re_regrex):
 
         title = re_regrex.sub( '_', html.unescape( data['manga']['title'] ) )
 
+        series_route = f'{route}/{title}'
+
+        if data["manga"]["hentai"] == 1:
+            series_route = f'{series_route} (H)'
+
         if 'chapter' not in data:
             if (languages == ''):
                 sys.exit( f'Title {id} - {title} has no chapters.' )
             else:
-                print( f'Title {id} - {title} has no chapters. Skipping...' )
+                print( f'Title {id} - {title} has no chapters. Making manga json and Skipping...' )
+                json_data = { "id": id, "title": title, "language": data["manga"]["lang_name"], "author": data["manga"]["author"], "artist": data["manga"]["artist"], "last_chapter": data["manga"]["last_chapter"], "link": domain + '/manga/' + id, "cover_url": domain + data["manga"]["cover_url"]}
+                json_data["links"] = data["manga"]["links"]
+                json_data["chapters"] = "This title has no chapters."
+                
+                if not os.path.isdir(series_route):
+                    os.makedirs(series_route)
+
+                with open( f'{series_route}/{id}_data.json' , 'w') as file:
+                    file.write( json.dumps( json_data, indent=4 ) )
+                
                 return
 
         if( languages == '' ):
@@ -386,9 +412,7 @@ def main(id, language, route, type, remove, check_images, languages, re_regrex):
 
         json_data = { "id": id, "title": title, "language": data["manga"]["lang_name"], "author": data["manga"]["author"], "artist": data["manga"]["artist"], "last_chapter": data["manga"]["last_chapter"], "link": domain + '/manga/' + id, "cover_url": domain + data["manga"]["cover_url"]}
         json_data["links"] = data["manga"]["links"]
-        json_data["chapters"] = {}
-
-        series_route = f'{route}{title}'
+        json_data["chapters"] = []
 
         # Loop chapters
         for chapter_id in data['chapter']:
@@ -409,24 +433,27 @@ def main(id, language, route, type, remove, check_images, languages, re_regrex):
 
                 json_chapter = { "chapter_id": chapter_id, "lang_code": lang_code, "chapter": chapter_number, "volume": volume_number, "title": chapter_title, "groups": groups  }
                     
-                chapter_response = downloadChapter(chapter_id, series_route, route, languages, 1, remove, title, check_images)
+                chapter_response = downloadChapter(chapter_id, series_route, route, languages, 1, remove_folder, title, check_images, save_format)
 
                 if( 'error' in chapter_response ):
                     json_chapter["error"] = chapter_response
                 else:
                     json_chapter["images"] = chapter_response
 
-                json_data['chapters'] = json_chapter
+                json_data['chapters'].append(json_chapter)
+
+        if not os.path.isdir(series_route):
+            os.makedirs(series_route)
 
         with open( f'{series_route}/{id}_data.json' , 'w') as file:
             file.write( json.dumps( json_data, indent=4 ) )
 
     elif ( 'chapter' == type ):
-        downloadChapter(id, '', route, languages, 0, remove, title, check_images)
+        downloadChapter(id, '', route, languages, 0, remove_folder, title, check_images, save_format)
     else:
         sys.exit('Invalid type! Must be "title" or "chapter"')
 
-def bulkDownloader(filename, language, route, type, remove, check_images):
+def bulkDownloader(filename, language, route, type, remove_folder, check_images, save_format):
 
     titles = []
 
@@ -449,7 +476,7 @@ def bulkDownloader(filename, language, route, type, remove, check_images):
             compiled = re.compile('[\\\\/:*?"<>|]')
 
             for id in titles:
-                main(id, language, route, type, remove, check_images, languages, compiled)
+                main(id, language, route, type, remove_folder, check_images, save_format, languages, compiled)
 
                 if type == 'title':
                     print( 'Download Complete. Waiting 30 seconds...' )
@@ -464,16 +491,17 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--language', '-l', default='gb')
-    parser.add_argument('--directory', '-d', default='downloads/')
+    parser.add_argument('--directory', '-d', default='./downloads')
     parser.add_argument('--type', '-t', default='title') #title or chapter
-    parser.add_argument('--remove', '-r', default='yes') #yes or no
-    parser.add_argument('--check_images', '-c', default='no') #yes or no
+    parser.add_argument('--remove_folder', '-r', default='yes') #yes or no
+    parser.add_argument('--check_images', '-c', default='names') #data or names
+    parser.add_argument('--save_format', '-s', default='cbz') #zip or cbz
     parser.add_argument('id')
 
     args = parser.parse_args()
 
     # If the ID is not a number, try to bulk download from file
     if ( not args.id.isdigit() ):
-        bulkDownloader(args.id, args.language, args.directory, args.type, args.remove, args.check_images)
+        bulkDownloader(args.id, args.language, args.directory, args.type, args.remove_folder, args.check_images, args.save_format)
     else:
-        main(args.id, args.language, args.directory, args.type, args.remove, args.check_images, '', '')
+        main(args.id, args.language, args.directory, args.type, args.remove_folder, args.check_images, args.save_format, '', '')
