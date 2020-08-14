@@ -212,7 +212,7 @@ async def downloadImages(image, url, language, folder, retry, folder_exists, zip
                 retry += 1
 
                 if retry == 5:
-                    print (f'Could not download image {image} after 3 times.')
+                    print(f'Could not download image {image} after 5 times.')
                     await asyncio.sleep(1)
                     return {"image": image, "status": "Fail"}
 
@@ -230,13 +230,13 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
 
         #Unavailable chapters
         if response.status_code == 300:
-            print ("Unavailable Chapter. This could be because the chapter was deleted by the group or you're not allowed to read it.")
+            print("Unavailable Chapter. This could be because the chapter was deleted by the group or you're not allowed to read it.")
         else:
             #Restricted Chapters. Like korean webtoons
-            if ( response.status_code == 451 ):
-                print ("Restricted Chapter. You're not allowed to read this chapter.")
+            if response.status_code == 451:
+                print("Restricted Chapter. You're not allowed to read this chapter.")
             else:
-                print (f'Request status error: {response.status_code}')
+                print(f'Request status error: {response.status_code}')
 
         return {"error": "There was an error while downloading the chapter", "response_code": response.status_code}
     else:
@@ -246,7 +246,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
         #Extenal chapters
         if 'external' == image_data["status"]:
 
-            print ('Chapter external to Mangadex. Unable to download.')
+            print('Chapter external to Mangadex. Unable to download.')
             return {"error": "There was an error while downloading the chapter", "response_code": 'Chapter external to Mangadex. Unable to download.'}
         else:
 
@@ -380,7 +380,7 @@ def main(id, language, route, type, remove_folder, check_images, save_format):
         print('Please either use zip or cbz as the save formats.')
         return
 
-    print ('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
+    print('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
     
     title = ''
     
@@ -497,10 +497,10 @@ def bulkDownloader(filename, language, route, type, remove_folder, check_images,
                 main(id, language, route, type, remove_folder, check_images, save_format)
 
                 if type == 'title':
-                    print ('Download Complete. Waiting 30 seconds...')
+                    print('Download Complete. Waiting 30 seconds...')
                     time.sleep(30) # wait 30 seconds
                 else:
-                    print ('Download Complete. Waiting 5 seconds...')
+                    print('Download Complete. Waiting 5 seconds...')
                     time.sleep(5) # wait 5 seconds
     else:
         sys.exit('File not found!')
