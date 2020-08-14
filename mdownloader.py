@@ -14,8 +14,9 @@ import shutil
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
-headers = { 'User-Agent': 'mDownloader/2.1.3' }
+headers = { 'User-Agent': 'mDownloader/2.1.4' }
 domain  = 'https://mangadex.org'
+re_regrex = re.compile('[\\\\/:*?"<>|]')
 
 def createFolder(folder_name):
     try:
@@ -56,7 +57,7 @@ def createImages(response, folder, image_name, chapter_zip):
     appendZip(chapter_zip, folder, image_name)
     return chapter_zip
 
-def checkImages(response, folder, image_name, chapter_zip, image_data, check_images):
+def checkImages(response, folder, image_name, chapter_zip, image_data, check_images= 'names'):
     pages = []
     for root, dirs, files in os.walk(folder):
         for filename in files:
@@ -81,7 +82,7 @@ def checkImages(response, folder, image_name, chapter_zip, image_data, check_ima
         return image_name, chapter_zip
 
 #extract zip and compare the byte information of the images
-def checkZip(response, folder, zip_files, chapter_zip, image_name, check_images):
+def checkZip(response, folder, zip_files, chapter_zip, image_name, check_images= 'names'):
     pages = []
 
     #checks if image data is the same
@@ -252,17 +253,18 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                 manga_url = f'{domain}/api?id={manga_id}&type=manga'
 
                 manga_data = requests.get( manga_url, headers= headers ).json()
-                title = re.sub( r'[\\\\/:*?"<>|]', '_', html.unescape( manga_data['manga']['title'] ) )
-                
-                if series_route == '':
-                    series_route = f'{route}/{title}'
-                
-                with open('languages.json', 'r') as json_file:
-                    languages = json.load(json_file)
+                title = re_regrex.sub( '_', html.unescape( manga_data['manga']['title'] ) )
+
+                if '.' in title[-3:]:
+                    folder_title = re.sub(r'\.', '', title ) 
+                else:
+                    folder_title = title
+
+                series_route = f'{route}/{folder_title}'
 
             group_keys = filter(lambda s: s.startswith('group_name'), image_data.keys())
             groups     = ', '.join( filter( None, [image_data[x] for x in group_keys ] ) )
-            groups     = re.sub( r'[\\\\/:*?"<>|]', '_', html.unescape( groups ) )
+            groups     = re_regrex.sub( '_', html.unescape( groups ) )
             
             language = languages[image_data["lang_code"]]
             chapter_title = image_data["title"]
@@ -341,7 +343,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
 
                 return response
 
-def main(id, language, route, type, remove_folder, check_images, save_format, languages, re_regrex):
+def main(id, language, route, type, remove_folder, check_images, save_format):
 
     # Check the id is valid number
     if ( not id.isdigit() ):
@@ -355,62 +357,55 @@ def main(id, language, route, type, remove_folder, check_images, save_format, la
         print( 'Please either use zip or cbz as the save formats.')
         return
 
-    if( languages == '' ):
-        print ('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
+    print ('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
     
-    title = ''  
+    title = ''
     
-    if ( 'title' == type ):
+    # Read languages file
+    with open('languages.json', 'r') as json_file:
+        languages = json.load(json_file)
+    
+    if ( 'title' == type ) or ( 'manga' == type ):
         # Connect to API and get manga info
         url = f'{domain}/api?id={id}&type=manga'
 
         response = requests.get( url, headers = headers)
 
         if ( response.status_code != 200 ):
-            if (languages == ''):
-                sys.exit( f'Request status error: {response.status_code}' )
-            else:
-                print( f'Title {id}. Request status error: {response.status_code}. Skipping...' )
-                return
-
-        if( re_regrex == '' ):
-            #Compile regrex
-            re_regrex = re.compile('[\\\\/:*?"<>|]')
+            print( f'Title {id}. Request status error: {response.status_code}. Skipping...' )
+            return
             
         data = response.json()
 
         title = re_regrex.sub( '_', html.unescape( data['manga']['title'] ) )
 
-        series_route = f'{route}/{title}'
+        if '.' in title[-3:]:
+            folder_title = re.sub(r'\.', '', title ) 
+        else:
+            folder_title = title
+
+        series_route = f'{route}/{folder_title}'
 
         if data["manga"]["hentai"] == 1:
             series_route = f'{series_route} (H)'
 
         if 'chapter' not in data:
-            if (languages == ''):
-                sys.exit( f'Title {id} - {title} has no chapters.' )
-            else:
-                print( f'Title {id} - {title} has no chapters. Making manga json and Skipping...' )
-                json_data = { "id": id, "title": title, "language": data["manga"]["lang_name"], "author": data["manga"]["author"], "artist": data["manga"]["artist"], "last_chapter": data["manga"]["last_chapter"], "link": domain + '/manga/' + id, "cover_url": domain + data["manga"]["cover_url"]}
-                json_data["links"] = data["manga"]["links"]
-                json_data["chapters"] = "This title has no chapters."
-                
-                if not os.path.isdir(series_route):
-                    os.makedirs(series_route)
+            print( f'Title {id} - {title} has no chapters. Making manga json and Skipping...' )
+            json_data = { "id": id, "title": data['manga']['title'], "language": data["manga"]["lang_name"], "author": data["manga"]["author"], "artist": data["manga"]["artist"], "last_chapter": data["manga"]["last_chapter"], "link": domain + '/manga/' + id, "cover_url": domain + data["manga"]["cover_url"]}
+            json_data["links"] = data["manga"]["links"]
+            json_data["chapters"] = "This title has no chapters."
+            
+            if not os.path.isdir(series_route):
+                os.makedirs(series_route)
 
-                with open( f'{series_route}/{id}_data.json' , 'w') as file:
-                    file.write( json.dumps( json_data, indent=4 ) )
-                
-                return
-
-        if( languages == '' ):
-            # Read languages file
-            with open('languages.json', 'r') as json_file:
-                languages = json.load(json_file)
+            with open( f'{series_route}/{id}_data.json' , 'w') as file:
+                file.write( json.dumps( json_data, indent=4 ) )
+            
+            return
 
         print( f'---------------------------------------------------------------------\nDownloading Title: {title}\n---------------------------------------------------------------------' )
 
-        json_data = { "id": id, "title": title, "language": data["manga"]["lang_name"], "author": data["manga"]["author"], "artist": data["manga"]["artist"], "last_chapter": data["manga"]["last_chapter"], "link": domain + '/manga/' + id, "cover_url": domain + data["manga"]["cover_url"]}
+        json_data = { "id": id, "title": data['manga']['title'], "language": data["manga"]["lang_name"], "author": data["manga"]["author"], "artist": data["manga"]["artist"], "last_chapter": data["manga"]["last_chapter"], "link": domain + '/manga/' + id, "cover_url": domain + data["manga"]["cover_url"]}
         json_data["links"] = data["manga"]["links"]
         json_data["chapters"] = []
 
@@ -442,13 +437,16 @@ def main(id, language, route, type, remove_folder, check_images, save_format, la
 
                 json_data['chapters'].append(json_chapter)
 
+        if not json_data["chapters"]:
+            json_data["chapters"] = "This title has no English chapters."
+
         if not os.path.isdir(series_route):
             os.makedirs(series_route)
 
         with open( f'{series_route}/{id}_data.json' , 'w') as file:
             file.write( json.dumps( json_data, indent=4 ) )
 
-    elif ( 'chapter' == type ):
+    elif ( 'chapter' == type ) or ( 'chapters' == type ):
         downloadChapter(id, '', route, languages, 0, remove_folder, title, check_images, save_format)
     else:
         sys.exit('Invalid type! Must be "title" or "chapter"')
@@ -466,17 +464,9 @@ def bulkDownloader(filename, language, route, type, remove_folder, check_images,
         if( len(titles) == 0 ):
             sys.exit('Empty file!')
         else:
-            print ('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
-
-            # Read languages file
-            with open('languages.json', 'r') as json_file:
-                languages = json.load(json_file)
-
-            #Compile regex
-            compiled = re.compile('[\\\\/:*?"<>|]')
 
             for id in titles:
-                main(id, language, route, type, remove_folder, check_images, save_format, languages, compiled)
+                main(id, language, route, type, remove_folder, check_images, save_format)
 
                 if type == 'title':
                     print( 'Download Complete. Waiting 30 seconds...' )
@@ -504,4 +494,4 @@ if __name__ == "__main__":
     if ( not args.id.isdigit() ):
         bulkDownloader(args.id, args.language, args.directory, args.type, args.remove_folder, args.check_images, args.save_format)
     else:
-        main(args.id, args.language, args.directory, args.type, args.remove_folder, args.check_images, args.save_format, '', '')
+        main(args.id, args.language, args.directory, args.type, args.remove_folder, args.check_images, args.save_format)
