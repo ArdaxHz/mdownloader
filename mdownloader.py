@@ -273,11 +273,10 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                 series_route = f'{route}/{folder_title}'
 
             group_keys = filter(lambda s: s.startswith('group_name'), image_data.keys())
-            groups     = ', '.join(filter(None, [image_data[x] for x in group_keys ]))
+            groups     = ', '.join(filter(None, [image_data[x] for x in group_keys]))
             groups     = re_regrex.sub('_', html.unescape(groups))
             
             language = languages[image_data["lang_code"]]
-            chapter_title = image_data["title"]
             chapter_no = re.compile(r'([0-9]+)\.([0-9]+)')
 
             if chapter_no.match(image_data["chapter"]):
@@ -299,11 +298,11 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                 else:
                     folder = f'{title} [{language}] - c{chapter_number} (v{image_data["volume"].zfill(2)}) [{groups}]'
 
-            chapter_route  = f'{series_route}/{folder}'
-            zip_route = f'{chapter_route}.{save_format}'
+            folder_route  = f'{series_route}/{folder}'
+            zip_route = f'{folder_route}.{save_format}'
 
             # Check if the folder and zip exist. If it exists, check if images are the same as on mangadex
-            chapter_exists = createFolder(chapter_route)
+            folder_exists = createFolder(folder_route)
             zip_exists, chapter_zip = createZip(zip_route)
 
             if zip_exists:
@@ -311,7 +310,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                     zip_exists = 1
                     print('The zip file exists, checking if all the images are downloaded.')
                     if check_images == 'data':
-                        zip_files = f'{chapter_route}_zip'
+                        zip_files = f'{folder_route}_zip'
                         chapter_zip.extractall(zip_files)
                         chapter_zip.close()
                         os.remove(zip_route)
@@ -320,30 +319,30 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                         zip_files = ''
                 elif check_images == 'skip':
                     print('The zip exists, skipping...')
-                    shutil.rmtree(chapter_route)
+                    shutil.rmtree(folder_route)
                     return
 
-            elif not chapter_exists:
+            elif not folder_exists:
                 zip_files = ''
-                if chapter_exists:
+                if folder_exists:
                     if check_images == 'names' or check_images == 'data':
-                        chapter_exists = 1
+                        folder_exists = 1
                         print('The folder exists, checking if all the images are downloaded.')
                     elif check_images == 'skip':
                         print('The folder exists, skipping...')
-                        shutil.rmtree(chapter_route)
+                        shutil.rmtree(folder_route)
                         return
-                elif not chapter_exists:
-                    chapter_exists = 0
+                elif not folder_exists:
+                    folder_exists = 0
 
-            print(f'Downloading Volume {image_data["volume"]} Chapter {image_data["chapter"]} Title: {chapter_title}')
+            print(f'Downloading Volume {image_data["volume"]} Chapter {image_data["chapter"]} Title: {image_data["title"]}')
 
             # ASYNC FUNCTION
             loop  = asyncio.get_event_loop()
             tasks = []
             
             for image in image_data['page_array']:
-                task = asyncio.ensure_future(downloadImages(image, url, language, chapter_route, 0, chapter_exists, zip_exists, image_data, groups, title, chapter_zip, zip_files, check_images))
+                task = asyncio.ensure_future(downloadImages(image, url, language, folder_route, 0, folder_exists, zip_exists, image_data, groups, title, chapter_zip, zip_files, check_images))
                 tasks.append(task)
 
             runner = wait_with_progress(tasks)
@@ -356,12 +355,12 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
 
             #removes chapter folder
             if remove_folder == 'yes':
-                shutil.rmtree(chapter_route)
+                shutil.rmtree(folder_route)
 
             if type == 1:
                 for t in tasks:
                     result = t.result()
-                    response['images'][ result['image'] ] = result['status']
+                    response['images'][result['image']] = result['status']
 
                 return response
 
@@ -395,7 +394,7 @@ def main(id, language, route, type, remove_folder, check_images, save_format):
         response = requests.get(url, headers = headers)
 
         if response.status_code != 200:
-            print(f'Title {id}. Request status error: {response.status_code}. Skipping...')
+            print(f"{id} doesn't exist. Request status error: {response.status_code}. Skipping...")
             return
             
         data = response.json()
@@ -413,7 +412,7 @@ def main(id, language, route, type, remove_folder, check_images, save_format):
             series_route = f'{series_route} (H)'
 
         if 'chapter' not in data:
-            print(f'Title {id} - {title} has no chapters. Making manga json and Skipping...')
+            print(f'Title {id} - {title} has no chapters. Making json and Skipping...')
             json_data = {"id": id, "title": data['manga']['title'], "language": data["manga"]["lang_name"], "author": data["manga"]["author"], "artist": data["manga"]["artist"], "last_chapter": data["manga"]["last_chapter"], "link": domain + '/manga/' + id, "cover_url": domain + data["manga"]["cover_url"]}
             json_data["links"] = data["manga"]["links"]
             json_data["chapters"] = "This title has no chapters."
