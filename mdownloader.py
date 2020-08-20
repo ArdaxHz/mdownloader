@@ -426,10 +426,9 @@ def main(id, language, route, type, remove_folder, check_images, save_format):
 
         print(f'---------------------------------------------------------------------\nDownloading Title: {title}\n---------------------------------------------------------------------')
 
-        json_chapter = {}
         json_data = {"id": id, "title": data['manga']['title'], "language": data["manga"]["lang_name"], "author": data["manga"]["author"], "artist": data["manga"]["artist"], "last_chapter": data["manga"]["last_chapter"], "link": domain + '/manga/' + id, "cover_url": domain + data["manga"]["cover_url"]}
         json_data["links"] = data["manga"]["links"]
-        json_data["chapters"] = json_chapter
+        json_data["chapters"] = []
 
         # Loop chapters
         for chapter_id in data['chapter']:
@@ -448,16 +447,18 @@ def main(id, language, route, type, remove_folder, check_images, save_format):
                 groups     = ', '.join(filter(None, [chapter[x] for x in group_keys]))
                 groups     = re_regrex.sub('_', html.unescape(groups))
 
-                json_chapter[f'{chapter_id}'] = {"chapter_id": chapter_id, "lang_code": lang_code, "chapter": chapter_number, "volume": volume_number, "title": chapter_title, "groups": groups}
+                json_chapter = {"chapter_id": chapter_id, "lang_code": lang_code, "chapter": chapter_number, "volume": volume_number, "title": chapter_title, "groups": groups}
                     
                 chapter_response = downloadChapter(chapter_id, series_route, route, languages, 1, remove_folder, title, check_images, save_format)
 
                 if check_images == 'names' or check_images == 'data':
                     
                     if 'error' in chapter_response:
-                        json_chapter[f'{chapter_id}']["error"] = chapter_response
+                        json_chapter["error"] = chapter_response
                     else:
-                        json_chapter[f'{chapter_id}']["images"] = chapter_response
+                        json_chapter["images"] = chapter_response
+
+                    json_data['chapters'].append(json_chapter)
 
         if check_images == 'names' or check_images == 'data':
 
