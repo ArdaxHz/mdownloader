@@ -255,7 +255,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
             url = f'{server_url}{image_data["hash"]}/'
 
             response = {"url": url}
-            response["images"] = {}
+            response["pages"] = {}
             
             #chapter download
             if type == 0:              
@@ -360,7 +360,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
             if type == 1:
                 for t in tasks:
                     result = t.result()
-                    response['images'][result['image']] = result['status']
+                    response['pages'][result['image']] = result['status']
 
                 return response
 
@@ -401,10 +401,9 @@ def main(id, language, route, type, remove_folder, check_images, save_format):
 
         title = re_regrex.sub('_', html.unescape(data['manga']['title']))
 
-        if '.' in title[-3:]:
-            folder_title = re.sub(r'\.', '', title) 
-        else:
-            folder_title = title
+        folder_title = title.rstrip()
+        folder_title = folder_title.rstrip('.')
+        folder_title = folder_title.rstrip()
 
         series_route = f'{route}/{folder_title}'
 
@@ -421,15 +420,16 @@ def main(id, language, route, type, remove_folder, check_images, save_format):
                 os.makedirs(series_route)
 
             with open(f'{series_route}/{id}_data.json', 'w') as file:
-                file.write(json.dumps(json_data, indent=4))
+                json.dump(json_data, file, indent=4, ensure_ascii=False)
             
             return
 
         print(f'---------------------------------------------------------------------\nDownloading Title: {title}\n---------------------------------------------------------------------')
 
+        json_chapter = {}
         json_data = {"id": id, "title": data['manga']['title'], "language": data["manga"]["lang_name"], "author": data["manga"]["author"], "artist": data["manga"]["artist"], "last_chapter": data["manga"]["last_chapter"], "link": domain + '/manga/' + id, "cover_url": domain + data["manga"]["cover_url"]}
         json_data["links"] = data["manga"]["links"]
-        json_data["chapters"] = []
+        json_data["chapters"] = json_chapter
 
         # Loop chapters
         for chapter_id in data['chapter']:
@@ -445,21 +445,19 @@ def main(id, language, route, type, remove_folder, check_images, save_format):
 
                 # Thanks, Teasday
                 group_keys = filter(lambda s: s.startswith('group_name'), chapter.keys())
-                groups     = ', '.join(filter(None, [chapter[x] for x in group_keys ]))
+                groups     = ', '.join(filter(None, [chapter[x] for x in group_keys]))
                 groups     = re_regrex.sub('_', html.unescape(groups))
 
-                json_chapter = {"chapter_id": chapter_id, "lang_code": lang_code, "chapter": chapter_number, "volume": volume_number, "title": chapter_title, "groups": groups}
+                json_chapter[f'{chapter_id}'] = {"chapter_id": chapter_id, "lang_code": lang_code, "chapter": chapter_number, "volume": volume_number, "title": chapter_title, "groups": groups}
                     
                 chapter_response = downloadChapter(chapter_id, series_route, route, languages, 1, remove_folder, title, check_images, save_format)
 
                 if check_images == 'names' or check_images == 'data':
                     
                     if 'error' in chapter_response:
-                        json_chapter["error"] = chapter_response
+                        json_chapter[f'{chapter_id}']["error"] = chapter_response
                     else:
-                        json_chapter["images"] = chapter_response
-
-                    json_data['chapters'].append(json_chapter)
+                        json_chapter[f'{chapter_id}']["images"] = chapter_response
 
         if check_images == 'names' or check_images == 'data':
 
@@ -470,7 +468,7 @@ def main(id, language, route, type, remove_folder, check_images, save_format):
                 os.makedirs(series_route)
 
             with open(f'{series_route}/{id}_data.json', 'w') as file:
-                file.write(json.dumps(json_data, indent=4))
+                json.dump(json_data, file, indent=4, ensure_ascii=False)
 
     elif 'chapter' == type or 'chapters' == type:
         downloadChapter(id, '', route, languages, 0, remove_folder, title, check_images, save_format)
