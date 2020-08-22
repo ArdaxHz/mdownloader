@@ -30,17 +30,6 @@ def createFolder(folder_name):
         sys.exit('Error creating folder')
 
 
-#add images to zip with no folders
-def appendZip(chapter_zip, folder, image_name):
-    try:
-        current_dir = os.getcwd()
-        os.chdir(folder)
-        chapter_zip.write(image_name, compress_type=zipfile.ZIP_DEFLATED)
-        os.chdir(current_dir)        
-    except UserWarning:
-        print('Error adding images to zip')
-
-
 def createZip(zip_route):
     try:
         if not os.path.isfile(zip_route):
@@ -52,6 +41,17 @@ def createZip(zip_route):
     except zipfile.BadZipFile:
         os.remove(zip_route)
         sys.exit('Bad zip file detected, deleting.')
+
+
+#add images to zip with no folders
+def appendZip(chapter_zip, folder, image_name):
+    try:
+        current_dir = os.getcwd()
+        os.chdir(folder)
+        chapter_zip.write(image_name, compress_type=zipfile.ZIP_DEFLATED)
+        os.chdir(current_dir)        
+    except UserWarning:
+        print('Error adding images to zip')
 
 
 #download images
@@ -128,6 +128,42 @@ async def wait_with_progress(coros):
             await f
         except Exception as e:
             print(e)
+
+
+def seriesLinks(data):
+    json_links = {}
+    try:
+        if 'al' in data["manga"]["links"]:
+            json_links["anilist"] = f'https://anilist.co/manga/{data["manga"]["links"]["al"]}'
+        if 'ap' in data["manga"]["links"]:
+            json_links["anime_planet"] = f'https://www.anime-planet.com/manga/{data["manga"]["links"]["ap"]}'
+        if 'bw' in data["manga"]["links"]:
+            if re.match(r'series/[0-9]+', data["manga"]["links"]["bw"]):
+                json_links["bookwalker"] = f'https://bookwalker.jp/{data["manga"]["links"]["bw"]}/list'
+            else:
+                json_links["bookwalker"] = f'https://bookwalker.jp/{data["manga"]["links"]["bw"]}'
+        if 'kt' in data["manga"]["links"]:
+            json_links["kitsu"] = f'https://kitsu.io/manga/{data["manga"]["links"]["kt"]}'
+        if 'mu' in data["manga"]["links"]:
+            json_links["manga_updates"] = f'https://www.mangaupdates.com/series.html?id={data["manga"]["links"]["mu"]}'
+        if 'nu' in data["manga"]["links"]:
+            json_links["novel_updates"] = f'https://www.novelupdates.com/series/{data["manga"]["links"]["nu"]}'
+        if 'amz' in data["manga"]["links"]:
+            json_links["amazon_jp"] = data["manga"]["links"]["amz"]
+        if 'cdj' in data["manga"]["links"]:
+            json_links["cd_japan"] = data["manga"]["links"]["cdj"]
+        if 'ebj' in data["manga"]["links"]:
+            json_links["ebookjapan"] = data["manga"]["links"]["ebj"]
+        if 'mal' in data["manga"]["links"]:
+            json_links["myanimelist"] = f'https://myanimelist.net/manga/{data["manga"]["links"]["mal"]}'
+        if 'raw' in data["manga"]["links"]:
+            json_links["raw"] = data["manga"]["links"]["raw"]
+        if 'engtl' in data["manga"]["links"]:
+            json_links["official_english"] = data["manga"]["links"]["engtl"] 
+    except TypeError:
+        pass
+
+    return json_links
 
 
 async def downloadImages(image, url, language, folder, retry, folder_exists, zip_exists, image_data, groups, title, chapter_zip, zip_files, check_images):
@@ -413,7 +449,7 @@ def main(id, language, route, type, remove_folder, check_images, save_format):
         if 'chapter' not in data:
             print(f'Title {id} - {title} has no chapters. Making json and Skipping...')
             json_data = {"id": id, "title": data['manga']['title'], "language": data["manga"]["lang_name"], "author": data["manga"]["author"], "artist": data["manga"]["artist"], "last_chapter": data["manga"]["last_chapter"], "link": domain + '/manga/' + id, "cover_url": domain + data["manga"]["cover_url"]}
-            json_data["links"] = data["manga"]["links"]
+            json_data["links"] = seriesLinks(data)
             json_data["chapters"] = "This title has no chapters."
             
             if not os.path.isdir(series_route):
@@ -427,7 +463,7 @@ def main(id, language, route, type, remove_folder, check_images, save_format):
         print(f'---------------------------------------------------------------------\nDownloading Title: {title}\n---------------------------------------------------------------------')
 
         json_data = {"id": id, "title": data['manga']['title'], "language": data["manga"]["lang_name"], "author": data["manga"]["author"], "artist": data["manga"]["artist"], "last_chapter": data["manga"]["last_chapter"], "link": domain + '/manga/' + id, "cover_url": domain + data["manga"]["cover_url"]}
-        json_data["links"] = data["manga"]["links"]
+        json_data["links"] = seriesLinks(data)
         json_data["chapters"] = []
 
         # Loop chapters
@@ -498,8 +534,10 @@ def bulkDownloader(filename, language, route, type, remove_folder, check_images,
                     print('Download Complete. Waiting 30 seconds...')
                     time.sleep(30) # wait 30 seconds
                 else:
-                    print('Download Complete. Waiting 5 seconds...')
+                    print('Download Complete. Waiting 5 seconds...')                    
                     time.sleep(5) # wait 5 seconds
+            
+            print(f'All the ids in {filename} have been downloaded')
     else:
         sys.exit('File not found!')
 
