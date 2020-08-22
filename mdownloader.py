@@ -336,6 +336,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
 
             folder_route  = f'{series_route}/{folder}'
             zip_route = f'{folder_route}.{save_format}'
+            zip_files = f'{folder_route}_zip'
 
             # Check if the folder and zip exist. If it exists, check if images are the same as on mangadex
             folder_exists = createFolder(folder_route)
@@ -346,30 +347,25 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                     zip_exists = 1
                     print('The zip file exists, checking if all the images are downloaded.')
                     if check_images == 'data':
-                        zip_files = f'{folder_route}_zip'
                         chapter_zip.extractall(zip_files)
                         chapter_zip.close()
                         os.remove(zip_route)
                         _, chapter_zip = createZip(zip_route)
-                    else:
-                        zip_files = ''
                 elif check_images == 'skip':
                     print('The zip exists, skipping...')
                     shutil.rmtree(folder_route)
                     return
 
+            if folder_exists:
+                if check_images == 'names' or check_images == 'data':
+                    folder_exists = 1
+                    print('The folder exists, checking if all the images are downloaded.')
+                elif check_images == 'skip':
+                    print('The folder exists, skipping...')
+                    shutil.rmtree(folder_route)
+                    return
             elif not folder_exists:
-                zip_files = ''
-                if folder_exists:
-                    if check_images == 'names' or check_images == 'data':
-                        folder_exists = 1
-                        print('The folder exists, checking if all the images are downloaded.')
-                    elif check_images == 'skip':
-                        print('The folder exists, skipping...')
-                        shutil.rmtree(folder_route)
-                        return
-                elif not folder_exists:
-                    folder_exists = 0
+                folder_exists = 0
 
             print(f'Downloading Volume {image_data["volume"]} Chapter {image_data["chapter"]} Title: {image_data["title"]}')
 
