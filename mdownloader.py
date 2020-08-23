@@ -14,10 +14,10 @@ import shutil
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
-headers = {'User-Agent': 'mDownloader/2.2.1'}
+headers = {'User-Agent': 'mDownloader/2.2.5'}
 domain  = 'https://mangadex.org'
 re_regrex = re.compile('[\\\\/:*?"<>|]')
-
+md_url = re.compile(r'https\:\/\/mangadex\.org\/(title|chapter|manga)\/([0-9]+)')
 
 def createFolder(folder_name):
     try:
@@ -419,7 +419,7 @@ def title(id, language, languages, route, type, remove_folder, check_images, sav
     response = requests.get(url, headers = headers)
 
     if response.status_code != 200:
-        print(f"{id} doesn't exist. Request status error: {response.status_code}. Skipping...")
+        print(f"Title {id} doesn't exist. Request status error: {response.status_code}. Skipping...")
         return
         
     data = response.json()
@@ -499,11 +499,11 @@ def title(id, language, languages, route, type, remove_folder, check_images, sav
 
 def bulkDownloader(filename, language, route, type, remove_folder, check_images, save_format):
 
-    # Open file and read lines
+    #Open file and read lines
     with open(filename, 'r') as item:
         titles = [line.rstrip('\n') for line in item]
 
-    if len(titles) == 0 :
+    if len(titles) == 0:
         print('Empty file!')
         return
     else:
@@ -513,17 +513,35 @@ def bulkDownloader(filename, language, route, type, remove_folder, check_images,
 
         print('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
 
-        for id in titles:              
-            
-            if type == 'title' or type == 'manga':
-                title(id, language, languages, route, 1, remove_folder, check_images, save_format)
-                print('Download Complete. Waiting 30 seconds...')
-                time.sleep(30) # wait 30 seconds
+        for id in titles:
+
+            if not id.isdigit():
+                if md_url.match(id):
+                    input_url = md_url.match(id)
+                    
+                    if input_url.group(1) == 'title' or input_url.group(1) == 'manga':
+                        id = input_url.group(2)
+                        title(id, language, languages, route, 1, remove_folder, check_images, save_format)
+                        print('Download Complete. Waiting 30 seconds...')
+                        time.sleep(30) # wait 30 seconds
+                    elif input_url.group(1) == 'chapter':
+                        id = input_url.group(2)
+                        downloadChapter(id, '', route, languages, 0, remove_folder, title, check_images, save_format)
+                        print('Download Complete. Waiting 5 seconds...')
+                        time.sleep(5) # wait 5 seconds
+                else:
+                    pass
+
             else:
-                downloadChapter(id, '', route, languages, 0, remove_folder, title, check_images, save_format)
-                print('Download Complete. Waiting 5 seconds...')                    
-                time.sleep(5) # wait 5 seconds
-        
+                if type == 'title' or type == 'manga':
+                    title(id, language, languages, route, 1, remove_folder, check_images, save_format)
+                    print('Download Complete. Waiting 30 seconds...')
+                    time.sleep(30) # wait 30 seconds
+                else:
+                    downloadChapter(id, '', route, languages, 0, remove_folder, title, check_images, save_format)
+                    print('Download Complete. Waiting 5 seconds...')
+                    time.sleep(5) # wait 5 seconds
+            
         print(f'All the ids in {filename} have been downloaded')
 
 
@@ -537,8 +555,6 @@ def main(id, language, route, type, remove_folder, check_images, save_format, la
     else:
         print('Please either use zip or cbz as the save formats.')
         return
-
-    md_url = re.compile(r'https\:\/\/mangadex\.org\/(title|chapter|manga)\/([0-9]+)')
 
     #Check the id is valid number
     if not id.isdigit():
@@ -583,4 +599,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(args.id, args.language, args.directory, args.type, args.remove_folder, args.check_images, args.save_format, '')1
+    main(args.id, args.language, args.directory, args.type, args.remove_folder, args.check_images, args.save_format, '')

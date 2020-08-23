@@ -6,8 +6,7 @@
 ## Excecute 
 `python3 mdownloader.py [options] [title link/id, chapter link/id or filename]`
 
-To bulk download titles or chapters, create a file in the same folder as the downloader. Inside, add one title/chapter id per line. Instead of typing the title id when executing, enter the filename.
-Since title is the default download type, there is no need to add it as an option for bulk download.
+To bulk download titles or chapters, create a file in the same folder as the downloader. Inside, add one id or link per line, you need to specify the ids are for chapters or titles. The Link can be either for chapters or titles, no need to specify which it is using the "--type" argument. Instead of typing the id when executing, enter the filename. Since title is the default download type, there is no need to add it as an option for bulk download. Any line that isn't a mangadex title/chapter link/id will be skipped.
 
 `python3 mdownloader.py mylist.txt [-t chapter]`
 
