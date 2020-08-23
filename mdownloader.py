@@ -14,7 +14,7 @@ import shutil
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
-headers = {'User-Agent': 'mDownloader/2.2'}
+headers = {'User-Agent': 'mDownloader/2.2.1'}
 domain  = 'https://mangadex.org'
 re_regrex = re.compile('[\\\\/:*?"<>|]')
 
@@ -573,14 +573,14 @@ def main(id, language, route, type, remove_folder, check_images, save_format, la
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--language', '-l', default='gb')
-    parser.add_argument('--directory', '-d', default='./downloads')
-    parser.add_argument('--type', '-t', default='title') #title or chapter
-    parser.add_argument('--remove_folder', '-r', default='yes') #yes or no
-    parser.add_argument('--check_images', '-c', default='names') #data or names or skip
-    parser.add_argument('--save_format', '-s', default='cbz') #zip or cbz
-    parser.add_argument('id')
+    parser.add_argument('--language', '-l', default='gb', help='Specify the language to download. NEEDED for title downloads.')
+    parser.add_argument('--directory', '-d', default='./downloads', help='The download location, need to specify full path.')
+    parser.add_argument('--type', '-t', default='title', help='Type of id to download, title or chapter.') #title or chapter
+    parser.add_argument('--remove_folder', '-r', default='yes', help='Remove the chapter folder that is made after the chapter has been downloaded.') #yes or no
+    parser.add_argument('--check_images', '-c', default='names', help='Check if the chapter folder and/or zip has the same files as the chapter on MangaDex. Data checks the images bytes, modifies filetime. Names compares the filenames to the filenames that are processed.') #data or names or skip
+    parser.add_argument('--save_format', '-s', default='cbz', help='Choose to download as a zip archive or as a comic archive (renamed zip file).') #zip or cbz
+    parser.add_argument('id', help='Id to download. Can be chapter, tile, link or file.')
 
     args = parser.parse_args()
 
-    main(args.id, args.language, args.directory, args.type, args.remove_folder, args.check_images, args.save_format, '')
+    main(args.id, args.language, args.directory, args.type, args.remove_folder, args.check_images, args.save_format, '')1
