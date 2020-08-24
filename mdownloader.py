@@ -14,10 +14,11 @@ import shutil
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
-headers = {'User-Agent': 'mDownloader/2.2.5'}
+headers = {'User-Agent': 'mDownloader/2.2.6'}
 domain  = 'https://mangadex.org'
 re_regrex = re.compile('[\\\\/:*?"<>|]')
 md_url = re.compile(r'https\:\/\/mangadex\.org\/(title|chapter|manga)\/([0-9]+)')
+
 
 def createFolder(folder_name):
     try:
@@ -122,14 +123,6 @@ def checkZip(response, folder, zip_files, chapter_zip, image_name, check_images=
         return 0, image_name
 
 
-async def wait_with_progress(coros):
-    for f in tqdm(asyncio.as_completed(coros), total=len(coros)):
-        try:
-            await f
-        except Exception as e:
-            print(e)
-
-
 def seriesLinks(data):
     json_links = {}
     try:
@@ -166,6 +159,14 @@ def seriesLinks(data):
     return json_links
 
 
+async def wait_with_progress(coros):
+    for f in tqdm(asyncio.as_completed(coros), total=len(coros)):
+        try:
+            await f
+        except Exception as e:
+            print(e)
+
+
 async def downloadImages(image, url, language, folder, retry, folder_exists, zip_exists, image_data, groups, title, chapter_zip, zip_files, check_images):
 
     #try to download it 5 times
@@ -175,26 +176,12 @@ async def downloadImages(image, url, language, folder, retry, folder_exists, zip
                 async with session.get(url + image) as response:
     
                     assert response.status == 200
-
-                    #compile regex for the image names
-                    old_name = re.compile(r'^[a-zA-Z]{1}([0-9]+)(\..*)')
-                    new_name = re.compile(r'(^[0-9]+)-.*(\..*)')
-                    chapter_no = re.compile(r'([0-9]+)\.([0-9]+)')
-
                     response = await response.read()
 
-                    if old_name.match(image):
-                        pattern = old_name.match(image)
-                        page_no = pattern.group(1)
-                        extension = pattern.group(2)
-                    elif new_name.match(image):
-                        pattern = new_name.match(image)
-                        page_no = pattern.group(1)
-                        extension = pattern.group(2)
-                    else:
-                        page_no = image_data["page_array"].index(image) + 1
-                        page_no = str(page_no)
-                        extension = re.match(r'.*(\..*)', image).group(1)
+                    page_no = str(image_data["page_array"].index(image) + 1)
+                    extension = image.rsplit('.')[1]
+
+                    chapter_no = re.compile(r'([0-9]+)\.([0-9]+)')
 
                     if chapter_no.match(image_data["chapter"]):
                         pattern = chapter_no.match(image_data["chapter"])
@@ -206,16 +193,15 @@ async def downloadImages(image, url, language, folder, retry, folder_exists, zip
 
                     volume_no = image_data["volume"]
 
-                    if image_data["lang_code"] == 'gb':                            
-                        if image_data["volume"] == '':
-                            image_name = f'{title} - c{chapter_number} - p{page_no.zfill(3)} [{groups}]{extension}'
-                        else:
-                            image_name = f'{title} - c{chapter_number} (v{volume_no.zfill(2)}) - p{page_no.zfill(3)} [{groups}]{extension}'
+                    if image_data["lang_code"] == 'gb':
+                        page_prefix = title
                     else:
-                        if image_data["volume"] == '':
-                            image_name = f'{title} [{language}] - c{chapter_number} - p{page_no.zfill(3)} [{groups}]{extension}'
-                        else:
-                            image_name = f'{title} [{language}] - c{chapter_number} (v{volume_no.zfill(2)}) - p{page_no.zfill(3)} [{groups}]{extension}'
+                        page_prefix = f'{title} [{language}]'
+
+                    if image_data["volume"] == '':
+                        image_name = f'{page_prefix} - c{chapter_number} - p{page_no.zfill(3)} [{groups}].{extension}'
+                    else:
+                        image_name = f'{page_prefix} - c{chapter_number} (v{volume_no.zfill(2)}) - p{page_no.zfill(3)} [{groups}].{extension}'
                     
                     #The zip doesn't exist
                     if not zip_exists:
@@ -308,10 +294,9 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                 manga_data = requests.get(manga_url, headers= headers).json()
                 title = re_regrex.sub('_', html.unescape(manga_data['manga']['title']))
 
-                if '.' in title[-3:]:
-                    folder_title = re.sub(r'\.', '', title) 
-                else:
-                    folder_title = title
+                folder_title = title.rstrip()
+                folder_title = folder_title.rstrip('.')
+                folder_title = folder_title.rstrip()
 
                 series_route = f'{route}/{folder_title}'
 
@@ -331,15 +316,14 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                 chapter_number = image_data["chapter"].zfill(3)
             
             if image_data["lang_code"] == 'gb':
-                if image_data["volume"] == '':
-                    folder = f'{title} - c{chapter_number} [{groups}]'
-                else:
-                    folder = f'{title} - c{chapter_number} (v{image_data["volume"].zfill(2)}) [{groups}]'
+                folder_prefix = title
             else:
-                if image_data["volume"] == '': 
-                    folder = f'{title} [{language}] - c{chapter_number} [{groups}]'
-                else:
-                    folder = f'{title} [{language}] - c{chapter_number} (v{image_data["volume"].zfill(2)}) [{groups}]'
+                folder_prefix = f'{title} [{language}]'
+
+            if image_data["volume"] == '':
+                folder = f'{folder_prefix} - c{chapter_number} [{groups}]'
+            else:
+                folder = f'{folder_prefix} - c{chapter_number} (v{image_data["volume"].zfill(2)}) [{groups}]'
 
             folder_route  = f'{series_route}/{folder}'
             zip_route = f'{folder_route}.{save_format}'
@@ -362,6 +346,8 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                     print('The zip exists, skipping...')
                     shutil.rmtree(folder_route)
                     return
+            elif not zip_exists:
+                zip_exists = 0
 
             if folder_exists:
                 if check_images == 'names' or check_images == 'data':
@@ -593,9 +579,9 @@ if __name__ == "__main__":
     parser.add_argument('--directory', '-d', default='./downloads', help='The download location, need to specify full path.')
     parser.add_argument('--type', '-t', default='title', help='Type of id to download, title or chapter.') #title or chapter
     parser.add_argument('--remove_folder', '-r', default='yes', help='Remove the chapter folder that is made after the chapter has been downloaded.') #yes or no
-    parser.add_argument('--check_images', '-c', default='names', help='Check if the chapter folder and/or zip has the same files as the chapter on MangaDex. Data checks the images bytes, modifies filetime. Names compares the filenames to the filenames that are processed.') #data or names or skip
-    parser.add_argument('--save_format', '-s', default='cbz', help='Choose to download as a zip archive or as a comic archive (renamed zip file).') #zip or cbz
-    parser.add_argument('id', help='Id to download. Can be chapter, tile, link or file.')
+    parser.add_argument('--check_images', '-c', default='names', help='Check if the chapter folder and/or zip has the same files as the chapter on MangaDex. Read the Readme for more information.') #data or names or skip
+    parser.add_argument('--save_format', '-s', default='cbz', help='Choose to download as a zip archive or as a comic archive.') #zip or cbz
+    parser.add_argument('id', help='ID to download. Can be chapter, tile, link or file.')
 
     args = parser.parse_args()
 
