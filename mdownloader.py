@@ -14,10 +14,11 @@ import shutil
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
-headers = {'User-Agent': 'mDownloader/2.2.6'}
+headers = {'User-Agent': 'mDownloader/2.2.7'}
 domain  = 'https://mangadex.org'
 re_regrex = re.compile('[\\\\/:*?"<>|]')
 md_url = re.compile(r'https\:\/\/mangadex\.org\/(title|chapter|manga)\/([0-9]+)')
+url_re = re.compile(r'(?:https|ftp|http)(?::\/\/)(?:.+)')
 
 
 def createFolder(folder_name):
@@ -270,10 +271,9 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
         return {"error": "There was an error while downloading the chapter", "response_code": response.status_code}
     else:
         image_data = response.json()
-        server_url = ''
 
         #Extenal chapters
-        if 'external' == image_data["status"]:
+        if image_data["status"] == 'external':
 
             print('Chapter external to Mangadex. Unable to download.')
             return {"error": "There was an error while downloading the chapter", "response_code": 'Chapter external to Mangadex. Unable to download.'}
@@ -334,7 +334,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
             zip_exists, chapter_zip = createZip(zip_route)
 
             if zip_exists:
-                if check_images == 'names' or check_images == 'data':
+                if check_images != 'skip':
                     zip_exists = 1
                     print('The zip file exists, checking if all the images are downloaded.')
                     if check_images == 'data':
@@ -342,7 +342,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                         chapter_zip.close()
                         os.remove(zip_route)
                         _, chapter_zip = createZip(zip_route)
-                elif check_images == 'skip':
+                else:
                     print('The zip exists, skipping...')
                     shutil.rmtree(folder_route)
                     return
@@ -350,10 +350,10 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                 zip_exists = 0
 
             if folder_exists:
-                if check_images == 'names' or check_images == 'data':
+                if check_images != 'skip':
                     folder_exists = 1
                     print('The folder exists, checking if all the images are downloaded.')
-                elif check_images == 'skip':
+                else:
                     print('The folder exists, skipping...')
                     shutil.rmtree(folder_route)
                     return
@@ -462,8 +462,7 @@ def title(id, language, languages, route, type, remove_folder, check_images, sav
                 
             chapter_response = downloadChapter(chapter_id, series_route, route, languages, 1, remove_folder, title, check_images, save_format)
 
-            if check_images == 'names' or check_images == 'data':
-                
+            if check_images != 'skip':
                 if 'error' in chapter_response:
                     json_chapter["error"] = chapter_response
                 else:
@@ -471,8 +470,7 @@ def title(id, language, languages, route, type, remove_folder, check_images, sav
 
                 json_data['chapters'].append(json_chapter)
 
-    if check_images == 'names' or check_images == 'data':
-
+    if check_images != 'skip':
         if not json_data["chapters"]:
             json_data["chapters"] = f'This title has no chapters in {language}.'
 
@@ -502,6 +500,7 @@ def bulkDownloader(filename, language, route, type, remove_folder, check_images,
         for id in titles:
 
             if not id.isdigit():
+                
                 if md_url.match(id):
                     input_url = md_url.match(id)
                     
@@ -546,16 +545,17 @@ def main(id, language, route, type, remove_folder, check_images, save_format, la
     if not id.isdigit():
 
         if os.path.exists(args.id):
-            bulkDownloader(id, language, route, type, remove_folder, check_images, save_format)
-        elif md_url.match(id):
-            input_url = md_url.match(id)
-            
-            if input_url.group(1) == 'title' or input_url.group(1) == 'manga':
-                id = input_url.group(2)
-                title(id, language, '', route, 1, remove_folder, check_images, save_format)
-            elif input_url.group(1) == 'chapter':
-                id = input_url.group(2)
-                downloadChapter(id, '', route, '', 0, remove_folder, title, check_images, save_format)
+            bulkDownloader(id, language, route, type, remove_folder, check_images, save_format)        
+        elif url_re.search(id):
+            if md_url.match(id):
+                input_url = md_url.match(id)
+                
+                if input_url.group(1) == 'title' or input_url.group(1) == 'manga':
+                    id = input_url.group(2)
+                    title(id, language, '', route, 1, remove_folder, check_images, save_format)
+                elif input_url.group(1) == 'chapter':
+                    id = input_url.group(2)
+                    downloadChapter(id, '', route, '', 0, remove_folder, title, check_images, save_format)
             else:
                 print('Please use a MangaDex title/chapter link.')
                 return
@@ -565,7 +565,7 @@ def main(id, language, route, type, remove_folder, check_images, save_format, la
     else:
         if type == 'title' or type == 'manga':
             title(id, language, '', route, 1, remove_folder, check_images, save_format)
-        elif type == 'chapter' or type == 'chapters':
+        elif type == 'chapter':
             downloadChapter(id, '', route, '', 0, remove_folder, title, check_images, save_format)
         else:
             print('Please enter a title/chapter id. For titles, you must add the argument "--type chapter".')
@@ -575,11 +575,11 @@ def main(id, language, route, type, remove_folder, check_images, save_format, la
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--language', '-l', default='gb', help='Specify the language to download. NEEDED for title downloads.')
+    parser.add_argument('--language', '-l', default='gb', help='Specify the language to download. NEEDED for non-English title downloads.')
     parser.add_argument('--directory', '-d', default='./downloads', help='The download location, need to specify full path.')
-    parser.add_argument('--type', '-t', default='title', help='Type of id to download, title or chapter.') #title or chapter
+    parser.add_argument('--type', '-t', default='title', nargs='?', const='chapter', help='Type of id to download, title or chapter.') #title or chapter
     parser.add_argument('--remove_folder', '-r', default='yes', help='Remove the chapter folder that is made after the chapter has been downloaded.') #yes or no
-    parser.add_argument('--check_images', '-c', default='names', help='Check if the chapter folder and/or zip has the same files as the chapter on MangaDex. Read the Readme for more information.') #data or names or skip
+    parser.add_argument('--check_images', '-c', default='names', choices=['names', 'data', 'skip'], help='Check if the chapter folder and/or zip has the same files as the chapter on MangaDex. Read the Readme for more information.') #data or names or skip
     parser.add_argument('--save_format', '-s', default='cbz', help='Choose to download as a zip archive or as a comic archive.') #zip or cbz
     parser.add_argument('id', help='ID to download. Can be chapter, tile, link or file.')
 
