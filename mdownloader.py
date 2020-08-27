@@ -14,7 +14,7 @@ import shutil
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
-headers = {'User-Agent': 'mDownloader/2.2.7'}
+headers = {'User-Agent': 'mDownloader/2.2.9'}
 domain  = 'https://mangadex.org'
 re_regrex = re.compile('[\\\\/:*?"<>|]')
 md_url = re.compile(r'https\:\/\/mangadex\.org\/(title|chapter|manga)\/([0-9]+)')
@@ -66,24 +66,21 @@ def createImages(response, folder, image_name, chapter_zip):
 
 def checkImages(response, folder, image_name, chapter_zip, image_data, check_images= 'names'):
     pages = []
-    
-    for _, _, files in os.walk(folder):
-        for filename in files:
-            if filename == image_name:
-                if check_images == 'data':
-                    with open(f'{folder}/{filename}', 'rb') as file:
-                        f = file.read() 
-                        b = bytearray(f)
-                        if b == response:
-                            appendZip(chapter_zip, folder, filename)
-                            pages.append(filename)
-                            continue
-                else:
-                    appendZip(chapter_zip, folder, filename)
-                    pages.append(filename)
-                    continue
-        break
 
+    for filename in os.listdir(folder):
+        if filename == image_name:
+            if check_images == 'data':
+                with open(f'{folder}/{filename}', 'rb') as file:
+                    f = file.read() 
+                    b = bytearray(f)
+                    if b == response:
+                        appendZip(chapter_zip, folder, filename)
+                        pages.append(filename)
+                        continue
+            else:
+                appendZip(chapter_zip, folder, filename)
+                pages.append(filename)
+                continue
     #check for missing images
     if image_name not in pages:
         createImages(response, folder, image_name, chapter_zip)
@@ -96,18 +93,16 @@ def checkZip(response, folder, zip_files, chapter_zip, image_name, check_images=
 
     #checks if image data is the same
     if check_images == 'data':
-        for _, _, files in os.walk(zip_files):
-            for filename in files:
-                if filename == image_name:
-                    with open(f'{zip_files}/{filename}', 'rb') as file:
-                        f = file.read()
-                        b = bytearray(f)
-                        if b == response:
-                            shutil.copy(f'{zip_files}/{filename}', f'{folder}/{filename}')
-                            appendZip(chapter_zip, folder, filename)
-                            pages.append(filename)
-                    continue
-            break
+        for filename in os.listdir(zip_files):
+            if filename == image_name:
+                with open(f'{zip_files}/{filename}', 'rb') as file:
+                    f = file.read()
+                    b = bytearray(f)
+                    if b == response:
+                        shutil.copy(f'{zip_files}/{filename}', f'{folder}/{filename}')
+                        appendZip(chapter_zip, folder, filename)
+                        pages.append(filename)
+                continue
     
     #checks if the images are the same name
     else:
@@ -222,12 +217,8 @@ async def downloadImages(image, url, language, folder, retry, folder_exists, zip
                                 createImages(response, folder, image_name, chapter_zip)
                             if folder_exists:
                                 checkImages(response, folder, image_name, chapter_zip, image_data, check_images)
-                        else:
-                            return {"image": image, "status": "Success"}
                     
                     retry = 5
-                    
-                    return {"image": image, "status": "Success"}
 
             except (ClientError, AssertionError, asyncio.TimeoutError):
                 await asyncio.sleep(3)
@@ -236,8 +227,6 @@ async def downloadImages(image, url, language, folder, retry, folder_exists, zip
 
                 if retry == 5:
                     print(f'Could not download image {image} after 5 times.')
-                    await asyncio.sleep(1)
-                    return {"image": image, "status": "Fail"}
 
 
 # type 0 -> chapter
@@ -282,9 +271,6 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
             server_url = image_data["server"]
 
             url = f'{server_url}{image_data["hash"]}/'
-
-            response = {"url": url}
-            response["pages"] = {}
             
             #chapter download
             if type == 0:              
@@ -383,9 +369,9 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                 shutil.rmtree(folder_route)
 
             if type == 1:
-                for t in tasks:
-                    result = t.result()
-                    response['pages'][result['image']] = result['status']
+                
+                response = {"url": url}
+                response["pages"] = image_data["page_array"]
 
                 return response
 
@@ -544,7 +530,7 @@ def main(id, language, route, type, remove_folder, check_images, save_format, la
     #Check the id is valid number
     if not id.isdigit():
 
-        if os.path.exists(args.id):
+        if os.path.exists(id):
             bulkDownloader(id, language, route, type, remove_folder, check_images, save_format)        
         elif url_re.search(id):
             if md_url.match(id):
