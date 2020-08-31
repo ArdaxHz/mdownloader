@@ -1,9 +1,5 @@
 #!/usr/bin/python3
-import sys
 import os
-import time
-import requests
-import argparse
 import re
 import html
 import json
@@ -83,7 +79,7 @@ class titleJson:
             json_chapter["title"] = chapter_data["title"]
             json_chapter["lang_name"] = chapter_data["lang_name"]
             json_chapter["lang_code"] = chapter_data["lang_code"]
-            json_chapter["group(s)"] = self.regex.sub('_', html.unescape(', '.join(filter(None, [chapter_data[x] for x in filter(lambda s: s.startswith('group_name'), chapter_data.keys())]))))
+            json_chapter["group(s)"] = self.regex.sub('_', html.unescape('& '.join(filter(None, [chapter_data[x] for x in filter(lambda s: s.startswith('group_name'), chapter_data.keys())]))))
             if chapter_data["status"] == "external":
                 json_chapter["images"] = 'This chapter is external to MangaDex so image list is not available.'
             else:
