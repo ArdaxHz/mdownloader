@@ -90,7 +90,7 @@ class ChapterSaver(Base):
         self.path.mkdir(parents=True, exist_ok=True)
         self.folder_path = self.path.joinpath(self.folder_name)
         self.archive_path = self.path.joinpath(self.folder_name).with_suffix(f".{save_format}")
-        self.arhcive = self.makeZip()
+        self.archive = self.makeZip()
         self.folder = self.makeFolder()
 
 
