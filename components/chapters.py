@@ -10,8 +10,9 @@ from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 from components.exporter import CBZSaver
 from components.mangaplus import MangaPlus
+from components.__version__ import __version__
 
-headers = {'User-Agent': 'mDownloader/2.2.9'}
+headers = {'User-Agent': f'mDownloader/{__version__}'}
 domain  = 'https://mangadex.org'
 re_regrex = re.compile('[\\\\/:*?"<>|]')
 

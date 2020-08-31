@@ -10,8 +10,9 @@ import json
 from aiohttp import ClientSession, ClientError
 from components.chapters import downloadChapter
 from components.jsonmaker import titleJson
+from components.__version__ import __version__
 
-headers = {'User-Agent': 'mDownloader/2.3.0'}
+headers = {'User-Agent': f'mDownloader/{__version__}'}
 domain  = 'https://mangadex.org'
 re_regrex = re.compile('[\\\\/:*?"<>|]')
 
