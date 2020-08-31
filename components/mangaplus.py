@@ -3,7 +3,7 @@ import requests
 import re
 
 from tqdm import tqdm
-from response_pb2 import Response, MangaViewer, TitleDetailView
+from components.response_pb2 import Response, MangaViewer, TitleDetailView
 
 class MangaPlus:
 

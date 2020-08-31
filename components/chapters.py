@@ -8,8 +8,8 @@ import json
 
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
-from exporter import CBZSaver
-from mangaplus import MangaPlus
+from components.exporter import CBZSaver
+from components.mangaplus import MangaPlus
 
 headers = {'User-Agent': 'mDownloader/2.2.9'}
 domain  = 'https://mangadex.org'
@@ -52,13 +52,13 @@ async def downloadImages(image, url, retry, image_data, instance):
 
 # type 0 -> chapter
 # type 1 -> title
-def downloadChapter(chapter_id, series_route, route, languages, type, remove_folder, title, check_images, save_format):
+def downloadChapter(chapter_id, series_route, route, languages, type, remove_folder, title, check_images, save_format, json_file):
 
     try:
         if languages == '':
             #Read languages file
-            with open('languages.json', 'r') as json_file:
-                languages = json.load(json_file)
+            with open('languages.json', 'r') as lang_file:
+                languages = json.load(lang_file)
 
             print('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
 
@@ -106,13 +106,14 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
 
             instance = CBZSaver(title, image_data, languages, series_route, check_images)
 
+            print(f'Downloading {title} - Volume {image_data["volume"]} - Chapter {image_data["chapter"]} - Title: {image_data["title"]}')
+
             #Extenal chapters
             if image_data["status"] == 'external':
                 manga_plus = MangaPlus(image_data, instance)
                 manga_plus.plusImages()
             
             else:
-                print(f'Downloading {title} - Volume {image_data["volume"]} - Chapter {image_data["chapter"]} - Title: {image_data["title"]}')
 
                 # ASYNC FUNCTION
                 loop  = asyncio.get_event_loop()
@@ -127,14 +128,8 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                 
                 instance.close
 
-            if type == 1 and image_data["status"] != 'external':
-                
-                response = {"url": url}
-                response["pages"] = image_data["page_array"]
+            if type == 1:
+                json_file.chapters(image_data)
 
-                return response
-            elif type == 1 and image_data["status"] == 'external':
-                return 'Unable to index MangaPlus pages into a list.'
-    
     except (TimeoutError, KeyboardInterrupt, ConnectionResetError):
         instance.remove

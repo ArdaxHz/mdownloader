@@ -15,12 +15,6 @@ from aiohttp import ClientSession, ClientError
 from pathlib import Path
 from tqdm import tqdm
 
-headers = {'User-Agent': 'mDownloader/2.2.9'}
-domain  = 'https://mangadex.org'
-re_regrex = re.compile('[\\\\/:*?"<>|]')
-md_url = re.compile(r'https\:\/\/mangadex\.org\/(title|chapter|manga)\/([0-9]+)')
-url_re = re.compile(r'(?:https|ftp|http)(?::\/\/)(?:.+)')
-
 
 
 class Base:
@@ -31,7 +25,8 @@ class Base:
         self.chapter_number = image_data["chapter"]
         self.language = languages[image_data["lang_code"]]
         self.lang_code = image_data["lang_code"]
-        self.groups = re_regrex.sub('_', html.unescape(', '.join(filter(None, [image_data[x] for x in filter(lambda s: s.startswith('group_name'), image_data.keys())]))))
+        self.regex = re.compile('[\\\\/:*?"<>|]')
+        self.groups = self.regex.sub('_', html.unescape(', '.join(filter(None, [image_data[x] for x in filter(lambda s: s.startswith('group_name'), image_data.keys())]))))
         self.prefix = self.prefixName()
         self.suffix = self.suffixName()
         self.folder_name = self.folderName()
