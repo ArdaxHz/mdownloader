@@ -1,4 +1,5 @@
 # mDownloader
+Busy rewriting the code, used the MangaPlus image decrypter from [here.](https://github.com/hurlenko/mloader)
 
 ## Install requirements
 `pip install -r requirements.txt`
