@@ -52,7 +52,7 @@ async def downloadImages(image, url, retry, image_data, instance):
 
 # type 0 -> chapter
 # type 1 -> title
-def downloadChapter(chapter_id, series_route, route, languages, type, remove_folder, title, check_images, save_format, json_file):
+def downloadChapter(chapter_id, series_route, route, languages, type, title, check_images, save_format, json_file):
 
     try:
         if languages == '':
@@ -104,7 +104,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                     print("Could not call the api of the title page.")
                     return
 
-            instance = CBZSaver(title, image_data, languages, series_route, check_images)
+            instance = CBZSaver(title, image_data, languages, series_route, save_format)
 
             print(f'Downloading {title} - Volume {image_data["volume"]} - Chapter {image_data["chapter"]} - Title: {image_data["title"]}')
 
@@ -112,9 +112,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
             if image_data["status"] == 'external':
                 manga_plus = MangaPlus(image_data, instance)
                 manga_plus.plusImages()
-            
             else:
-
                 # ASYNC FUNCTION
                 loop  = asyncio.get_event_loop()
                 tasks = []
@@ -126,10 +124,11 @@ def downloadChapter(chapter_id, series_route, route, languages, type, remove_fol
                 runner = wait_with_progress(tasks)
                 loop.run_until_complete(runner)
                 
-                instance.close
+                instance.close()
 
             if type == 1:
                 json_file.chapters(image_data)
 
     except (TimeoutError, KeyboardInterrupt, ConnectionResetError):
-        instance.remove
+        instance.close()
+        instance.remove()

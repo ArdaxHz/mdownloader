@@ -67,59 +67,34 @@ class Base:
 
 
 class CBZSaver(Base):
-    def __init__(self, title, image_data, languages, destination, check_images):
+    def __init__(self, title, image_data, languages, destination, save_format):
         super().__init__(title, image_data, languages)
         self.path = Path(destination)
         self.path.mkdir(parents=True, exist_ok=True)
-        self.zip_files = f'{self.folder_name}_tmp'
-        self.archive_path = self.path.joinpath(self.folder_name).with_suffix(".cbz")
-        self.check_images = check_images
+        self.archive_path = self.path.joinpath(self.folder_name).with_suffix(f".{save_format}")
         self.archive = zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED)
-        if self.check_images == 'data':
-            self.cbzFiles()
 
     
     def imageCompress(self):
         self.archive.writestr(self.page_name, self.response)
 
 
-    def imageChecker(self):
-        for filename in os.listdir(self.zip_files):
-            with open (f'{self.zip_files}/{filename}', 'rb') as file:
-                f = file.read() 
-                b = bytearray(f)
-                if b == self.response:
-                    self.response = b
-                    self.page_name = filename
-                else:
-                    self.response = self.response
-                    self.page_name = filename
-
-
     def add_image(self, response, page_no, ext):
         self.page_name = self.pageName(page_no, ext)
         self.response = response
 
-        if self.check_images == 'data':
-            self.imageChecker()
+        if self.page_name in self.archive.namelist():
+            pass
         else:
-            if self.page_name in self.archive.namelist():
-                pass
-            else:
-                self.archive.writestr(self.page_name, response)
+            self.imageCompress()
 
-
-    def cbzFiles(self):
-        self.archive.extractall(self.zip_files)
-        os.remove(self.archive_path)
-        self.archive
 
     def remove(self):
         try:
             os.remove(self.archive)
-            shutil.rmtree(self.zip_files)
         except FileNotFoundError:
             pass
+
 
     def close(self):
         self.archive.close()
