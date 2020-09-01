@@ -43,7 +43,7 @@ async def downloadImages(image, url, retry, chapter_data, instance):
                     
                     retry = 5
 
-            except (ClientError, AssertionError, asyncio.TimeoutError):
+            except (ClientError, AssertionError, ConnectionResetError, asyncio.TimeoutError):
                 await asyncio.sleep(3)
 
                 retry += 1
@@ -108,18 +108,22 @@ def downloadChapter(chapter_id, series_route, route, languages, type, title, che
                     return
 
             instance = ChapterSaver(title, chapter_data, languages, series_route, save_format)
+            
+            if type == 1:
+                json_file.chapters(chapter_data)
 
             print(f'Downloading {title} - Volume {chapter_data["volume"]} - Chapter {chapter_data["chapter"]} - Title: {chapter_data["title"]}')
-
-            if len(chapter_data['page_array']) == len(instance.archive.namelist()):
-                print('File already downloaded.')
-                return
 
             #Extenal chapters
             if chapter_data["status"] == 'external':
                 manga_plus = MangaPlus(chapter_data, instance)
                 manga_plus.plusImages()
             else:
+
+                if len(chapter_data['page_array']) == len(instance.archive.namelist()):
+                    print('File already downloaded.')
+                    return
+
                 # ASYNC FUNCTION
                 loop  = asyncio.get_event_loop()
                 tasks = []
@@ -132,9 +136,6 @@ def downloadChapter(chapter_id, series_route, route, languages, type, title, che
                 loop.run_until_complete(runner)
                 
                 instance.close()
-
-            if type == 1:
-                json_file.chapters(chapter_data)
 
     except (TimeoutError, KeyboardInterrupt, ConnectionResetError):
         instance.close()

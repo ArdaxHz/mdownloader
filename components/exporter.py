@@ -21,14 +21,13 @@ class Base:
 
     def __init__(self, series_title, chapter_data, languages):
         self.series_title = series_title
-        self.volume = chapter_data["volume"]
+        self.volume = '(web)' if chapter_data["volume"] == '' else f'(v{chapter_data["volume"].zfill(2)})'
         self.chapter_number = chapter_data["chapter"]
         self.chapter_title = chapter_data["title"]
         self.language = languages[chapter_data["lang_code"]]
         self.lang_code = chapter_data["lang_code"]
         self.regex = re.compile('[\\\\/:*?"<>|]')
-        self.groups = self.regex.sub('_', html.unescape('& '.join(filter(None, [chapter_data[x] for x in filter(lambda s: s.startswith('group_name'), chapter_data.keys())]))))
-        self.extra_info = self.extraInfo()
+        self.groups = self.regex.sub('_', html.unescape( ', '.join(filter(None, [chapter_data[x] for x in filter(lambda s: s.startswith('group_name'), chapter_data.keys()) ])) ))
         self.prefix = self.prefixName()
         self.suffix = self.suffixName()
         self.folder_name = self.folderName()
@@ -42,33 +41,24 @@ class Base:
             pattern = chapter_regrex.match(self.chapter_number)
             chap_no = pattern.group(1).zfill(3)
             decimal_no = pattern.group(2)
-            chapter_number = (f'{chap_no}.{decimal_no}')
+            self.chapter_number = f'c{chap_no}.{decimal_no}'
+        elif self.chapter_title == 'Oneshot':
+            self.chapter_number = self.chapter_number.zfill(3)
         else:
-            chapter_number = self.chapter_number.zfill(3)
+            self.chapter_number = f'c{self.chapter_number.zfill(3)}'
         
         if self.lang_code == 'gb':
             name_prefix = self.series_title
         else:
             name_prefix = f'{self.series_title} [{self.language}]'
         
-        if self.volume == '':
-            prefix = f'{name_prefix} - c{chapter_number}'
-        else:
-            prefix = f'{name_prefix} - c{chapter_number} (v{self.volume.zfill(2)})'
+        prefix = f'{name_prefix} - {self.chapter_number} {self.volume}'
 
         return prefix
 
 
-    def extraInfo(self):
-        if 'Oneshot' in self.chapter_title:
-            self.volume = ''
-            return 'Oneshot'
-        else:
-            return None
-
-
     def suffixName(self):
-        if self.chapter_title is not None:
+        if self.chapter_title == 'Oneshot':
             return f'[{self.chapter_title}] [{self.groups}]'
         else:
             return f'[{self.groups}]'
@@ -89,7 +79,7 @@ class ChapterSaver(Base):
         self.path = Path(destination)
         self.path.mkdir(parents=True, exist_ok=True)
         self.folder_path = self.path.joinpath(self.folder_name)
-        self.archive_path = self.path.joinpath(self.folder_name).with_suffix(f".{save_format}")
+        self.archive_path = os.path.join(destination, f'{self.folder_name}.{save_format}')
         self.archive = self.makeZip()
         self.folder = self.makeFolder()
 
@@ -103,7 +93,7 @@ class ChapterSaver(Base):
 
     def makeZip(self):
         try:
-            self.archive = zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED)
+            self.archive = zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED, compresslevel=9)
             return self.archive
         except zipfile.BadZipFile:
             self.remove()

@@ -17,7 +17,7 @@ class titleJson:
         self.cover_url = re.sub(r'\?[0-9]+', '', self.data["cover_url"])
         self.links = self.Link()
         self.title_json = self.title()
-        # self.chapter_data = self.chapters
+        self.covers = self.Covers()
         self.chapter_json = []
         self.json_data = self.core
 
@@ -58,6 +58,15 @@ class titleJson:
         return json_links
 
 
+    def Covers(self):
+        json_covers = {"latest_cover": f'{self.domain}{self.cover_url}'}
+        json_covers["other"] = []
+        for cover in self.data["covers"]:
+            cover = f'{self.domain}{cover}'
+            json_covers["other"].append(cover)
+        return json_covers
+
+
     def title(self):
         json_title = {"id": self.manga_id}
         json_title["title"] = self.data['title']
@@ -67,7 +76,6 @@ class titleJson:
         json_title["last_chapter"] = self.data["last_chapter"]
         json_title["hentai"] = "Yes" if self.data["hentai"] == 1 else "No"
         json_title["link"] = f'{self.domain}/manga/{self.manga_id}'
-        json_title["cover_url"] = f'{self.domain}{self.cover_url}'
         return json_title
 
 
@@ -79,11 +87,19 @@ class titleJson:
             json_chapter["title"] = chapter_data["title"]
             json_chapter["lang_name"] = chapter_data["lang_name"]
             json_chapter["lang_code"] = chapter_data["lang_code"]
-            json_chapter["group(s)"] = self.regex.sub('_', html.unescape('& '.join(filter(None, [chapter_data[x] for x in filter(lambda s: s.startswith('group_name'), chapter_data.keys())]))))
+            json_chapter["group(s)"] = self.regex.sub('_', html.unescape( ', '.join(filter(None, [chapter_data[x] for x in filter(lambda s: s.startswith('group_name'), chapter_data.keys()) ])) ))
+            
             if chapter_data["status"] == "external":
                 json_chapter["images"] = 'This chapter is external to MangaDex so image list is not available.'
             else:
-                json_chapter["images"] = {"url": chapter_data["server"], "pages": chapter_data["page_array"]}
+                json_chapter["images"] = {"url": chapter_data["server"]}
+                
+                try:
+                    json_chapter["images"]["backup_url"] = chapter_data["server_fallback"]
+                except KeyError:
+                    pass
+                
+                json_chapter["images"]["pages"] = chapter_data["page_array"]
             
             self.chapter_json.append(json_chapter)
             
@@ -97,8 +113,11 @@ class titleJson:
 
     def core(self):
         json_data = self.title_json
+        json_data["covers"] = self.covers
         json_data["chapters"] = self.chapter_json
+        
         if not os.path.isdir(self.route):
             os.makedirs(self.route)
+        
         with open(os.path.join(self.route, f'{self.manga_id}_data.json'), 'w') as json_file:
             json.dump(json_data, json_file, indent=4, ensure_ascii=False)        
