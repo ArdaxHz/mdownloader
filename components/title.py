@@ -8,7 +8,7 @@ import html
 import json
 
 from aiohttp import ClientSession, ClientError
-from components.chapters import downloadChapter
+from components.chapters import Chapter
 from components.jsonmaker import titleJson
 from components.__version__ import __version__
 
@@ -60,7 +60,7 @@ def downloadTitle(id, language, languages, route, type, make_folder, save_format
 
         # Only chapters of language selected. Default language: English.
         if data['chapter'][chapter_id]['lang_code'] == language:
-                
-            downloadChapter(chapter_id, series_route, route, languages, 1, title, make_folder, save_format, json_file)
+
+            Chapter(chapter_id, series_route, route, languages, 1, title, make_folder, save_format, json_file).downloadChapter()
     
     json_file.core()
