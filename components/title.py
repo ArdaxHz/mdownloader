@@ -17,7 +17,7 @@ domain  = 'https://mangadex.org'
 re_regrex = re.compile('[\\\\/:*?"<>|]')
 
 
-def downloadTitle(id, language, languages, route, type, check_images, save_format):
+def downloadTitle(id, language, languages, route, type, make_folder, save_format):
 
     if languages == '':
         #Read languages file
@@ -45,9 +45,6 @@ def downloadTitle(id, language, languages, route, type, check_images, save_forma
 
     series_route = os.path.join(route, folder_title)
 
-    if data["manga"]["hentai"] == 1:
-        series_route = f'{series_route} (H)'
-
     json_file = titleJson(data, id, series_route)
 
     if 'chapter' not in data:
@@ -64,6 +61,6 @@ def downloadTitle(id, language, languages, route, type, check_images, save_forma
         # Only chapters of language selected. Default language: English.
         if data['chapter'][chapter_id]['lang_code'] == language:
                 
-            downloadChapter(chapter_id, series_route, route, languages, 1, title, check_images, save_format, json_file)
+            downloadChapter(chapter_id, series_route, route, languages, 1, title, make_folder, save_format, json_file)
     
     json_file.core()

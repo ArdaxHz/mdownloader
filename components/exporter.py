@@ -74,14 +74,14 @@ class Base:
 
 
 class ChapterSaver(Base):
-    def __init__(self, series_title, chapter_data, languages, destination, save_format):
+    def __init__(self, series_title, chapter_data, languages, destination, save_format, make_folder):
         super().__init__(series_title, chapter_data, languages)
         self.path = Path(destination)
         self.path.mkdir(parents=True, exist_ok=True)
-        self.folder_path = self.path.joinpath(self.folder_name)
         self.archive_path = os.path.join(destination, f'{self.folder_name}.{save_format}')
+        self.folder_path = self.path.joinpath(self.folder_name)
         self.archive = self.makeZip()
-        self.folder = self.makeFolder()
+        self.folder = 'no' if make_folder == 'no' else self.makeFolder()
 
 
     def remove(self):
@@ -116,15 +116,24 @@ class ChapterSaver(Base):
             file.write(self.response)
 
 
-    def add_image(self, response, page_no, ext):
-        self.page_name = self.pageName(page_no, ext)
-        self.response = response
-
+    def checkImages(self):
         if self.page_name in self.archive.namelist():
             pass
         else:
             self.imageCompress()
-            self.folderAdd()
+        
+        if self.folder != 'no':
+            if self.page_name in os.listdir(self.folder_path):
+                pass
+            else:
+                self.folderAdd()
+
+
+    def add_image(self, response, page_no, ext):
+        self.page_name = self.pageName(page_no, ext)
+        self.response = response
+
+        self.checkImages()
 
 
     def close(self):

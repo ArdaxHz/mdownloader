@@ -54,7 +54,7 @@ async def downloadImages(image, url, retry, chapter_data, instance):
 
 # type 0 -> chapter
 # type 1 -> title
-def downloadChapter(chapter_id, series_route, route, languages, type, title, check_images, save_format, json_file):
+def downloadChapter(chapter_id, series_route, route, languages, type, title, make_folder, save_format, json_file):
 
     try:
         if languages == '':
@@ -107,7 +107,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, title, che
                     print("Could not call the api of the title page.")
                     return
 
-            instance = ChapterSaver(title, chapter_data, languages, series_route, save_format)
+            instance = ChapterSaver(title, chapter_data, languages, series_route, save_format, make_folder)
             
             if type == 1:
                 json_file.chapters(chapter_data)
@@ -119,8 +119,18 @@ def downloadChapter(chapter_id, series_route, route, languages, type, title, che
                 manga_plus = MangaPlus(chapter_data, instance)
                 manga_plus.plusImages()
             else:
+                exists = 0
 
                 if len(chapter_data['page_array']) == len(instance.archive.namelist()):
+                    if make_folder == 'no':
+                        exists = 1
+                    else:
+                        if len(chapter_data['page_array']) == len(os.listdir(instance.folder_path)):
+                            exists = 1
+                        else:
+                            exists = 0
+
+                if exists:
                     print('File already downloaded.')
                     return
 
