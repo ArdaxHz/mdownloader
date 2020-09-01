@@ -16,21 +16,21 @@ from components.__version__ import __version__
 
 class Chapter:
 
-
-    def __init__(self, chapter_id, series_route, route, languages, type, title, make_folder, save_format, json_file):
+    def __init__(self, chapter_id, series_route, route, languages, type, title, make_folder, save_format, json_file, bulk):
         self.chapter_id = chapter_id
         self.route = route
         self.headers = {'User-Agent': f'mDownloader/{__version__}'}
         self.domain = 'https://mangadex.org/api'
         self.chapter_data = self.chapterApi()
         self.regrex = re.compile('[\\\\/:*?"<>|]')
+        self.type = type
+        self.bulk = bulk
         self.title = self.mangaTitle() if languages == '' else title
         self.series_route = self.destination() if languages == '' else series_route
-        self.languages = self.Languages() if languages == '' else languages
+        self.iso_languages = self.Languages() if languages == '' else languages
         self.make_folder = make_folder
         self.save_format = save_format
         self.instance = self.chapterInstance()
-        self.type = type
         self.json_file = json_file
 
 
@@ -69,8 +69,8 @@ class Chapter:
                         print(f'Could not download image {image} after 5 times.')
 
 
+    #Read languages file
     def Languages(self):
-        #Read languages file
         with open('languages.json', 'r') as lang_file:
             languages = json.load(lang_file)
         return languages
@@ -133,7 +133,7 @@ class Chapter:
         return exists
 
     def chapterInstance(self):
-        return ChapterSaver(self.title, self.chapter_data, self.languages, self.series_route, self.save_format, self.make_folder)
+        return ChapterSaver(self.title, self.chapter_data, self.iso_languages, self.series_route, self.save_format, self.make_folder)
 
 
     # type 0 -> chapter
@@ -141,22 +141,21 @@ class Chapter:
     def downloadChapter(self):
 
         try:
-            if self.languages == '':
+            if not self.bulk and not self.type:
                 print('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
 
             #Connect to API and get chapter info
             server_url = self.chapter_data["server"]
             url = f'{server_url}{self.chapter_data["hash"]}/'
             
-            if type == 1:
+            if self.type == 1:
                 self.json_file.chapters(self.chapter_data)
 
             print(f'Downloading {self.title} - Volume {self.chapter_data["volume"]} - Chapter {self.chapter_data["chapter"]} - Title: {self.chapter_data["title"]}')
 
             #Extenal chapters
             if self.chapter_data["status"] == 'external':
-                manga_plus = MangaPlus(self.chapter_data, self.instance)
-                manga_plus.plusImages()
+                MangaPlus(self.chapter_data, self.instance).plusImages()
             else:
 
                 if self.checkExists():

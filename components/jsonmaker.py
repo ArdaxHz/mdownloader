@@ -28,7 +28,7 @@ class titleJson:
         self.title_json = self.title()
         self.covers = self.Covers()
         self.chapter_json = []
-        self.json_data = self.core
+        self.json_data = self.core()
 
 
     def Link(self):
@@ -140,9 +140,12 @@ class titleJson:
             return self.chapter_json
 
 
-    def saveJson(self, json_data):
+    def saveJson(self):
+        if self.save_covers == 'save':
+            self.saveCovers()
+        
         with open(os.path.join(self.route, f'{self.manga_id}_data.json'), 'w') as json_file:
-            json.dump(json_data, json_file, indent=4, ensure_ascii=False)
+            json.dump(self.json_data, json_file, indent=4, ensure_ascii=False)
 
 
     def core(self):
@@ -150,6 +153,4 @@ class titleJson:
         json_data["covers"] = self.covers
         json_data["chapters"] = self.chapter_json
 
-        if self.save_covers == 'save':
-            self.saveCovers()
-        self.saveJson(json_data)
+        return json_data

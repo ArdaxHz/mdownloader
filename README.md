@@ -64,3 +64,4 @@ This follows Daiz's [naming scheme](https://github.com/Daiz/manga-naming-scheme)
 | Italian         | it            | ita           |
 
 ## TODO
+rewrite title, main modules
