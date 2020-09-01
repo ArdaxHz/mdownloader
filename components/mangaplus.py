@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import requests
 import re
+import os
 
 from tqdm import tqdm
 from components.response_pb2 import Response, MangaViewer, TitleDetailView
@@ -37,6 +38,21 @@ class MangaPlus:
             response = requests.get(self.api_url)
             viewer = Response.FromString(response.content).success.manga_viewer
             pages = [p.manga_page for p in viewer.pages if p.manga_page.image_url]
+
+            exists = 0
+
+            if len(pages) == len(self.chapter_instance.archive.namelist()):
+                if self.chapter_instance.make_folder == 'no':
+                    exists = 1
+                else:
+                    if len(pages) == len(os.listdir(self.chapter_instance.folder_path)):
+                        exists = 1
+                    else:
+                        exists = 0
+
+            if exists:
+                print('File already downloaded.')
+                return
 
             for page in tqdm(pages):
                 image = self.decryptImage(page.image_url, page.encryption_key)

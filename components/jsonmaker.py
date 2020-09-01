@@ -3,17 +3,26 @@ import os
 import re
 import html
 import json
+import requests
+
+from pathlib import Path
 
 
 
 class titleJson:
 
-    def __init__(self, data, manga_id, route):
+    def __init__(self, data, manga_id, route, save_covers):
         self.data = data["manga"]
         self.manga_id = manga_id
-        self.route = route
+        self.route = Path(route)
+        self.save_covers = save_covers
+        self.route.mkdir(parents=True, exist_ok=True)
+        self.cover_route = self.route.joinpath('!covers')
+        if self.save_covers == 'save':
+            self.cover_route.mkdir(parents=True, exist_ok=True)
         self.regex = re.compile('[\\\\/:*?"<>|]')
         self.domain = 'https://mangadex.org'
+        self.cover_regex = re.compile(r'(?:https\:\/\/mangadex\.org\/images\/(?:manga|covers)\/)(.+)')
         self.cover_url = re.sub(r'\?[0-9]+', '', self.data["cover_url"])
         self.links = self.Link()
         self.title_json = self.title()
@@ -58,12 +67,32 @@ class titleJson:
         return json_links
 
 
+    def downloadCover(self, cover, cover_name):
+        cover_response = requests.get(cover).content
+
+        with open(os.path.join(self.cover_route, cover_name), 'wb') as file:
+            file.write(cover_response)
+
+
+    def saveCovers(self):
+        json_covers = self.covers
+        cover = json_covers["latest_cover"]
+        cover_name = self.cover_regex.match(cover).group(1)
+
+        self.downloadCover(cover, cover_name)
+
+        for c in json_covers["alt_covers"]:
+            cover_name = f'alt_{self.cover_regex.match(c).group(1)}'
+            self.downloadCover(c, cover_name)
+
+
     def Covers(self):
         json_covers = {"latest_cover": f'{self.domain}{self.cover_url}'}
-        json_covers["other"] = []
+        json_covers["alt_covers"] = []
         for cover in self.data["covers"]:
             cover = f'{self.domain}{cover}'
-            json_covers["other"].append(cover)
+            json_covers["alt_covers"].append(cover)
+
         return json_covers
 
 
@@ -111,13 +140,16 @@ class titleJson:
             return self.chapter_json
 
 
+    def saveJson(self, json_data):
+        with open(os.path.join(self.route, f'{self.manga_id}_data.json'), 'w') as json_file:
+            json.dump(json_data, json_file, indent=4, ensure_ascii=False)
+
+
     def core(self):
         json_data = self.title_json
         json_data["covers"] = self.covers
         json_data["chapters"] = self.chapter_json
-        
-        if not os.path.isdir(self.route):
-            os.makedirs(self.route)
-        
-        with open(os.path.join(self.route, f'{self.manga_id}_data.json'), 'w') as json_file:
-            json.dump(json_data, json_file, indent=4, ensure_ascii=False)        
+
+        if self.save_covers == 'save':
+            self.saveCovers()
+        self.saveJson(json_data)

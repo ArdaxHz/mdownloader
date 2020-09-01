@@ -12,7 +12,7 @@ md_url = re.compile(r'https\:\/\/mangadex\.org\/(title|chapter|manga)\/([0-9]+)'
 url_re = re.compile(r'(?:https|ftp|http)(?::\/\/)(?:.+)')
 
 
-def bulkDownloader(filename, language, route, type, make_folder, save_format):
+def bulkDownloader(filename, language, route, type, make_folder, save_format, covers):
 
     #Open file and read lines
     with open(filename, 'r') as item:
@@ -40,7 +40,7 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format):
                     
                     if input_url.group(1) == 'title' or input_url.group(1) == 'manga':
                         id = input_url.group(2)
-                        downloadTitle(id, language, languages, route, 1, make_folder, save_format)
+                        downloadTitle(id, language, languages, route, 1, make_folder, save_format, covers)
                         print('Download Complete. Waiting 30 seconds...')
                         time.sleep(30) # wait 30 seconds
                     elif input_url.group(1) == 'chapter':
@@ -56,7 +56,7 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format):
 
             else:
                 if type == 'title' or type == 'manga':
-                    downloadTitle(id, language, languages, route, 1, make_folder, save_format)
+                    downloadTitle(id, language, languages, route, 1, make_folder, save_format, covers)
                     print('Download Complete. Waiting 30 seconds...')
                     time.sleep(30) # wait 30 seconds
                 else:
@@ -67,7 +67,7 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format):
         print(f'All the ids in {filename} have been downloaded')
 
 
-def main(id, language, route, type, make_folder, save_format, languages):
+def main(id, language, route, type, make_folder, save_format, covers):
 
     #check if valid zip formats
     if save_format == 'zip':
@@ -82,17 +82,17 @@ def main(id, language, route, type, make_folder, save_format, languages):
     if not id.isdigit():
 
         if os.path.exists(id):
-            bulkDownloader(id, language, route, type, make_folder, save_format)        
+            bulkDownloader(id, language, route, type, make_folder, save_format, covers)        
         elif url_re.search(id):
             if md_url.match(id):
                 input_url = md_url.match(id)
                 
                 if input_url.group(1) == 'title' or input_url.group(1) == 'manga':
                     id = input_url.group(2)
-                    downloadTitle(id, language, '', route, 1, make_folder, save_format)
+                    downloadTitle(id, language, '', route, 1, make_folder, save_format, covers)
                 elif input_url.group(1) == 'chapter':
                     id = input_url.group(2)
-                    downloadChapter(id, '', route, languages, 0, '', make_folder, save_format, '')
+                    downloadChapter(id, '', route, '', 0, '', make_folder, save_format, '')
             else:
                 print('Please use a MangaDex title/chapter link.')
                 return
@@ -101,9 +101,9 @@ def main(id, language, route, type, make_folder, save_format, languages):
             return
     else:
         if type == 'title' or type == 'manga':
-            downloadTitle(id, language, '', route, 1, make_folder, save_format)
+            downloadTitle(id, language, '', route, 1, make_folder, save_format, covers)
         elif type == 'chapter':
-            downloadChapter(id, '', route, languages, 0, '', make_folder, save_format, '')
+            downloadChapter(id, '', route, '', 0, '', make_folder, save_format, '')
         else:
             print('Please enter a title/chapter id. For titles, you must add the argument "--type chapter".')
             return

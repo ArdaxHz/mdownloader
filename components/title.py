@@ -17,7 +17,7 @@ domain  = 'https://mangadex.org'
 re_regrex = re.compile('[\\\\/:*?"<>|]')
 
 
-def downloadTitle(id, language, languages, route, type, make_folder, save_format):
+def downloadTitle(id, language, languages, route, type, make_folder, save_format, covers):
 
     if languages == '':
         #Read languages file
@@ -45,7 +45,7 @@ def downloadTitle(id, language, languages, route, type, make_folder, save_format
 
     series_route = os.path.join(route, folder_title)
 
-    json_file = titleJson(data, id, series_route)
+    json_file = titleJson(data, id, series_route, covers)
 
     if 'chapter' not in data:
         print(f'Title {id} - {title} has no chapters. Making json and Skipping...')

@@ -11,8 +11,9 @@ if __name__ == "__main__":
     parser.add_argument('--type', '-t', default='title', nargs='?', const='chapter', help='Type of id to download, title or chapter.') #title or chapter
     parser.add_argument('--folder', '-f', default='no', nargs='?', const='yes', choices=['yes', 'no'], help='Make chapter folder.') #yes or no
     parser.add_argument('--save_format', '-s', default='cbz', help='Choose to download as a zip archive or as a comic archive.') #zip or cbz
+    parser.add_argument('--covers', '-c', default='skip', nargs='?', const='save', choices=['make', 'save'], help='Download the covers of the manga. Works only with title downloads.')
     parser.add_argument('id', help='ID to download. Can be chapter, tile, link or file.')
 
     args = parser.parse_args()
 
-    main(args.id, args.language, args.directory, args.type, args.folder, args.save_format, '')
+    main(args.id, args.language, args.directory, args.type, args.folder, args.save_format, args.covers)

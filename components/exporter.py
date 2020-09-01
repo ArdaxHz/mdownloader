@@ -77,11 +77,12 @@ class ChapterSaver(Base):
     def __init__(self, series_title, chapter_data, languages, destination, save_format, make_folder):
         super().__init__(series_title, chapter_data, languages)
         self.path = Path(destination)
+        self.make_folder = make_folder
         self.path.mkdir(parents=True, exist_ok=True)
         self.archive_path = os.path.join(destination, f'{self.folder_name}.{save_format}')
         self.folder_path = self.path.joinpath(self.folder_name)
         self.archive = self.makeZip()
-        self.folder = 'no' if make_folder == 'no' else self.makeFolder()
+        self.folder = 'no' if self.make_folder == 'no' else self.makeFolder()
 
 
     def remove(self):
