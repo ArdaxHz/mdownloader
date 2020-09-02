@@ -39,11 +39,12 @@ def downloadTitle(id, language, languages, route, type, make_folder, save_format
 
     title = re_regrex.sub('_', html.unescape(data['manga']['title']))
 
-    folder_title = title.rstrip()
-    folder_title = folder_title.rstrip('.')
-    folder_title = folder_title.rstrip()
+    title = title.rstrip()
+    title = title.rstrip('.')
+    title = title.rstrip()
+    series_title = title
 
-    series_route = os.path.join(route, folder_title)
+    series_route = os.path.join(route, series_title)
 
     json_file = titleJson(data, id, series_route, covers)
 
