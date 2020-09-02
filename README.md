@@ -1,5 +1,5 @@
 # mDownloader
-Busy rewriting the code, used the MangaPlus image decrypter from [here.](https://github.com/hurlenko/mloader)
+Download from MangaDex easily without compromising quality or speed!
 
 ## Install requirements
 `pip install -r requirements.txt`
@@ -22,9 +22,10 @@ id_3
 ```
     -l --language (optional. Use the MD code of the language you want to download. Default: English)
     -d --directory (optional. Must be the absolute path (i.e. /Users/bocchi/Desktop/). Default: script-folder/downloads)
-    -t --type (optional. You can choose between 'title' and 'chapter' option. Use the title id or the chapter id. Default: title)
-    -r --remove_folder (optional. Removes the chapter folder after download. You can choose between 'yes' and 'no' option. Default: yes)
-    -c --check_images (optional. Check if the downloaded image data is the same as on MD. You can choose between 'data' and 'names' option. Default: names)
+    -t --type (optional. You can choose between 'title' and 'chapter' options. Use the title id or the chapter id. Default: title)
+    -f --folder (optional. Makes a chapter folder. You can choose between 'yes' and 'no' options. Default: no)
+    -s --save_format (optional. Choose between comic archive or zip as the file type (both are zip files). You can choose between 'cbz' and 'zip' options. Default: cbz))
+    -c --covers (optional. Download the manga covers, works only with title downloads. You can choose between 'skip' and 'save' options. Default: skip)
 ```
 
 Images will be downloaded in the same directory as this script with the following structure:
@@ -62,5 +63,8 @@ This follows Daiz's [naming scheme](https://github.com/Daiz/manga-naming-scheme)
 | Hungarian       | hu            | hun           | Ukrainian       | ua            | ukr           |
 | Indonesian      | id            | ind           | Vietnamese      | vn            | vie           |
 | Italian         | it            | ita           |
+
+## Other
+Used the MangaPlus image decrypter from [here.](https://github.com/hurlenko/mloader)
 
 ## TODO
