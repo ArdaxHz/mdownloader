@@ -19,17 +19,18 @@ class Chapter:
     def __init__(self, chapter_id, series_route, route, languages, type, title, make_folder, save_format, json_file, bulk):
         self.chapter_id = chapter_id
         self.route = route
-        self.title = title
         self.headers = {'User-Agent': f'mDownloader/{__version__}'}
         self.domain = 'https://mangadex.org/api'
-        self.chapter_api = self.chapterApi()
+        self.chapter_data = self.chapterApi()
         self.regrex = re.compile('[\\\\/:*?"<>|]')
         self.type = type
         self.bulk = bulk
-        self.languages = languages
-        self.series_route = series_route
+        self.title = self.mangaTitle() if languages == '' else title
+        self.series_route = self.destination() if languages == '' else series_route
+        self.iso_languages = self.Languages() if languages == '' else languages
         self.make_folder = make_folder
         self.save_format = save_format
+        self.instance = self.chapterInstance()
         self.json_file = json_file
 
 
@@ -80,7 +81,24 @@ class Chapter:
 
 
     def chapterApi(self):
-        return requests.get(self.domain, params= {"id": self.chapter_id, "type": "chapter", "saver": 0}, headers= self.headers)
+        response = requests.get(self.domain, params= {"id": self.chapter_id, "type": "chapter", "saver": 0}, headers= self.headers)
+
+        if response.status_code != 200:
+
+            #Unavailable chapters
+            if response.status_code == 300:
+                print("Unavailable Chapter. This could be because the chapter was deleted by the group or you're not allowed to read it.")
+            else:
+                #Restricted Chapters. Like korean webtoons
+                if response.status_code == 451:
+                    print("Restricted Chapter. You're not allowed to read this chapter.")
+                else:
+                    print(f'Request status error: {response.status_code}')
+
+            return
+        else:
+            chapter_data = response.json()
+            return chapter_data
 
 
     def mangaTitle(self):
@@ -115,7 +133,7 @@ class Chapter:
         return exists
 
     def chapterInstance(self):
-        return ChapterSaver(self.title, self.chapter_data, self.iso_languages, self.folder, self.save_format, self.make_folder)
+        return ChapterSaver(self.title, self.chapter_data, self.iso_languages, self.series_route, self.save_format, self.make_folder)
 
 
     # type 0 -> chapter
@@ -126,58 +144,36 @@ class Chapter:
             if not self.bulk and not self.type:
                 print('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
 
-            self.response = self.chapterApi()
-
-            if self.response.status_code != 200:
-                #Unavailable chapters
-                if self.response.status_code == 300:
-                    print("Unavailable Chapter. This could be because the chapter was deleted by the group or you're not allowed to read it.")
-                else:
-                    #Restricted Chapters. Like korean webtoons
-                    if self.response.status_code == 451:
-                        print("Restricted Chapter. You're not allowed to read this chapter.")
-                    else:
-                        print(f'Request status error: {self.response.status_code}')
-                return
+            #Connect to API and get chapter info
+            server_url = self.chapter_data["server"]
+            url = f'{server_url}{self.chapter_data["hash"]}/'
             
+            if self.type == 1:
+                self.json_file.chapters(self.chapter_data)
+
+            print(f'Downloading {self.title} - Volume {self.chapter_data["volume"]} - Chapter {self.chapter_data["chapter"]} - Title: {self.chapter_data["title"]}')
+
+            #Extenal chapters
+            if self.chapter_data["status"] == 'external':
+                MangaPlus(self.chapter_data, self.instance).plusImages()
             else:
-                self.chapter_data = self.response.json()
-                self.title = self.mangaTitle() if self.languages == '' else self.title
-                self.folder = self.destination() if self.languages == '' else self.series_route
-                self.iso_languages = self.Languages() if self.languages == '' else self.languages
-                self.instance = self.chapterInstance()
+
+                if self.checkExists():
+                    print('File already downloaded.')
+                    return
+
+                # ASYNC FUNCTION
+                loop  = asyncio.get_event_loop()
+                tasks = []
                 
+                for image in self.chapter_data['page_array']:
+                    task = asyncio.ensure_future(self.downloadImages(url, image, 0))
+                    tasks.append(task)
+
+                runner = self.wait_with_progress(tasks)
+                loop.run_until_complete(runner)
                 
-                #Connect to API and get chapter info
-                server_url = self.chapter_data["server"]
-                url = f'{server_url}{self.chapter_data["hash"]}/'
-                
-                if self.type == 1:
-                    self.json_file.chapters(self.chapter_data)
-
-                print(f'Downloading {self.title} - Volume {self.chapter_data["volume"]} - Chapter {self.chapter_data["chapter"]} - Title: {self.chapter_data["title"]}')
-
-                #Extenal chapters
-                if self.chapter_data["status"] == 'external':
-                    MangaPlus(self.chapter_data, self.instance).plusImages()
-                else:
-
-                    if self.checkExists():
-                        print('Chapter already downloaded.')
-                        return
-
-                    # ASYNC FUNCTION
-                    loop  = asyncio.get_event_loop()
-                    tasks = []
-                    
-                    for image in self.chapter_data['page_array']:
-                        task = asyncio.ensure_future(self.downloadImages(url, image, 0))
-                        tasks.append(task)
-
-                    runner = self.wait_with_progress(tasks)
-                    loop.run_until_complete(runner)
-                    
-                    self.instance.close()
+                self.instance.close()
 
         except (TimeoutError, KeyboardInterrupt, ConnectionResetError):
             self.instance.close()

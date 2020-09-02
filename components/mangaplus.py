@@ -51,7 +51,7 @@ class MangaPlus:
                         exists = 0
 
             if exists:
-                print('Chapter already downloaded.')
+                print('File already downloaded.')
                 return
 
             for page in tqdm(pages):

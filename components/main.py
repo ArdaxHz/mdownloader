@@ -6,7 +6,7 @@ import re
 import json
 
 from components.chapters import Chapter
-from components.title import downloadTitle
+from components.title import Title
 
 md_url = re.compile(r'https\:\/\/mangadex\.org\/(title|chapter|manga)\/([0-9]+)')
 url_re = re.compile(r'(?:https|ftp|http)(?::\/\/)(?:.+)')
@@ -40,7 +40,7 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format, co
                     
                     if input_url.group(1) == 'title' or input_url.group(1) == 'manga':
                         id = input_url.group(2)
-                        downloadTitle(id, language, languages, route, 1, make_folder, save_format, covers, 1)
+                        Title(id, language, languages, route, 1, make_folder, save_format, covers, 1).downloadTitle()
                         print('Download Complete. Waiting 30 seconds...')
                         time.sleep(30) # wait 30 seconds
                     elif input_url.group(1) == 'chapter':
@@ -56,7 +56,7 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format, co
 
             else:
                 if type == 'title' or type == 'manga':
-                    downloadTitle(id, language, languages, route, 1, make_folder, save_format, covers, 1)
+                    Title(id, language, languages, route, 1, make_folder, save_format, covers, 1).downloadTitle()
                     print('Download Complete. Waiting 30 seconds...')
                     time.sleep(30) # wait 30 seconds
                 else:
@@ -89,7 +89,7 @@ def main(id, language, route, type, make_folder, save_format, covers):
                 
                 if input_url.group(1) == 'title' or input_url.group(1) == 'manga':
                     id = input_url.group(2)
-                    downloadTitle(id, language, '', route, 1, make_folder, save_format, covers, 0)
+                    Title(id, language, '', route, 1, make_folder, save_format, covers, 0).downloadTitle()
                 elif input_url.group(1) == 'chapter':
                     id = input_url.group(2)
                     Chapter(id, '', route, '', 0, '', make_folder, save_format, '', 0).downloadChapter()
@@ -101,7 +101,7 @@ def main(id, language, route, type, make_folder, save_format, covers):
             return
     else:
         if type == 'title' or type == 'manga':
-            downloadTitle(id, language, '', route, 1, make_folder, save_format, covers, 0)
+            Title(id, language, '', route, 1, make_folder, save_format, covers, 0).downloadTitle()
         elif type == 'chapter':
             Chapter(id, '', route, '', 0, '', make_folder, save_format, '', 0).downloadChapter()
         else:
