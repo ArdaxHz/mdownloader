@@ -17,9 +17,8 @@ class titleJson:
         self.route = Path(route)
         self.save_covers = save_covers
         self.route.mkdir(parents=True, exist_ok=True)
-        self.regex = re.compile('[\\\\/:*?"<>|]')
+        self.cover_route = self.route.joinpath('!covers')
         if self.save_covers == 'save':
-            self.cover_route = self.route.joinpath('!covers')
             self.cover_route.mkdir(parents=True, exist_ok=True)
         self.regex = re.compile('[\\\\/:*?"<>|]')
         self.domain = 'https://mangadex.org'
