@@ -46,7 +46,7 @@ def downloadTitle(id, language, languages, route, type, make_folder, save_format
 
     series_route = os.path.join(route, series_title)
 
-    json_file = titleJson(data, id, series_route, covers, title)
+    json_file = titleJson(data, id, series_route, covers)
 
     if 'chapter' not in data:
         print(f'Title {id} - {title} has no chapters. Making json and Skipping...')
