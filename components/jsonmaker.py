@@ -69,6 +69,7 @@ class titleJson:
 
     def downloadCover(self, cover, cover_name):
         cover_response = requests.get(cover).content
+        print(f'Saving cover {cover_name}...')
 
         with open(os.path.join(self.cover_route, cover_name), 'wb') as file:
             file.write(cover_response)
@@ -78,11 +79,13 @@ class titleJson:
         json_covers = self.covers
         cover = json_covers["latest_cover"]
         cover_name = self.cover_regex.match(cover).group(1)
+        cover_name = self.regex.sub('_', html.unescape(cover_name))
 
         self.downloadCover(cover, cover_name)
 
         for c in json_covers["alt_covers"]:
             cover_name = f'alt_{self.cover_regex.match(c).group(1)}'
+            cover_name = self.regex.sub('_', html.unescape(cover_name))
             self.downloadCover(c, cover_name)
 
 

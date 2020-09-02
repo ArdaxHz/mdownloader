@@ -98,16 +98,17 @@ def downloadChapter(chapter_id, series_route, route, languages, type, title, mak
                     manga_data = manga_api.json()
                     title = re_regrex.sub('_', html.unescape(manga_data['manga']['title']))
 
-                    folder_title = title.rstrip()
-                    folder_title = folder_title.rstrip('.')
-                    folder_title = folder_title.rstrip()
+                    title = title.rstrip()
+                    title = title.rstrip('.')
+                    title = title.rstrip()
+                    series_title = title
 
-                    series_route = os.path.join(route, folder_title)
+                    series_route = os.path.join(route, series_title)
                 except json.JSONDecodeError:
                     print("Could not call the api of the title page.")
                     return
 
-            instance = ChapterSaver(folder_title, chapter_data, languages, series_route, save_format, make_folder)
+            instance = ChapterSaver(title, chapter_data, languages, series_route, save_format, make_folder)
             
             if type == 1:
                 json_file.chapters(chapter_data)
