@@ -6,7 +6,7 @@ import re
 import json
 
 from components.chapters import Chapter
-from components.title import Title
+from components.title import downloadTitle
 
 md_url = re.compile(r'https\:\/\/mangadex\.org\/(title|chapter|manga)\/([0-9]+)')
 url_re = re.compile(r'(?:https|ftp|http)(?::\/\/)(?:.+)')
@@ -40,12 +40,12 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format, co
                     
                     if input_url.group(1) == 'title' or input_url.group(1) == 'manga':
                         id = input_url.group(2)
-                        Title(id, language, languages, route, 1, make_folder, save_format, covers, 1).downloadTitle()
+                        downloadTitle(id, language, languages, route, 1, make_folder, save_format, covers)
                         print('Download Complete. Waiting 30 seconds...')
                         time.sleep(30) # wait 30 seconds
                     elif input_url.group(1) == 'chapter':
                         id = input_url.group(2)
-                        Chapter(id, '', route, languages, 0, '', make_folder, save_format, '', 1).downloadChapter()
+                        Chapter(id, '', route, languages, 0, '', make_folder, save_format, '').downloadChapter()
                         print('Download Complete. Waiting 5 seconds...')
                         time.sleep(5) # wait 5 seconds
                 else:
@@ -56,11 +56,11 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format, co
 
             else:
                 if type == 'title' or type == 'manga':
-                    Title(id, language, languages, route, 1, make_folder, save_format, covers, 1).downloadTitle()
+                    downloadTitle(id, language, languages, route, 1, make_folder, save_format, covers)
                     print('Download Complete. Waiting 30 seconds...')
                     time.sleep(30) # wait 30 seconds
                 else:
-                    Chapter(id, '', route, languages, 0, '', make_folder, save_format, '', 1).downloadChapter()
+                    Chapter(id, '', route, languages, 0, '', make_folder, save_format, '').downloadChapter()
                     print('Download Complete. Waiting 5 seconds...')
                     # time.sleep(5) # wait 5 seconds
             
@@ -89,10 +89,10 @@ def main(id, language, route, type, make_folder, save_format, covers):
                 
                 if input_url.group(1) == 'title' or input_url.group(1) == 'manga':
                     id = input_url.group(2)
-                    Title(id, language, '', route, 1, make_folder, save_format, covers, 0).downloadTitle()
+                    downloadTitle(id, language, '', route, 1, make_folder, save_format, covers)
                 elif input_url.group(1) == 'chapter':
                     id = input_url.group(2)
-                    Chapter(id, '', route, '', 0, '', make_folder, save_format, '', 0).downloadChapter()
+                    Chapter(id, '', route, '', 0, '', make_folder, save_format, '').downloadChapter()
             else:
                 print('Please use a MangaDex title/chapter link.')
                 return
@@ -101,9 +101,9 @@ def main(id, language, route, type, make_folder, save_format, covers):
             return
     else:
         if type == 'title' or type == 'manga':
-            Title(id, language, '', route, 1, make_folder, save_format, covers, 0).downloadTitle()
+            downloadTitle(id, language, '', route, 1, make_folder, save_format, covers)
         elif type == 'chapter':
-            Chapter(id, '', route, '', 0, '', make_folder, save_format, '', 0).downloadChapter()
+            Chapter(id, '', route, '', 0, '', make_folder, save_format, '').downloadChapter()
         else:
             print('Please enter a title/chapter id. For titles, you must add the argument "--type chapter".')
             return
