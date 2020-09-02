@@ -21,7 +21,7 @@ class Base:
 
     def __init__(self, series_title, chapter_data, languages):
         self.series_title = series_title
-        self.volume = '(web)' if chapter_data["volume"] == '' else f'(v{chapter_data["volume"].zfill(2)})'
+        self.volume = chapter_data["volume"]
         self.chapter_number = chapter_data["chapter"]
         self.chapter_title = chapter_data["title"]
         self.language = languages[chapter_data["lang_code"]]
@@ -51,8 +51,11 @@ class Base:
             name_prefix = self.series_title
         else:
             name_prefix = f'{self.series_title} [{self.language}]'
-        
-        prefix = f'{name_prefix} - {self.chapter_number} {self.volume}'
+
+        if self.volume == '':
+            prefix = f'{name_prefix} - {self.chapter_number}'
+        else:
+            prefix = f'{name_prefix} - {self.chapter_number} {self.volume.zfill(2)}'
 
         return prefix
 
