@@ -17,8 +17,9 @@ class titleJson:
         self.route = Path(route)
         self.save_covers = save_covers
         self.route.mkdir(parents=True, exist_ok=True)
-        self.cover_route = self.route.joinpath('!covers')
+        self.regex = re.compile('[\\\\/:*?"<>|]')
         if self.save_covers == 'save':
+            self.cover_route = self.route.joinpath('!covers')
             self.cover_route.mkdir(parents=True, exist_ok=True)
         self.regex = re.compile('[\\\\/:*?"<>|]')
         self.domain = 'https://mangadex.org'
@@ -69,6 +70,7 @@ class titleJson:
 
     def downloadCover(self, cover, cover_name):
         cover_response = requests.get(cover).content
+        print(f'Saving cover {cover_name}...')
 
         with open(os.path.join(self.cover_route, cover_name), 'wb') as file:
             file.write(cover_response)
@@ -78,11 +80,13 @@ class titleJson:
         json_covers = self.covers
         cover = json_covers["latest_cover"]
         cover_name = self.cover_regex.match(cover).group(1)
+        cover_name = self.regex.sub('_', html.unescape(cover_name))
 
         self.downloadCover(cover, cover_name)
 
         for c in json_covers["alt_covers"]:
             cover_name = f'alt_{self.cover_regex.match(c).group(1)}'
+            cover_name = self.regex.sub('_', html.unescape(cover_name))
             self.downloadCover(c, cover_name)
 
 
