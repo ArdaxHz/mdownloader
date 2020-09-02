@@ -55,7 +55,7 @@ class Base:
         if self.volume == '':
             prefix = f'{name_prefix} - {self.chapter_number}'
         else:
-            prefix = f'{name_prefix} - {self.chapter_number} {self.volume.zfill(2)}'
+            prefix = f'{name_prefix} - {self.chapter_number} (v{self.volume.zfill(2)})'
 
         return prefix
 
