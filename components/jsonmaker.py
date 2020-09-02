@@ -120,6 +120,7 @@ class titleJson:
             json_chapter["lang_name"] = chapter_data["lang_name"]
             json_chapter["lang_code"] = chapter_data["lang_code"]
             json_chapter["group(s)"] = self.regex.sub('_', html.unescape( ', '.join(filter(None, [chapter_data[x] for x in filter(lambda s: s.startswith('group_name'), chapter_data.keys()) ])) ))
+            json_chapter["link"] = f'{self.domain}/chapter/{chapter_data["id"]}'
             
             if chapter_data["status"] == "external":
                 json_chapter["images"] = 'This chapter is external to MangaDex so image list is not available.'
