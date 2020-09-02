@@ -17,8 +17,8 @@ class titleJson:
         self.route = Path(route)
         self.save_covers = save_covers
         self.route.mkdir(parents=True, exist_ok=True)
+        self.cover_route = self.route.joinpath('!covers')
         if self.save_covers == 'save':
-            self.cover_route = self.route.joinpath('!covers')
             self.cover_route.mkdir(parents=True, exist_ok=True)
         self.regex = re.compile('[\\\\/:*?"<>|]')
         self.domain = 'https://mangadex.org'
@@ -119,7 +119,7 @@ class titleJson:
             json_chapter["group(s)"] = self.regex.sub('_', html.unescape( ', '.join(filter(None, [chapter_data[x] for x in filter(lambda s: s.startswith('group_name'), chapter_data.keys()) ])) ))
             
             if chapter_data["status"] == "external":
-                json_chapter["images"] = 'This chapter is external to MangaDex so an image list is not available.'
+                json_chapter["images"] = 'This chapter is external to MangaDex so image list is not available.'
             else:
                 json_chapter["images"] = {"url": chapter_data["server"]}
                 
