@@ -113,7 +113,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, title, mak
             if type == 1:
                 json_file.chapters(chapter_data)
 
-            print(f'Downloading {title} - Volume {chapter_data["volume"]} - Chapter {chapter_data["chapter"]} - Title: {chapter_data["title"]}')
+            print(f'Downloading {title} - Volume: {chapter_data["volume"]} - Chapter: {chapter_data["chapter"]} - Title: {chapter_data["title"]}')
 
             #Extenal chapters
             if chapter_data["status"] == 'external':
