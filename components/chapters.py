@@ -117,6 +117,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, title, mak
 
             #Extenal chapters
             if chapter_data["status"] == 'external':
+                print('External chapter... Connecting to MangaPlus to download...')
                 manga_plus = MangaPlus(chapter_data, instance)
                 manga_plus.plusImages()
             else:

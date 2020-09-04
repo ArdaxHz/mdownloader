@@ -123,7 +123,7 @@ class titleJson:
             json_chapter["link"] = f'{self.domain}/chapter/{chapter_data["id"]}'
             
             if chapter_data["status"] == "external":
-                json_chapter["images"] = 'This chapter is external to MangaDex so image list is not available.'
+                json_chapter["images"] = 'This chapter is external to MangaDex so an image list is not available.'
             else:
                 json_chapter["images"] = {"url": chapter_data["server"]}
                 
@@ -151,6 +151,7 @@ class titleJson:
 
     def core(self):
         json_data = self.title_json
+        json_data["external_links"] = self.links
         json_data["covers"] = self.covers
         json_data["chapters"] = self.chapter_json
 
