@@ -70,17 +70,14 @@ def downloadChapter(chapter_id, series_route, route, languages, type, title, mak
         response = requests.get(url, headers = headers)
 
         if response.status_code != 200:
-
-            #Unavailable chapters
-            if response.status_code == 300:
-                print("Unavailable Chapter. This could be because the chapter was deleted by the group or you're not allowed to read it.")
+            if response.status_code == 300: #Unavailable chapters
+                print(f"Unavailable Chapter. This could be because the chapter was deleted by the group or you're not allowed to read it. Error: {response.status_code}")
+            elif response.status_code == 451: #Restricted Chapters. Like korean webtoons
+                print(f"Restricted Chapter. You're not allowed to read this chapter. Error: {response.status_code}")
+            elif response.status_code == 410: #Deleted Chapters.
+                print(f"Deleted Chapter. Error: {response.status_code}")
             else:
-                #Restricted Chapters. Like korean webtoons
-                if response.status_code == 451:
-                    print("Restricted Chapter. You're not allowed to read this chapter.")
-                else:
-                    print(f'Request status error: {response.status_code}')
-
+                print(f"Chapter ID doesn't exist. Error: {response.status_code}")
             return
         else:
             chapter_data = response.json()
