@@ -5,11 +5,11 @@ Download from MangaDex easily without compromising quality or speed!
 `pip install -r requirements.txt`
 
 ## Excecute 
-`python3 mdownloader.py [options] [title link/id, chapter link/id or filename]`
+`python3 mdownloader.py [options] [title link/id, chapter link/id, group link/id or filename]`
 
-To bulk download titles or chapters, create a file in the same folder as the downloader. Inside, add one id or link per line, you need to specify the ids are for chapters or titles. The Link can be either for chapters or titles, no need to specify which it is using the "--type" argument. Instead of typing the id when executing, enter the filename. Since title is the default download type, there is no need to add it as an option for bulk download. Any line that isn't a mangadex title/chapter link/id will be skipped.
+To bulk download titles or chapters, create a file in the same folder as the downloader. Inside, add one id or link per line, you need to specify the ids are for chapters or titles. The Link can be either for chapters or titles, no need to specify which it is using the "--type" argument. Instead of typing the id when executing, enter the filename. Since title is the default download type, there is no need to add it as an option for bulk download. Any line that isn't a mangadex title/chapter/group link/id will be skipped.
 
-`python3 mdownloader.py mylist.txt [-t chapter]`
+`python3 mdownloader.py mylist.txt [-t chapter/group]`
 
 ```
 id_1
@@ -22,7 +22,7 @@ id_3
 ```
     -l --language (optional. Use the MD code of the language you want to download. Default: English)
     -d --directory (optional. Must be the absolute path (i.e. /Users/bocchi/Desktop/). Default: script-folder/downloads)
-    -t --type (optional. You can choose between 'title' and 'chapter' options. Use the title id or the chapter id. Default: title)
+    -t --type (optional. You can choose between 'title', 'chapter' or 'group' options. Default: title)
     -f --folder (optional. Makes a chapter folder. You can choose between 'yes' and 'no' options. Default: no)
     -s --save_format (optional. Choose between comic archive or zip as the file type (both are zip files). You can choose between 'cbz' and 'zip' options. Default: cbz))
     -c --covers (optional. Download the manga covers, works only with title downloads. You can choose between 'skip' and 'save' options. Default: skip)
