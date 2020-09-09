@@ -16,10 +16,7 @@ class titleJson:
         self.manga_id = manga_id
         self.route = Path(route)
         self.save_covers = save_covers
-        self.route.mkdir(parents=True, exist_ok=True)
-        if self.save_covers == 'save':
-            self.cover_route = self.route.joinpath('!covers')
-            self.cover_route.mkdir(parents=True, exist_ok=True)
+        self.route.mkdir(parents=True, exist_ok=True)          
         self.regex = re.compile('[\\\\/:*?"<>|]')
         self.domain = 'https://mangadex.org'
         self.cover_regex = re.compile(r'(?:https\:\/\/mangadex\.org\/images\/(?:manga|covers)\/)(.+)')
@@ -92,11 +89,23 @@ class titleJson:
     def Covers(self):
         json_covers = {"latest_cover": f'{self.domain}{self.cover_url}'}
         json_covers["alt_covers"] = []
-        for cover in self.data["covers"]:
-            cover = f'{self.domain}{cover}'
-            json_covers["alt_covers"].append(cover)
+        
+        if not self.data["covers"]:
+            json_covers["alt_covers"] = 'This title has no other covers.'
+        else:
+            for cover in self.data["covers"]:
+                cover = f'{self.domain}{cover}'
+                json_covers["alt_covers"].append(cover)
 
         return json_covers
+
+
+    def coverChecker(self):
+        if self.save_covers == 'save':
+            print('Downloading covers...')
+            self.cover_route = self.route.joinpath('!covers')
+            self.cover_route.mkdir(parents=True, exist_ok=True)
+            self.saveCovers()
 
 
     def title(self):
@@ -155,6 +164,5 @@ class titleJson:
         json_data["covers"] = self.covers
         json_data["chapters"] = self.chapter_json
 
-        if self.save_covers == 'save':
-            self.saveCovers()
+        self.coverChecker()
         self.saveJson(json_data)

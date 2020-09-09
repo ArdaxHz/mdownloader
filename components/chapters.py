@@ -54,7 +54,7 @@ async def downloadImages(image, url, retry, chapter_data, instance):
 
 # type 0 -> chapter
 # type 1 -> title
-# type 1 -> group
+# type 2 -> group
 def downloadChapter(chapter_id, series_route, route, languages, type, title, make_folder, save_format, json_file):
 
     if languages == '':
