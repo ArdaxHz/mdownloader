@@ -134,7 +134,7 @@ class titleJson:
             if chapter_data["status"] == "external":
                 json_chapter["images"] = 'This chapter is external to MangaDex so an image list is not available.'
             else:
-                json_chapter["images"] = {"url": chapter_data["server"]}
+                json_chapter["images"] = {"url": chapter_data["server"], "hash": chapter_data["hash"]}
                 
                 try:
                     json_chapter["images"]["backup_url"] = chapter_data["server_fallback"]
