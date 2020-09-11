@@ -31,6 +31,8 @@ class titleJson:
     def Link(self):
         json_links = {}
         try:
+            if 'amz' in self.data["links"]:
+                json_links["amazon_jp"] = self.data["links"]["amz"]
             if 'al' in self.data["links"]:
                 json_links["anilist"] = f'https://anilist.co/manga/{self.data["links"]["al"]}'
             if 'ap' in self.data["links"]:
@@ -40,24 +42,22 @@ class titleJson:
                     json_links["bookwalker"] = f'https://bookwalker.jp/{self.data["links"]["bw"]}/list'
                 else:
                     json_links["bookwalker"] = f'https://bookwalker.jp/{self.data["links"]["bw"]}'
-            if 'kt' in self.data["links"]:
-                json_links["kitsu"] = f'https://kitsu.io/manga/{self.data["links"]["kt"]}'
-            if 'mu' in self.data["links"]:
-                json_links["manga_updates"] = f'https://www.mangaupdates.com/series.html?id={self.data["links"]["mu"]}'
-            if 'nu' in self.data["links"]:
-                json_links["novel_updates"] = f'https://www.novelupdates.com/series/{self.data["links"]["nu"]}'
-            if 'amz' in self.data["links"]:
-                json_links["amazon_jp"] = self.data["links"]["amz"]
             if 'cdj' in self.data["links"]:
                 json_links["cd_japan"] = self.data["links"]["cdj"]
             if 'ebj' in self.data["links"]:
                 json_links["ebookjapan"] = self.data["links"]["ebj"]
+            if 'kt' in self.data["links"]:
+                json_links["kitsu"] = f'https://kitsu.io/manga/{self.data["links"]["kt"]}'
+            if 'mu' in self.data["links"]:
+                json_links["manga_updates"] = f'https://www.mangaupdates.com/series.html?id={self.data["links"]["mu"]}'
             if 'mal' in self.data["links"]:
                 json_links["myanimelist"] = f'https://myanimelist.net/manga/{self.data["links"]["mal"]}'
+            if 'nu' in self.data["links"]:
+                json_links["novel_updates"] = f'https://www.novelupdates.com/series/{self.data["links"]["nu"]}'
+            if 'engtl' in self.data["links"]:
+                json_links["official_english"] = self.data["links"]["engtl"]
             if 'raw' in self.data["links"]:
                 json_links["raw"] = self.data["links"]["raw"]
-            if 'engtl' in self.data["links"]:
-                json_links["official_english"] = self.data["links"]["engtl"] 
         except TypeError:
             pass
 
