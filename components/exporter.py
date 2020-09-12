@@ -21,43 +21,56 @@ class Base:
 
     def __init__(self, series_title, chapter_data, languages):
         self.series_title = series_title
-        self.volume = chapter_data["volume"]
-        self.chapter_number = chapter_data["chapter"]
-        self.chapter_title = chapter_data["title"]
-        self.language = languages[chapter_data["lang_code"]]
+        self.chapter_data = chapter_data
+        self.languages = languages
         self.lang_code = chapter_data["lang_code"]
-        self.regex = re.compile('[\\\\/:*?"<>|]')
-        self.groups = self.regex.sub('_', html.unescape( ', '.join(filter(None, [chapter_data[x] for x in filter(lambda s: s.startswith('group_name'), chapter_data.keys()) ])) ))
+        self.chapter_title = chapter_data["title"]
+        self.chapter_regrex = re.compile(r'([0-9]+)\.([0-9]+)')
+        self.name_regex = re.compile('[\\\\/:*?"<>|]')
+        self.groups = self.groupNames()
+        self.chapter_number = self.chapterNo()
+        self.volume = self.volumeNo()
+        self.language = self.langCode()
         self.prefix = self.prefixName()
         self.suffix = self.suffixName()
         self.folder_name = self.folderName()
 
 
-    def prefixName(self):
-        
-        chapter_regrex = re.compile(r'([0-9]+)\.([0-9]+)')
+    def chapterNo(self):
+        chapter_number = self.chapter_data["chapter"]
 
-        if chapter_regrex.match(self.chapter_number):
-            pattern = chapter_regrex.match(self.chapter_number)
+        if self.chapter_regrex.match(chapter_number):
+            pattern = self.chapter_regrex.match(chapter_number)
             chap_no = pattern.group(1).zfill(3)
             decimal_no = pattern.group(2)
-            self.chapter_number = f'c{chap_no}.{decimal_no}'
+            chapter_number = f'c{chap_no}.{decimal_no}'
         elif self.chapter_title == 'Oneshot':
-            self.chapter_number = self.chapter_number.zfill(3)
+            chapter_number = chapter_number.zfill(3)
         else:
-            self.chapter_number = f'c{self.chapter_number.zfill(3)}'
-        
+            chapter_number = f'c{chapter_number.zfill(3)}'
+        return chapter_number
+
+
+    def langCode(self):
         if self.lang_code == 'gb':
-            name_prefix = self.series_title
+            return ''
         else:
-            name_prefix = f'{self.series_title} [{self.language}]'
+            return f' [{self.languages[self.lang_code]}]'
 
-        if self.volume == '':
-            prefix = f'{name_prefix} - {self.chapter_number}'
+    
+    def volumeNo(self):
+        if self.chapter_data["volume"] == '':
+            return ''
         else:
-            prefix = f'{name_prefix} - {self.chapter_number} (v{self.volume.zfill(2)})'
+            return f' (v{self.chapter_data["volume"].zfill(2)})'
 
-        return prefix
+
+    def prefixName(self):
+        return f'{self.series_title}{self.language} - {self.chapter_number}{self.volume}'
+
+
+    def groupNames(self):
+        return self.name_regex.sub('_', html.unescape( ', '.join(filter(None, [self.chapter_data[x] for x in filter(lambda s: s.startswith('group_name'), self.chapter_data.keys()) ])) ))
 
 
     def suffixName(self):
@@ -79,12 +92,14 @@ class Base:
 class ChapterSaver(Base):
     def __init__(self, series_title, chapter_data, languages, destination, save_format, make_folder):
         super().__init__(series_title, chapter_data, languages)
+        self.destination = destination
+        self.save_format = save_format
         self.path = Path(destination)
         self.make_folder = make_folder
         self.path.mkdir(parents=True, exist_ok=True)
         self.archive_path = os.path.join(destination, f'{self.folder_name}.{save_format}')
         self.folder_path = self.path.joinpath(self.folder_name)
-        self.archive = self.makeZip()
+        self.archive = self.checkZip()
         self.folder = 'no' if self.make_folder == 'no' else self.makeFolder()
 
 
@@ -96,12 +111,27 @@ class ChapterSaver(Base):
 
 
     def makeZip(self):
-        try:
-            self.archive = zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED, compresslevel=9)
-            return self.archive
-        except zipfile.BadZipFile:
-            self.remove()
-            sys.exit('Bad zip file detected, deleting.')
+        return zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED) 
+
+
+    def checkZip(self):
+        archive = self.makeZip()
+        comment = archive.comment.decode()
+        
+        if comment == '':
+            archive.comment = str(self.chapter_data["id"]).encode()
+        elif comment == str(self.chapter_data["id"]):
+            archive.comment = str(self.chapter_data["id"]).encode()
+        else:
+            archive.close()
+            
+            print('The archive with the same chapter number and groups exists, but not the same chapter id, making a different archive...')
+            
+            self.archive_path = os.path.join(self.destination, f'{self.folder_name} {{v2}}.{self.save_format}')
+            archive = self.makeZip()
+            archive.comment = str(self.chapter_data["id"]).encode()
+        
+        return archive
 
 
     def makeFolder(self):

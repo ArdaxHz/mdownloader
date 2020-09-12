@@ -16,10 +16,7 @@ class titleJson:
         self.manga_id = manga_id
         self.route = Path(route)
         self.save_covers = save_covers
-        self.route.mkdir(parents=True, exist_ok=True)
-        if self.save_covers == 'save':
-            self.cover_route = self.route.joinpath('!covers')
-            self.cover_route.mkdir(parents=True, exist_ok=True)
+        self.route.mkdir(parents=True, exist_ok=True)          
         self.regex = re.compile('[\\\\/:*?"<>|]')
         self.domain = 'https://mangadex.org'
         self.cover_regex = re.compile(r'(?:https\:\/\/mangadex\.org\/images\/(?:manga|covers)\/)(.+)')
@@ -34,6 +31,8 @@ class titleJson:
     def Link(self):
         json_links = {}
         try:
+            if 'amz' in self.data["links"]:
+                json_links["amazon_jp"] = self.data["links"]["amz"]
             if 'al' in self.data["links"]:
                 json_links["anilist"] = f'https://anilist.co/manga/{self.data["links"]["al"]}'
             if 'ap' in self.data["links"]:
@@ -43,24 +42,22 @@ class titleJson:
                     json_links["bookwalker"] = f'https://bookwalker.jp/{self.data["links"]["bw"]}/list'
                 else:
                     json_links["bookwalker"] = f'https://bookwalker.jp/{self.data["links"]["bw"]}'
-            if 'kt' in self.data["links"]:
-                json_links["kitsu"] = f'https://kitsu.io/manga/{self.data["links"]["kt"]}'
-            if 'mu' in self.data["links"]:
-                json_links["manga_updates"] = f'https://www.mangaupdates.com/series.html?id={self.data["links"]["mu"]}'
-            if 'nu' in self.data["links"]:
-                json_links["novel_updates"] = f'https://www.novelupdates.com/series/{self.data["links"]["nu"]}'
-            if 'amz' in self.data["links"]:
-                json_links["amazon_jp"] = self.data["links"]["amz"]
             if 'cdj' in self.data["links"]:
                 json_links["cd_japan"] = self.data["links"]["cdj"]
             if 'ebj' in self.data["links"]:
                 json_links["ebookjapan"] = self.data["links"]["ebj"]
+            if 'kt' in self.data["links"]:
+                json_links["kitsu"] = f'https://kitsu.io/manga/{self.data["links"]["kt"]}'
+            if 'mu' in self.data["links"]:
+                json_links["manga_updates"] = f'https://www.mangaupdates.com/series.html?id={self.data["links"]["mu"]}'
             if 'mal' in self.data["links"]:
                 json_links["myanimelist"] = f'https://myanimelist.net/manga/{self.data["links"]["mal"]}'
+            if 'nu' in self.data["links"]:
+                json_links["novel_updates"] = f'https://www.novelupdates.com/series/{self.data["links"]["nu"]}'
+            if 'engtl' in self.data["links"]:
+                json_links["official_english"] = self.data["links"]["engtl"]
             if 'raw' in self.data["links"]:
                 json_links["raw"] = self.data["links"]["raw"]
-            if 'engtl' in self.data["links"]:
-                json_links["official_english"] = self.data["links"]["engtl"] 
         except TypeError:
             pass
 
@@ -92,11 +89,23 @@ class titleJson:
     def Covers(self):
         json_covers = {"latest_cover": f'{self.domain}{self.cover_url}'}
         json_covers["alt_covers"] = []
-        for cover in self.data["covers"]:
-            cover = f'{self.domain}{cover}'
-            json_covers["alt_covers"].append(cover)
+        
+        if not self.data["covers"]:
+            json_covers["alt_covers"] = 'This title has no other covers.'
+        else:
+            for cover in self.data["covers"]:
+                cover = f'{self.domain}{cover}'
+                json_covers["alt_covers"].append(cover)
 
         return json_covers
+
+
+    def coverChecker(self):
+        if self.save_covers == 'save':
+            print('Downloading covers...')
+            self.cover_route = self.route.joinpath('!covers')
+            self.cover_route.mkdir(parents=True, exist_ok=True)
+            self.saveCovers()
 
 
     def title(self):
@@ -125,7 +134,7 @@ class titleJson:
             if chapter_data["status"] == "external":
                 json_chapter["images"] = 'This chapter is external to MangaDex so an image list is not available.'
             else:
-                json_chapter["images"] = {"url": chapter_data["server"]}
+                json_chapter["images"] = {"url": chapter_data["server"], "hash": chapter_data["hash"]}
                 
                 try:
                     json_chapter["images"]["backup_url"] = chapter_data["server_fallback"]
@@ -155,6 +164,5 @@ class titleJson:
         json_data["covers"] = self.covers
         json_data["chapters"] = self.chapter_json
 
-        if self.save_covers == 'save':
-            self.saveCovers()
+        self.coverChecker()
         self.saveJson(json_data)
