@@ -92,12 +92,14 @@ class Base:
 class ChapterSaver(Base):
     def __init__(self, series_title, chapter_data, languages, destination, save_format, make_folder):
         super().__init__(series_title, chapter_data, languages)
+        self.destination = destination
+        self.save_format = save_format
         self.path = Path(destination)
         self.make_folder = make_folder
         self.path.mkdir(parents=True, exist_ok=True)
         self.archive_path = os.path.join(destination, f'{self.folder_name}.{save_format}')
         self.folder_path = self.path.joinpath(self.folder_name)
-        self.archive = self.makeZip()
+        self.archive = self.checkZip()
         self.folder = 'no' if self.make_folder == 'no' else self.makeFolder()
 
 
@@ -109,12 +111,27 @@ class ChapterSaver(Base):
 
 
     def makeZip(self):
-        try:
-            self.archive = zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED)
-            return self.archive
-        except zipfile.BadZipFile:
-            self.remove()
-            sys.exit('Bad zip file detected, deleting.')
+        return zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED) 
+
+
+    def checkZip(self):
+        archive = self.makeZip()
+        comment = archive.comment.decode()
+        
+        if comment == '':
+            archive.comment = str(self.chapter_data["id"]).encode()
+        elif comment == str(self.chapter_data["id"]):
+            archive.comment = str(self.chapter_data["id"]).encode()
+        else:
+            archive.close()
+            
+            print('The archive with the same chapter number and groups exists, but not the same chapter id, making a different archive...')
+            
+            self.archive_path = os.path.join(self.destination, f'{self.folder_name} {{v2}}.{self.save_format}')
+            archive = self.makeZip()
+            archive.comment = str(self.chapter_data["id"]).encode()
+        
+        return archive
 
 
     def makeFolder(self):
