@@ -24,7 +24,7 @@ class Base:
         self.chapter_data = chapter_data
         self.languages = languages
         self.lang_code = chapter_data["lang_code"]
-        self.chapter_title = chapter_data["title"]
+        self.chapter_title = 1 if chapter_data["title"].lower() == 'oneshot' else 0
         self.chapter_regrex = re.compile(r'([0-9]+)\.([0-9]+)')
         self.name_regex = re.compile('[\\\\/:*?"<>|]')
         self.groups = self.groupNames()
@@ -37,14 +37,14 @@ class Base:
 
 
     def chapterNo(self):
-        chapter_number = self.chapter_data["chapter"]
+        chapter_number = re.sub(r'\D', '-', self.chapter_data["chapter"])
 
         if self.chapter_regrex.match(chapter_number):
             pattern = self.chapter_regrex.match(chapter_number)
             chap_no = pattern.group(1).zfill(3)
             decimal_no = pattern.group(2)
             chapter_number = f'c{chap_no}.{decimal_no}'
-        elif self.chapter_title == 'Oneshot':
+        elif self.chapter_title:
             chapter_number = chapter_number.zfill(3)
         else:
             chapter_number = f'c{chapter_number.zfill(3)}'
@@ -59,7 +59,7 @@ class Base:
 
     
     def volumeNo(self):
-        if self.chapter_data["volume"] == '':
+        if self.chapter_data["volume"] == '' or self.chapter_title == 1:
             return ''
         else:
             return f' (v{self.chapter_data["volume"].zfill(2)})'
@@ -74,8 +74,8 @@ class Base:
 
 
     def suffixName(self):
-        if self.chapter_title == 'Oneshot':
-            return f'[{self.chapter_title}] [{self.groups}]'
+        if self.chapter_title:
+            return f'[Oneshot] [{self.groups}]'
         else:
             return f'[{self.groups}]'
 
