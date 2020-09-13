@@ -69,10 +69,12 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format, co
                     downloadChapter(id, '', route, languages, 0, '', make_folder, save_format, '')
                     print('Download Complete. Waiting 5 seconds...')
                     # time.sleep(5) # wait 5 seconds
-                else:
+                elif type == 'group':
                     Groups(id, route, languages, make_folder, save_format).getChapters()
                     print('Download Complete. Waiting 30 seconds...')
                     time.sleep(30) # wait 30 seconds
+                else:
+                    print('Please enter a title/chapter id. For chapters, you must add the argument "--type chapter".')
             
         print(f'All the ids in {filename} have been downloaded')
 

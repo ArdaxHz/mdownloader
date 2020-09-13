@@ -24,6 +24,7 @@ class Groups(CLI):
         super().__init__(route, languages, make_folder, save_format)
         self.group_id = group_id
         self.num = 1
+        self.cookies = dict(mangadex_h_toggle='1')
         self.domain  = f'https://mangadex.org/group/{self.group_id}/{self.group_id}'
         self.headers = {'User-Agent': f'mDownloader/{__version__}'}
         self.id_regex = re.compile(r'(?:\/chapter\/)([0-9]+)')
@@ -36,7 +37,7 @@ class Groups(CLI):
 
     def requestGroup(self):
         self.link = f'{self.domain}/chapters/{self.num}'
-        response = requests.get(self.link, headers=self.headers)
+        response = requests.get(self.link, headers=self.headers, cookies=self.cookies)
         soup = BeautifulSoup(response.content, 'html.parser')
         self.getIDS(soup)
         return soup
@@ -72,7 +73,7 @@ class Groups(CLI):
 
     def getChapters(self):
         print('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
-        print(f"Downloading [{self.group_name}]'s chapters, [{self.group_chapters}] in total. Hentai uploads are skipped.")
+        print(f"Downloading [{self.group_name}]'s chapters, [{self.group_chapters}] in total.")
         self.Loop()
 
         for id in self.ids:
