@@ -24,7 +24,7 @@ class Base:
         self.chapter_data = chapter_data
         self.languages = languages
         self.lang_code = chapter_data["lang_code"]
-        self.chapter_title = 1 if chapter_data["title"].lower() == 'oneshot' or chapter_data["title"] == '' else 0
+        self.chapter_title = 1 if chapter_data["title"].lower() == 'oneshot' else 0
         self.chapter_regrex = re.compile(r'([0-9]+)\.([0-9]+)')
         self.name_regex = re.compile('[\\\\/:*?"<>|]')
         self.groups = self.groupNames()
