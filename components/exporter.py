@@ -24,7 +24,7 @@ class Base:
         self.chapter_data = chapter_data
         self.languages = languages
         self.lang_code = chapter_data["lang_code"]
-        self.chapter_title = 1 if chapter_data["title"].lower() == 'oneshot' else 0
+        self.chapter_title = self.titleChecker()
         self.chapter_regrex = re.compile(r'([0-9]+)\.([0-9]+)')
         self.name_regex = re.compile('[\\\\/:*?"<>|]')
         self.groups = self.groupNames()
@@ -34,6 +34,13 @@ class Base:
         self.prefix = self.prefixName()
         self.suffix = self.suffixName()
         self.folder_name = self.folderName()
+
+
+    def titleChecker(self):
+        if self.chapter_data["title"].lower() == 'oneshot' or (self.chapter_data["chapter"] == '' and self.chapter_data["volume"] == '' and self.chapter_data["title"] == ''):
+            return 1
+        else:
+            return 0
 
 
     def chapterNo(self):

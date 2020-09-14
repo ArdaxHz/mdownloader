@@ -164,5 +164,5 @@ class titleJson:
         json_data["covers"] = self.covers
         json_data["chapters"] = self.chapter_json
 
-        self.coverChecker()
         self.saveJson(json_data)
+        self.coverChecker()

@@ -12,8 +12,9 @@ if __name__ == "__main__":
     parser.add_argument('--folder', '-f', default='no', nargs='?', const='yes', choices=['yes', 'no'], help='Make chapter folder.') #yes or no
     parser.add_argument('--save_format', '-s', default='cbz', help='Choose to download as a zip archive or as a comic archive.') #zip or cbz
     parser.add_argument('--covers', '-c', default='skip', nargs='?', const='save', choices=['make', 'save'], help='Download the covers of the manga. Works only with title downloads.')
+    parser.add_argument('--hentai', '-r18', default='all', nargs='?', const='only', choices=['all', 'skip', 'only'], help='Choose between downloading the hentai chapters or not for group/user downloads.')
     parser.add_argument('id', help='ID to download. Can be chapter, tile, link or file.')
 
     args = parser.parse_args()
 
-    main(args.id, args.language, args.directory, args.type, args.folder, args.save_format, args.covers)
+    main(args.id, args.language, args.directory, args.type, args.folder, args.save_format, args.covers, args.hentai)
