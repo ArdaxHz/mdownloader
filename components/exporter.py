@@ -124,21 +124,33 @@ class ChapterSaver(Base):
 
 
     def checkZip(self):
+        version_no = 1
+        checker = os.path.exists(self.archive_path)
         archive = self.makeZip()
-        comment = archive.comment.decode()
-        
-        if comment == '':
-            archive.comment = str(self.chapter_data["id"]).encode()
+        comment = archive.comment.decode().partition('\n')[0]
+        to_add = f'{self.chapter_data["id"]}\n{self.chapter_data["title"]}\n{self.chapter_data["hash"]}'
+
+        if comment == '' and checker == False:
+            archive.comment = to_add.encode()
         elif comment == str(self.chapter_data["id"]):
-            archive.comment = str(self.chapter_data["id"]).encode()
+            archive.comment = to_add.encode()
         else:
             archive.close()
+            version_no += 1
             
             print('The archive with the same chapter number and groups exists, but not the same chapter id, making a different archive...')
+
+            while True:
+                if os.path.exists(self.archive_path):
+                    self.archive_path = os.path.join(self.destination, f'{self.folder_name} {{v{version_no}}}.{self.save_format}')
+                    version_no += 1
+                    continue
+                else:
+                    break
             
-            self.archive_path = os.path.join(self.destination, f'{self.folder_name} {{v2}}.{self.save_format}')
+            print(self.archive_path)
             archive = self.makeZip()
-            archive.comment = str(self.chapter_data["id"]).encode()
+            archive.comment = to_add.encode()
         
         return archive
 
