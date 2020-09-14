@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import requests
 import re
+import time
 
 from math import ceil
 from bs4 import BeautifulSoup
@@ -65,7 +66,7 @@ class Scraper(CLI):
 
 
     def getPages(self):
-        return ceil(int(self.chapters.replace(',', '')) / 100) + 1
+        return ceil(int(self.chapters.replace(',', '')) / 100)
 
 
     def groupChap(self):
@@ -86,9 +87,12 @@ class Scraper(CLI):
 
     def Loop(self):
         print('Getting the chapter ids...')
-        while self.num < self.pages:
+        while self.num <= self.pages:
             self.num += 1
             self.requestGroup()
+        
+        if self.pages >= 50:
+            time.sleep(10)
 
 
     def getChapters(self):
