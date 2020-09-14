@@ -44,6 +44,7 @@ class Base:
 
 
     def chapterNo(self):
+        chapter_number = self.chapter_data["chapter"]
 
         if self.chapter_regrex.match(chapter_number):
             pattern = self.chapter_regrex.match(chapter_number)
@@ -53,7 +54,7 @@ class Base:
         elif self.chapter_title:
             chapter_number = chapter_number.zfill(3)
         else:
-            chapter_number = re.sub(r'\D', '-', self.chapter_data["chapter"])
+            chapter_number = re.sub(r'\D', '-', chapter_number)
             chapter_number = f'c{chapter_number.zfill(3)}'
 
         return chapter_number
