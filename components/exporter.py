@@ -120,46 +120,50 @@ class ChapterSaver(Base):
 
 
     def makeZip(self):
-        return zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED) 
+        try:
+            return zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED) 
+        except zipfile.BadZipFile:
+            sys.exit('Error creating archive')
 
 
     def checkZip(self):
         version_no = 1
-        archive = self.makeZip()
-        chapter_hash = archive.comment.decode().split('\n')[-1]
+        self.archive = self.makeZip()
+        chapter_hash = self.archive.comment.decode().split('\n')[-1]
         to_add = f'{self.chapter_data["id"]}\n{self.chapter_data["title"]}\n{self.chapter_data["hash"]}'
 
         if chapter_hash == '' or chapter_hash == self.chapter_data["hash"]:
-            if archive.comment.decode() == to_add:
+            if self.archive.comment.decode() == to_add:
                 pass
             else:
-                archive.comment = to_add.encode()
+                self.archive.comment = to_add.encode()
         else:
-            archive.close()
+            self.close()
             version_no += 1
             
-            print('The archive with the same chapter number and groups exists, but not the same chapter id, making a different archive...')
+            print('The archive with the same chapter number and groups exists, but not the same chapter hash, making a different archive...')
 
             while True:
                 if os.path.exists(self.archive_path):
                     self.archive_path = os.path.join(self.destination, f'{self.folder_name}{{v{version_no}}}.{self.save_format}')
-                    archive = self.makeZip()
-                    chapter_hash = archive.comment.decode().split('\n')[-1]
+                    self.archive = self.makeZip()
+                    chapter_hash = self.archive.comment.decode().split('\n')[-1]
                     if chapter_hash == '' or chapter_hash == self.chapter_data["hash"]:
-                        if archive.comment.decode() == to_add:
+                        if self.archive.comment.decode() == to_add:
                             pass
                         else:
-                            archive.comment = to_add.encode()
+                            self.archive.comment = to_add.encode()
                         break
                     else:
+                        self.close()
                         version_no += 1
                         continue
                 else:
                     break
 
-            archive.comment = to_add.encode()
+            self.archive.comment = to_add.encode()
 
-        return archive
+        return self.archive
 
 
     def makeFolder(self):
