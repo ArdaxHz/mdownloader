@@ -125,15 +125,15 @@ class ChapterSaver(Base):
 
     def checkZip(self):
         version_no = 1
-        checker = os.path.exists(self.archive_path)
         archive = self.makeZip()
-        comment = archive.comment.decode().partition('\n')[0]
+        chapter_hash = archive.comment.decode().split('\n')[-1]
         to_add = f'{self.chapter_data["id"]}\n{self.chapter_data["title"]}\n{self.chapter_data["hash"]}'
 
-        if comment == '' and checker == False:
-            archive.comment = to_add.encode()
-        elif comment == str(self.chapter_data["id"]):
-            archive.comment = to_add.encode()
+        if chapter_hash == '' or chapter_hash == self.chapter_data["hash"]:
+            if archive.comment.decode() == to_add:
+                pass
+            else:
+                archive.comment = to_add.encode()
         else:
             archive.close()
             version_no += 1
@@ -142,16 +142,23 @@ class ChapterSaver(Base):
 
             while True:
                 if os.path.exists(self.archive_path):
-                    self.archive_path = os.path.join(self.destination, f'{self.folder_name} {{v{version_no}}}.{self.save_format}')
-                    version_no += 1
-                    continue
+                    self.archive_path = os.path.join(self.destination, f'{self.folder_name}{{v{version_no}}}.{self.save_format}')
+                    archive = self.makeZip()
+                    chapter_hash = archive.comment.decode().split('\n')[-1]
+                    if chapter_hash == '' or chapter_hash == self.chapter_data["hash"]:
+                        if archive.comment.decode() == to_add:
+                            pass
+                        else:
+                            archive.comment = to_add.encode()
+                        break
+                    else:
+                        version_no += 1
+                        continue
                 else:
                     break
-            
-            print(self.archive_path)
-            archive = self.makeZip()
+
             archive.comment = to_add.encode()
-        
+
         return archive
 
 
