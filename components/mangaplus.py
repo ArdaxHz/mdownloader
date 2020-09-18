@@ -34,32 +34,29 @@ class MangaPlus:
 
     def plusImages(self):
 
-        try:
-            response = requests.get(self.api_url)
-            viewer = Response.FromString(response.content).success.manga_viewer
-            pages = [p.manga_page for p in viewer.pages if p.manga_page.image_url]
+        response = requests.get(self.api_url)
+        viewer = Response.FromString(response.content).success.manga_viewer
+        pages = [p.manga_page for p in viewer.pages if p.manga_page.image_url]
 
-            exists = 0
+        exists = 0
 
-            if len(pages) == len(self.chapter_instance.archive.namelist()):
-                if self.chapter_instance.make_folder == 'no':
+        if len(pages) == len(self.chapter_instance.archive.namelist()):
+            if self.chapter_instance.make_folder == 'no':
+                exists = 1
+            else:
+                if len(pages) == len(os.listdir(self.chapter_instance.folder_path)):
                     exists = 1
                 else:
-                    if len(pages) == len(os.listdir(self.chapter_instance.folder_path)):
-                        exists = 1
-                    else:
-                        exists = 0
+                    exists = 0
 
-            if exists:
-                print('File already downloaded.')
-                return
+        if exists:
+            print('File already downloaded.')
+            self.chapter_instance.close()
+            return
 
-            for page in tqdm(pages):
-                image = self.decryptImage(page.image_url, page.encryption_key)
-                page_no = pages.index(page) + 1
-                self.chapter_instance.add_image(image, page_no, self.extension)
+        for page in tqdm(pages):
+            image = self.decryptImage(page.image_url, page.encryption_key)
+            page_no = pages.index(page) + 1
+            self.chapter_instance.add_image(image, page_no, self.extension)
 
-            self.chapter_instance.close
-
-        except (TimeoutError, KeyboardInterrupt, ConnectionResetError):
-            self.chapter_instance.remove
+        self.chapter_instance.close()

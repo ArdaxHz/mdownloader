@@ -132,6 +132,7 @@ def downloadChapter(chapter_id, series_route, route, languages, type, title, mak
 
             if exists:
                 print('File already downloaded.')
+                instance.close()
                 return
 
             # ASYNC FUNCTION
