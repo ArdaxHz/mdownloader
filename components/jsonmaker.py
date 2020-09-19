@@ -22,6 +22,7 @@ class titleJson:
         self.cover_regex = re.compile(r'(?:https\:\/\/mangadex\.org\/images\/(?:manga|covers)\/)(.+)')
         self.cover_url = re.sub(r'\?[0-9]+', '', self.data["cover_url"])
         self.links = self.Link()
+        self.social = self.Social()
         self.title_json = self.title()
         self.covers = self.Covers()
         self.chapter_json = []
@@ -108,6 +109,14 @@ class titleJson:
             self.saveCovers()
 
 
+    def Social(self):
+        json_social = {"views": self.data["views"]}
+        json_social["follows"] = self.data["follows"]
+        json_social["comments"] = self.data["comments"]
+        json_social["rating"] = self.data["rating"]
+        return json_social
+
+
     def title(self):
         json_title = {"id": self.manga_id}
         json_title["title"] = self.data['title']
@@ -117,6 +126,7 @@ class titleJson:
         json_title["last_chapter"] = self.data["last_chapter"]
         json_title["hentai"] = "Yes" if self.data["hentai"] == 1 else "No"
         json_title["link"] = f'{self.domain}/manga/{self.manga_id}'
+        json_title["social"] = self.social
         return json_title
 
 
@@ -129,6 +139,7 @@ class titleJson:
             json_chapter["lang_name"] = chapter_data["lang_name"]
             json_chapter["lang_code"] = chapter_data["lang_code"]
             json_chapter["group(s)"] = self.regex.sub('_', html.unescape( ', '.join(filter(None, [chapter_data[x] for x in filter(lambda s: s.startswith('group_name'), chapter_data.keys()) ])) ))
+            json_chapter["timestamp"] = chapter_data["timestamp"]
             json_chapter["link"] = f'{self.domain}/chapter/{chapter_data["id"]}'
             
             if chapter_data["status"] == "external":
@@ -159,9 +170,10 @@ class titleJson:
 
 
     def core(self):
-        json_data = self.title_json
-        json_data["external_links"] = self.links
-        json_data["covers"] = self.covers
+        json_data = {}
+        json_data["manga"] = self.title_json
+        json_data["manga"]["external_links"] = self.links
+        json_data["manga"]["covers"] = self.covers
         json_data["chapters"] = self.chapter_json
 
         self.saveJson(json_data)
