@@ -42,19 +42,18 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format, co
                     if input_url.group(1) == 'title' or input_url.group(1) == 'manga':
                         id = input_url.group(2)
                         downloadTitle(id, language, languages, route, 1, make_folder, save_format, covers)
-                        print('Download Complete. Waiting 30 seconds...')
-                        time.sleep(30) # wait 30 seconds
+                        print('Download Complete. Waiting 15 seconds...')
+                        time.sleep(15) # wait 30 seconds
                     elif input_url.group(1) == 'chapter':
                         id = input_url.group(2)
                         downloadChapter(id, '', route, languages, 0, '', make_folder, save_format, '')
-                        print('Download Complete. Waiting 5 seconds...')
-                        time.sleep(5) # wait 5 seconds
+                        print('Download Complete.')
                     elif input_url.group(1) == 'group' or input_url.group(1) == 'user':
                         id = input_url.group(2)
                         type = input_url.group(1)
                         Scraper(id, type, hentai, route, languages, make_folder, save_format).getChapters()
-                        print('Download Complete. Waiting 30 seconds...')
-                        time.sleep(30) # wait 30 seconds
+                        print('Download Complete. Waiting 15 seconds...')
+                        time.sleep(15) # wait 30 seconds
                 else:
                     titles.remove(id)
                     with open(filename, 'w') as file:
@@ -64,16 +63,15 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format, co
             else:
                 if type == 'title' or type == 'manga':
                     downloadTitle(id, language, languages, route, 1, make_folder, save_format, covers)
-                    print('Download Complete. Waiting 30 seconds...')
-                    time.sleep(30) # wait 30 seconds
+                    print('Download Complete. Waiting 15 seconds...')
+                    time.sleep(15) # wait 30 seconds
                 elif type == 'chapter':
                     downloadChapter(id, '', route, languages, 0, '', make_folder, save_format, '')
-                    print('Download Complete. Waiting 5 seconds...')
-                    # time.sleep(5) # wait 5 seconds
+                    print('Download Complete.')
                 elif type == 'group' or type == 'user':
                     Scraper(id, type, hentai, route, languages, make_folder, save_format).getChapters()
-                    print('Download Complete. Waiting 30 seconds...')
-                    time.sleep(30) # wait 30 seconds
+                    print('Download Complete. Waiting 15 seconds...')
+                    time.sleep(15) # wait 30 seconds
                 else:
                     print('Please enter a title/chapter id. For chapters, you must add the argument "--type chapter".')
             
