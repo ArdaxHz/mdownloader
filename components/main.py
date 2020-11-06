@@ -5,12 +5,39 @@ import time
 import re
 import json
 
-from components.chapters import downloadChapter
-from components.title import downloadTitle
-from components.scraper import Scraper
+from components.downloader import downloadChapter, downloadBatch
 
+api_message = 'The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.'
 md_url = re.compile(r'(?:https\:\/\/mangadex\.org\/)(title|chapter|manga|group|user)(?:\/)([0-9]+)')
 url_re = re.compile(r'(?:https|ftp|http)(?::\/\/)(?:.+)')
+
+
+def typeChecker(id, language, route, type, make_folder, save_format, covers, hentai):
+
+    if type in ('title', 'manga', 'group', 'user'):
+        downloadBatch(id, language, route, type, make_folder, save_format, covers)
+    elif type == 'chapter':
+        downloadChapter(id, route, 0, '', make_folder, save_format, '')
+    else:
+        print('Please enter a title/chapter/group/user id. For non-title downloads, you must add the argument "--type [chapter|user|group]".')
+        return
+
+    return
+
+
+def urlChecker(id, language, route, type, make_folder, save_format, covers, hentai):
+
+    input_url = md_url.match(id)
+    type = input_url.group(1)
+
+    if type in ('title', 'manga', 'group', 'user'):
+        id = input_url.group(2)
+        downloadBatch(id, language, route, type, make_folder, save_format, covers)
+    elif type == 'chapter':
+        id = input_url.group(2)
+        downloadChapter(id, route, 0, '', make_folder, save_format, '')
+
+    return
 
 
 def bulkDownloader(filename, language, route, type, make_folder, save_format, covers, hentai):
@@ -26,57 +53,35 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format, co
         print('Empty file!')
         return
     else:
-        #Read languages file
-        with open('languages.json', 'r') as json_file:
-            languages = json.load(json_file)
 
-        print('The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.')
+        print(api_message)
 
         for id in titles:
+            # print(id)
 
             if not id.isdigit():
                 
                 if md_url.match(id):
-                    input_url = md_url.match(id)
+                    urlChecker(id, language, route, type, make_folder, save_format, covers, hentai)                   
                     
-                    if input_url.group(1) == 'title' or input_url.group(1) == 'manga':
-                        id = input_url.group(2)
-                        downloadTitle(id, language, languages, route, 1, make_folder, save_format, covers)
-                        print('Download Complete. Waiting 15 seconds...')
-                        time.sleep(15) # wait 30 seconds
-                    elif input_url.group(1) == 'chapter':
-                        id = input_url.group(2)
-                        downloadChapter(id, '', route, languages, 0, '', make_folder, save_format, '')
-                        print('Download Complete.')
-                    elif input_url.group(1) == 'group' or input_url.group(1) == 'user':
-                        id = input_url.group(2)
-                        type = input_url.group(1)
-                        Scraper(id, type, hentai, route, languages, make_folder, save_format).getChapters()
-                        print('Download Complete. Waiting 15 seconds...')
-                        time.sleep(15) # wait 30 seconds
+                    # titles.pop(0)
+                    # with open(filename, 'w') as file:
+                    #     for line in titles:
+                    #         file.write(line + '\n')
+                    
+                    # print(titles)
                 else:
-                    titles.remove(id)
+                    titles.pop(0)
                     with open(filename, 'w') as file:
                         for line in titles:
                             file.write(line + '\n')
 
             else:
-                if type == 'title' or type == 'manga':
-                    downloadTitle(id, language, languages, route, 1, make_folder, save_format, covers)
-                    print('Download Complete. Waiting 15 seconds...')
-                    time.sleep(15) # wait 30 seconds
-                elif type == 'chapter':
-                    downloadChapter(id, '', route, languages, 0, '', make_folder, save_format, '')
-                    print('Download Complete.')
-                elif type == 'group' or type == 'user':
-                    Scraper(id, type, hentai, route, languages, make_folder, save_format).getChapters()
-                    print('Download Complete. Waiting 15 seconds...')
-                    time.sleep(15) # wait 30 seconds
-                else:
-                    print('Please enter a title/chapter id. For chapters, you must add the argument "--type chapter".')
+                typeChecker(id, language, route, type, make_folder, save_format, covers, hentai)
             
         print(f'All the ids in {filename} have been downloaded')
 
+    return
 
 def main(id, language, route, type, make_folder, save_format, covers, hentai):
 
@@ -96,31 +101,16 @@ def main(id, language, route, type, make_folder, save_format, covers, hentai):
             bulkDownloader(id, language, route, type, make_folder, save_format, covers, hentai)        
         elif url_re.search(id):
             if md_url.match(id):
-                input_url = md_url.match(id)
-                
-                if input_url.group(1) == 'title' or input_url.group(1) == 'manga':
-                    id = input_url.group(2)
-                    downloadTitle(id, language, '', route, 1, make_folder, save_format, covers)
-                elif input_url.group(1) == 'chapter':
-                    id = input_url.group(2)
-                    downloadChapter(id, '', route, '', 0, '', make_folder, save_format, '')
-                elif input_url.group(1) == 'group' or input_url.group(1) == 'user':
-                    id = input_url.group(2)
-                    type = input_url.group(1)
-                    Scraper(id, type, hentai, route, '', make_folder, save_format).getChapters()
+                print(api_message)
+                urlChecker(id, language, route, type, make_folder, save_format, covers, hentai)
             else:
-                print('Please use a MangaDex title/chapter/group link.')
+                print('Please use a MangaDex title/chapter/group/user link.')
                 return
         else:
             print('File not found!')
             return
     else:
-        if type == 'title' or type == 'manga':
-            downloadTitle(id, language, '', route, 1, make_folder, save_format, covers)
-        elif type == 'chapter':
-            downloadChapter(id, '', route, '', 0, '', make_folder, save_format, '')
-        elif type == 'group' or type == 'user':
-            Scraper(id, type, hentai, route, '', make_folder, save_format).getChapters()
-        else:
-            print('Please enter a title/chapter id. For chapters, you must add the argument "--type chapter".')
-            return
+        print(api_message)
+        typeChecker(id, language, route, type, make_folder, save_format, covers, hentai)
+
+    return

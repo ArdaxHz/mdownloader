@@ -1,14 +1,110 @@
 #!/usr/bin/python3
 import argparse
+import os
+import requests
+import re
 
-from components.main import main
+from pathlib import Path
+
+try:
+    from components.main import main
+    from components.__version__ import __version__
+except ModuleNotFoundError:
+    pass
+
+
+def before_main(id, language, directory, type, folder, save_format, covers, hentai):
+
+    excluded = ['LICENSE', 'README.md', 'components']
+    components_path = Path('components')
+
+    root_response = requests.get('https://api.github.com/repos/Rudoal/mdownloader/contents')
+    root_data = root_response.json()
+
+    components_response = requests.get('https://api.github.com/repos/Rudoal/mdownloader/contents/components')
+    components_data = components_response.json()
+
+    missing_root = [f for f in root_data if (f["name"] not in os.listdir('.') and f["name"] not in excluded)]
+    
+    try:
+        missing_components = [f for f in components_data if f["name"] not in os.listdir('./components')]
+    except FileNotFoundError:
+        components_path.mkdir(parents=True, exist_ok=True)
+        missing_components = [f for f in components_data if f["name"] not in os.listdir('./components')]
+    
+    if len(missing_root) > 0 or len(missing_components) > 0:
+        download_missing = input('Do you want to download the missing required files? y or n ')
+        
+        if download_missing.lower() == 'y':
+            
+            if len(missing_root) > 0:
+                for f in missing_root:
+                    response = requests.get(f["download_url"])
+                    contents = response.content
+
+                    with open(os.path.join('.', f["name"]), 'wb') as file:
+                        file.write(contents)
+            
+            if len(missing_components) > 0:
+                for f in missing_components:
+                    response = requests.get(f["download_url"])
+                    contents = response.content
+
+                    with open(components_path.joinpath(f["name"]), 'wb') as file:
+                        file.write(contents)
+        
+            print('Downloaded the missing files and exiting.')
+            return
+
+    try:
+        with open(os.path.join('./components', '__version__.py'), 'r') as file:
+            version_info = [line.rstrip('\n') for line in file]
+    except FileNotFoundError:
+        pass
+    else:
+        ver_regex = re.compile(r'(?:__version__\s=\s\')(.+)(?:\')')
+        version_number = version_info[0]
+        match = ver_regex.match(version_number)
+
+        local_version = int(__version__.replace('.', ''))
+        remote_version = int(match.group(1).replace('.', ''))
+
+        remote_components = [f["name"] for f in components_data]
+
+        if remote_version > local_version:
+            download_update = input('Looks like there is an update available, do you want to download it? y or n ')
+
+            if download_update.lower() == 'y':
+                [os.remove(i) for i in os.listdir('./components') if i not in remote_components]
+
+                for f in components_data:
+                    response = requests.get(f["download_url"])
+                    contents = response.content
+
+                    with open(components_path.joinpath(f["name"]), 'wb') as file:
+                        file.write(contents)
+
+                for f in missing_root:
+                    response = requests.get(f["download_url"])
+                    contents = response.content
+
+                    with open(os.path.join('.', f["name"]), 'wb') as file:
+                        file.write(contents)
+
+                print('Downloaded the update and exiting.')
+                return
+
+    main(id, language, directory, type, folder, save_format, covers, hentai)
+
+    return
+
 
 if __name__ == "__main__":
-    
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--language', '-l', default='gb', help='Specify the language to download. NEEDED for non-English title downloads.')
     parser.add_argument('--directory', '-d', default='./downloads', help='The download location, need to specify full path.')
-    parser.add_argument('--type', '-t', default='title', nargs='?', const='chapter', help='Type of id to download, title or chapter.') #title or chapter
+    parser.add_argument('--type', '-t', default='title', nargs='?', const='chapter', choices=['title', 'manga', 'group', 'user'], help='Type of id to download, title or chapter.') #title or chapter
     parser.add_argument('--folder', '-f', default='no', nargs='?', const='yes', choices=['yes', 'no'], help='Make chapter folder.') #yes or no
     parser.add_argument('--save_format', '-s', default='cbz', help='Choose to download as a zip archive or as a comic archive.') #zip or cbz
     parser.add_argument('--covers', '-c', default='skip', nargs='?', const='save', choices=['make', 'save'], help='Download the covers of the manga. Works only with title downloads.')
@@ -17,4 +113,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(args.id, args.language, args.directory, args.type, args.folder, args.save_format, args.covers, args.hentai)
+    before_main(args.id, args.language, args.directory, args.type, args.folder, args.save_format, args.covers, args.hentai)

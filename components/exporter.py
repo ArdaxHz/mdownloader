@@ -19,11 +19,12 @@ from tqdm import tqdm
 
 class Base:
 
-    def __init__(self, series_title, chapter_data, languages):
+    def __init__(self, series_title, chapter_data):
         self.series_title = series_title
         self.chapter_data = chapter_data
-        self.languages = languages
-        self.lang_code = chapter_data["lang_code"]
+        self.languages = self.getLangs()
+        self.languages = self.languages["iso"]
+        self.lang_code = chapter_data["language"]
         self.chapter_title = self.titleChecker()
         self.chapter_regrex = re.compile(r'([0-9]+)\.([0-9]+)')
         self.name_regex = re.compile('[\\\\/:*?"<>|]')
@@ -36,6 +37,12 @@ class Base:
         self.folder_name = self.folderName()
 
 
+    def getLangs(self):
+        with open('languages.json', 'r') as file:
+            languages = json.load(file)
+        return languages
+
+
     def titleChecker(self):
         if self.chapter_data["title"].lower() == 'oneshot' or (self.chapter_data["chapter"] == '' and self.chapter_data["volume"] == '' and self.chapter_data["title"] == ''):
             return 1
@@ -46,16 +53,26 @@ class Base:
     def chapterNo(self):
         chapter_number = self.chapter_data["chapter"]
 
-        if self.chapter_regrex.match(chapter_number):
-            pattern = self.chapter_regrex.match(chapter_number)
-            chap_no = pattern.group(1).zfill(3)
-            decimal_no = pattern.group(2)
-            chapter_number = f'c{chap_no}.{decimal_no}'
-        elif self.chapter_title:
+        # if self.chapter_regrex.match(chapter_number):
+        #     pattern = self.chapter_regrex.match(chapter_number)
+        #     chap_no = pattern.group(1).zfill(3)
+        #     decimal_no = pattern.group(2)
+        #     chapter_number = f'c{chap_no}.{decimal_no}'
+        # elif self.chapter_title:
+        #     chapter_number = chapter_number.zfill(3)
+        # else:
+        #     chapter_number = re.sub(r'\D', '-', chapter_number)
+        #     chapter_number = f'c{chapter_number.zfill(3)}'
+
+        if self.chapter_title:
             chapter_number = chapter_number.zfill(3)
         else:
-            chapter_number = re.sub(r'\D', '-', chapter_number)
-            chapter_number = f'c{chapter_number.zfill(3)}'
+            parts = chapter_number.split('.', 1)
+            c = int(parts[0])
+            chap_no = str(c).zfill(3)
+            chap_prefix = 'c' if c < 1000 else 'd'
+            chap_no = chap_no + '.' + parts[1] if len(parts) > 1 else chap_no
+            chapter_number = chap_prefix + chap_no
 
         return chapter_number
 
@@ -79,14 +96,15 @@ class Base:
 
 
     def groupNames(self):
-        return self.name_regex.sub('_', html.unescape( ', '.join(filter(None, [self.chapter_data[x] for x in filter(lambda s: s.startswith('group_name'), self.chapter_data.keys()) ])) ))
+        return self.name_regex.sub('_', html.unescape(', '.join( [g["name"] for g in self.chapter_data["groups"]] )))
 
 
     def suffixName(self):
-        if self.chapter_title:
-            return f'[Oneshot] [{self.groups}]'
-        else:
-            return f'[{self.groups}]'
+        return f'[Oneshot] [{self.groups}]' if self.chapter_title else f'[{self.groups}]'
+        # if self.chapter_title:
+        #     return f'[Oneshot] [{self.groups}]'
+        # else:
+        #     return f'[{self.groups}]'
 
 
     def folderName(self):
@@ -99,8 +117,8 @@ class Base:
 
 
 class ChapterSaver(Base):
-    def __init__(self, series_title, chapter_data, languages, destination, save_format, make_folder):
-        super().__init__(series_title, chapter_data, languages)
+    def __init__(self, series_title, chapter_data, destination, save_format, make_folder):
+        super().__init__(series_title, chapter_data)
         self.destination = destination
         self.save_format = save_format
         self.path = Path(destination)
@@ -109,7 +127,7 @@ class ChapterSaver(Base):
         self.archive_path = os.path.join(destination, f'{self.folder_name}.{save_format}')
         self.folder_path = self.path.joinpath(self.folder_name)
         self.archive = self.checkZip()
-        self.folder = 'no' if self.make_folder == 'no' else self.makeFolder()
+        self.folder = None if self.make_folder == 'no' else self.makeFolder()
 
 
     def remove(self):
@@ -117,6 +135,7 @@ class ChapterSaver(Base):
             os.remove(self.archive_path)
         except FileNotFoundError:
             pass
+        return
 
 
     def makeZip(self):
@@ -124,6 +143,9 @@ class ChapterSaver(Base):
             return zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED) 
         except zipfile.BadZipFile:
             sys.exit('Error creating archive')
+        except PermissionError:
+            raise PermissionError("The file is open by another process.")
+        return
 
 
     def checkZip(self):
@@ -137,6 +159,8 @@ class ChapterSaver(Base):
                 pass
             else:
                 self.archive.comment = to_add.encode()
+            
+            return self.archive
         else:
             self.close()
             version_no += 1
@@ -162,24 +186,25 @@ class ChapterSaver(Base):
                     break
 
             self.archive.comment = to_add.encode()
-
-        return self.archive
-
+            return self.archive
+        return
 
     def makeFolder(self):
         try:
             return self.folder_path.mkdir(parents=True, exist_ok=True)
         except OSError:
             sys.exit('Error creating folder')
-
+        return
     
     def imageCompress(self):
         self.archive.writestr(self.page_name, self.response)
+        return
 
 
     def folderAdd(self):
         with open(self.folder_path.joinpath(self.page_name), 'wb') as file:
             file.write(self.response)
+        return
 
 
     def checkImages(self):
@@ -188,11 +213,12 @@ class ChapterSaver(Base):
         else:
             self.imageCompress()
         
-        if self.folder != 'no':
+        if self.folder is not None:
             if self.page_name in os.listdir(self.folder_path):
                 pass
             else:
                 self.folderAdd()
+        return
 
 
     def add_image(self, response, page_no, ext):
@@ -200,7 +226,9 @@ class ChapterSaver(Base):
         self.response = response
 
         self.checkImages()
+        return
 
 
     def close(self):
         self.archive.close()
+        return
