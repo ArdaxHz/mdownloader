@@ -6,6 +6,7 @@ import os
 import html
 import json
 
+from datetime import datetime
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 from components.exporter import ChapterSaver
@@ -33,7 +34,7 @@ def checkExist(pages, instance, make_folder):
 
 
 async def wait_with_progress(coros):
-    for f in tqdm(asyncio.as_completed(coros), total=len(coros)):
+    for f in tqdm(asyncio.as_completed(coros), total=len(coros), desc=(str(datetime.now(tz=None))[:-7])):
         try:
             await f
         except Exception as e:
@@ -54,7 +55,7 @@ async def downloadImages(image, url, pages, instance):
                     response = await response.read()
 
                     page_no = pages.index(image) + 1
-                    extension = image.rsplit('.')[1]
+                    extension = image.rsplit('.', 1)[1]
 
                     instance.add_image(response, page_no, extension)
                     
@@ -137,7 +138,7 @@ def downloadChapter(chapter_id, route, type, title, make_folder, save_format, js
             # ASYNC FUNCTION
             loop  = asyncio.get_event_loop()
             tasks = []
-            
+
             for image in pages:
                 task = asyncio.ensure_future(downloadImages(image, url, pages, instance))
                 tasks.append(task)
@@ -155,8 +156,7 @@ def downloadChapter(chapter_id, route, type, title, make_folder, save_format, js
 
 
 def downloadBatch(id, language, route, form, make_folder, save_format, covers):
-    form = form.lower()
-    
+   
     #Connect to API and get manga info
     url = f'{domain}/api/v2/{form}/{id}?include=chapters'
 
@@ -168,6 +168,7 @@ def downloadBatch(id, language, route, form, make_folder, save_format, covers):
 
     data = response.json()
     data = data['data']
+    form = form.lower()
 
     if form in ('title', 'manga'):
         type = 1
@@ -221,6 +222,8 @@ def downloadBatch(id, language, route, form, make_folder, save_format, covers):
                 continue
             else:
                 continue
+    
+    # print(f'---------------------------------------------------------------------\nFinished Downloading {form.title()}: {name}\n---------------------------------------------------------------------')
     
     json_file.core(1)
     return

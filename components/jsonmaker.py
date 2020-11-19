@@ -26,7 +26,7 @@ class TitleJson:
             self.cover_route.mkdir(parents=True, exist_ok=True)
         self.regex = re.compile('[\\\\/:*?"<>|]')
         self.domain = 'https://mangadex.org'
-        self.cover_regex = re.compile(r'(?:https\:\/\/mangadex\.org\/images\/(?:manga|covers)\/)(.+)?(?:\?.+)')
+        self.cover_regex = re.compile(r'(?:https\:\/\/mangadex\.org\/images\/(?:manga|covers)\/)(.+)(?:(?:\?.+)|$)')
         self.cover_url = re.sub(r'\?[0-9]+', '', self.manga_data["mainCover"])
         self.links = self.Link()
         self.social = self.Social()
@@ -95,10 +95,14 @@ class TitleJson:
 
         self.downloadCover(cover, cover_name)
 
-        for c in json_covers["alt_covers"]:
-            cover_name = f'alt_{self.cover_regex.match(c["url"]).group(1)}'
-            cover_name = self.regex.sub('_', html.unescape(cover_name))
-            self.downloadCover(c, cover_name)
+        if not isinstance(json_covers, str):
+            for c in json_covers["alt_covers"]:
+                cover_url = c["url"]
+                cover_ext = self.cover_regex.match(cover_url).group(1).rsplit('?', 1)[0].rsplit('.', 1)[-1]
+                cover_prefix = c["volume"].replace('.', '-')
+                cover_prefix = self.regex.sub('_', html.unescape(cover_prefix))
+                cover_name = f'alt_{self.manga_id}v{cover_prefix}.{cover_ext}'
+                self.downloadCover(cover_url, cover_name)
         return
 
 

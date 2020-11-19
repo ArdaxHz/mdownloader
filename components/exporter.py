@@ -187,7 +187,6 @@ class ChapterSaver(Base):
 
             self.archive.comment = to_add.encode()
             return self.archive
-        return
 
     def makeFolder(self):
         try:

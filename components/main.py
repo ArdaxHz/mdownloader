@@ -12,7 +12,7 @@ md_url = re.compile(r'(?:https\:\/\/mangadex\.org\/)(title|chapter|manga|group|u
 url_re = re.compile(r'(?:https|ftp|http)(?::\/\/)(?:.+)')
 
 
-def typeChecker(id, language, route, type, make_folder, save_format, covers, hentai):
+def typeChecker(id, language, route, type, make_folder, save_format, covers):
 
     if type in ('title', 'manga', 'group', 'user'):
         downloadBatch(id, language, route, type, make_folder, save_format, covers)
@@ -21,11 +21,10 @@ def typeChecker(id, language, route, type, make_folder, save_format, covers, hen
     else:
         print('Please enter a title/chapter/group/user id. For non-title downloads, you must add the argument "--type [chapter|user|group]".')
         return
-
     return
 
 
-def urlChecker(id, language, route, type, make_folder, save_format, covers, hentai):
+def urlChecker(id, language, route, type, make_folder, save_format, covers):
 
     input_url = md_url.match(id)
     type = input_url.group(1)
@@ -36,11 +35,10 @@ def urlChecker(id, language, route, type, make_folder, save_format, covers, hent
     elif type == 'chapter':
         id = input_url.group(2)
         downloadChapter(id, route, 0, '', make_folder, save_format, '')
-
     return
 
 
-def bulkDownloader(filename, language, route, type, make_folder, save_format, covers, hentai):
+def bulkDownloader(filename, language, route, type, make_folder, save_format, covers):
 
     #Open file and read lines
     with open(filename, 'r') as item:
@@ -53,16 +51,12 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format, co
         print('Empty file!')
         return
     else:
-
         print(api_message)
-
         for id in titles:
-            # print(id)
-
             if not id.isdigit():
                 
                 if md_url.match(id):
-                    urlChecker(id, language, route, type, make_folder, save_format, covers, hentai)                   
+                    urlChecker(id, language, route, type, make_folder, save_format, covers)                   
                     
                     # titles.pop(0)
                     # with open(filename, 'w') as file:
@@ -77,32 +71,27 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format, co
                             file.write(line + '\n')
 
             else:
-                typeChecker(id, language, route, type, make_folder, save_format, covers, hentai)
+                typeChecker(id, language, route, type, make_folder, save_format, covers)
             
         print(f'All the ids in {filename} have been downloaded')
-
     return
 
-def main(id, language, route, type, make_folder, save_format, covers, hentai):
+def main(id, language, route, type, make_folder, save_format, covers):
 
     #check if valid zip formats
-    if save_format == 'zip':
-        save_format = 'zip'
-    elif save_format == 'cbz':
-        save_format == 'cbz'
-    else:
+    save_format = save_format.lower()
+    if save_format not in ('zip', 'cbz'):
         print('Please either use zip or cbz as the save formats.')
         return
 
     #Check the id is valid number
     if not id.isdigit():
-
         if os.path.exists(id):
-            bulkDownloader(id, language, route, type, make_folder, save_format, covers, hentai)        
+            bulkDownloader(id, language, route, type, make_folder, save_format, covers)        
         elif url_re.search(id):
             if md_url.match(id):
                 print(api_message)
-                urlChecker(id, language, route, type, make_folder, save_format, covers, hentai)
+                urlChecker(id, language, route, type, make_folder, save_format, covers)
             else:
                 print('Please use a MangaDex title/chapter/group/user link.')
                 return
@@ -111,6 +100,5 @@ def main(id, language, route, type, make_folder, save_format, covers, hentai):
             return
     else:
         print(api_message)
-        typeChecker(id, language, route, type, make_folder, save_format, covers, hentai)
-
+        typeChecker(id, language, route, type, make_folder, save_format, covers)
     return
