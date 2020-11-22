@@ -83,7 +83,7 @@ def beforeMain(id, language, directory, type, save_format, folder, covers):
                     with open(components_path.joinpath(f["name"]), 'wb') as file:
                         file.write(contents)
 
-                for f in root_data:
+                for f in missing_root:
                     response = requests.get(f["download_url"])
                     contents = response.content
 

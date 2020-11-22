@@ -24,8 +24,8 @@ id_3
     -l --language (optional. Use the MD code of the language you want to download. Default: English)
     -d --directory (optional. Must be the absolute path (i.e. /Users/bocchi/Desktop/). Default: script-folder/downloads)
     -t --type (optional. You can choose between 'title', 'chapter', 'group' or 'user' options. Default: title)
-    -f --folder (optional. Makes a chapter folder. You can choose between 'yes' and 'no' options. Default: no)
     -s --save_format (optional. Choose between comic archive or zip as the file type (both are zip files). You can choose between 'cbz' and 'zip' options. Default: cbz))
+    -f --folder (optional. Makes a chapter folder. You can choose between 'yes' and 'no' options. Default: no)
     -c --covers (optional. Download the manga covers, works only with title downloads. You can choose between 'skip' and 'save' options. Default: skip)
 ```
 
