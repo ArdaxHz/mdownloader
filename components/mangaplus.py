@@ -69,7 +69,7 @@ class MangaPlus:
         for page in tqdm(pages):
             image = self.decryptImage(page.image_url, page.encryption_key)
             page_no = pages.index(page) + 1
-            self.chapter_instance.add_image(image, page_no, self.extension)
+            self.chapter_instance.addImage(image, page_no, self.extension)
 
         downloaded_all = self.checkExist(pages)
 

@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 
-class Base:
+class ExporterBase:
 
     def __init__(self, series_title, chapter_data):
         self.series_title = series_title
@@ -17,7 +17,7 @@ class Base:
         self.languages = self.getLangs()
         self.languages = self.languages["iso"]
         self.lang_code = chapter_data["language"]
-        self.chapter_title = self.titleChecker()
+        self.oneshot = self.oneshotChecker()
         self.chapter_regrex = re.compile(r'([0-9]+)\.([0-9]+)')
         self.name_regex = re.compile('[\\\\/:*?"<>|]')
         self.groups = self.groupNames()
@@ -35,9 +35,13 @@ class Base:
         return languages
 
 
-    def titleChecker(self):
-        if self.chapter_data["title"].lower() == 'oneshot' or (self.chapter_data["chapter"] == '' and self.chapter_data["volume"] == '' and self.chapter_data["title"] == ''):
+    def oneshotChecker(self):
+        if self.chapter_data["title"].lower() == 'oneshot':
             return 1
+        elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] == '' and self.chapter_data["title"] == '':
+            return 1
+        elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] == '':
+            return 2
         else:
             return 0
 
@@ -45,7 +49,7 @@ class Base:
     def chapterNo(self):
         chapter_number = self.chapter_data["chapter"]
 
-        if self.chapter_title:
+        if self.oneshot in (1, 2):
             chapter_number = chapter_number.zfill(3)
         else:
             parts = chapter_number.split('.', 1)
@@ -66,7 +70,7 @@ class Base:
 
     
     def volumeNo(self):
-        if self.chapter_data["volume"] == '' or self.chapter_title == 1:
+        if self.chapter_data["volume"] == '' or self.oneshot in (1, 2):
             return ''
         else:
             return f' (v{self.chapter_data["volume"].zfill(2)})'
@@ -77,11 +81,16 @@ class Base:
 
 
     def groupNames(self):
-        return self.name_regex.sub('_', html.unescape(', '.join( [g["name"] for g in self.chapter_data["groups"]] )))
+        return self.name_regex.sub('_', html.unescape(', '.join([g["name"] for g in self.chapter_data["groups"]])))
 
 
     def suffixName(self):
-        return f'[Oneshot] [{self.groups}]' if self.chapter_title else f'[{self.groups}]'
+        if self.oneshot == 1:
+            return f'[Oneshot] [{self.groups}]'
+        elif self.oneshot == 2: 
+            return f'[Oneshot] [{self.chapter_data["title"]}] [{self.groups}]'
+        else:
+            return f'[{self.groups}]'
 
 
     def folderName(self):
@@ -93,7 +102,7 @@ class Base:
 
 
 
-class ChapterSaver(Base):
+class ChapterSaver(ExporterBase):
     def __init__(self, series_title, chapter_data, destination, save_format, make_folder):
         super().__init__(series_title, chapter_data)
         self.destination = destination
@@ -105,14 +114,6 @@ class ChapterSaver(Base):
         self.folder_path = self.path.joinpath(self.folder_name)
         self.archive = self.checkZip()
         self.folder = None if self.make_folder == 'no' else self.makeFolder()
-
-
-    def remove(self):
-        try:
-            os.remove(self.archive_path)
-        except FileNotFoundError:
-            pass
-        return
 
 
     def makeZip(self):
@@ -136,12 +137,12 @@ class ChapterSaver(Base):
                 pass
             else:
                 self.archive.comment = to_add.encode()
-            
+
             return self.archive
         else:
             self.close()
             version_no += 1
-            
+
             print('The archive with the same chapter number and groups exists, but not the same chapter hash, making a different archive...')
 
             while True:
@@ -164,6 +165,7 @@ class ChapterSaver(Base):
 
             self.archive.comment = to_add.encode()
             return self.archive
+
 
     def makeFolder(self):
         try:
@@ -197,7 +199,7 @@ class ChapterSaver(Base):
         return
 
 
-    def add_image(self, response, page_no, ext):
+    def addImage(self, response, page_no, ext):
         self.page_name = self.pageName(page_no, ext)
         self.response = response
 

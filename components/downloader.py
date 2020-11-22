@@ -38,6 +38,8 @@ async def displayProgress(tasks):
     for f in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc=(str(datetime.now(tz=None))[:-7])):
         try:
             await f
+        except ConnectionResetError:
+            pass
         except Exception as e:
             print(e)
     return
@@ -58,7 +60,7 @@ async def downloadImages(url, image, pages, instance):
                     page_no = pages.index(image) + 1
                     extension = image.rsplit('.', 1)[1]
 
-                    instance.add_image(response, page_no, extension)
+                    instance.addImage(response, page_no, extension)
 
                     retry = 5
                     return
@@ -175,9 +177,11 @@ def downloadBatch(id, language, route, form, save_format, make_folder, covers):
     data = response.json()
     data = data["data"]
     form = form.lower()
+    chapter_count = 0
 
     if form in ('title', 'manga'):
         type = 1
+        chapter_count = len(data["chapters"])
         title = re_regrex.sub('_', html.unescape(data["manga"]["title"]))
 
         title = title.rstrip()
@@ -192,13 +196,15 @@ def downloadBatch(id, language, route, form, save_format, make_folder, covers):
         type = 2
         name = data["group"]["name"]
         title = ''
+        chapter_count = data["group"]["chapters"]
 
         json_file = AccountJSON(data, route, 'group')
-    
+
     else:
         type = 3
         name = data["user"]["username"]
         title = ''
+        chapter_count = data["user"]["uploads"]
 
         json_file = AccountJSON(data, route, 'user')
 
@@ -209,12 +215,15 @@ def downloadBatch(id, language, route, form, save_format, make_folder, covers):
             json_file.core(1)
         return
 
+    if chapter_count > 6000:
+        print(f'Due to API limits, a maximum of 6000 chapters can be downloaded for this {form.lower()}.')
+
     if json_file.data_json:
         chapters_data = json_file.data_json["chapters"]
     else:
         chapters_data = {}
 
-    print(f'---------------------------------------------------------------------\nDownloading {form.title()}: {name}\n---------------------------------------------------------------------')
+    print(f'{"-"*69}\nDownloading {form.title()}: {name}\n{"-"*69}')
 
     # Loop chapters
     for chapter in data["chapters"]:
@@ -229,7 +238,7 @@ def downloadBatch(id, language, route, form, save_format, make_folder, covers):
             else:
                 continue
     
-    # print(f'---------------------------------------------------------------------\nFinished Downloading {form.title()}: {name}\n---------------------------------------------------------------------')
+    # print(f'{"-"*69}\nFinished Downloading {form.title()}: {name}\n{"-"*69}')
     
     json_file.core(1)
     return

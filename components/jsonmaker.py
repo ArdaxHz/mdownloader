@@ -9,7 +9,8 @@ from urllib.parse import quote
 import requests
 
 
-class Base:
+
+class JsonBase:
 
     def __init__(self, data, route, form):
         self.type = form
@@ -26,25 +27,21 @@ class Base:
         
         self.data_json = self.checkExist()
         self.lang_name = self.getLangs()
-        self.lang_name = self.lang_name["md"]
         self.chapter_json = {}
 
 
     def getLangs(self):
         with open('languages.json', 'r') as file:
             languages = json.load(file)
-        return languages
+        return languages["md"]
 
 
     def checkExist(self):
-        if os.path.exists(self.json_path):
-            try:
-                with open(self.json_path, 'r') as file:
-                    series_json = json.load(file)
-                return series_json
-            except json.JSONDecodeError:
-                return {}
-        else:
+        try:
+            with open(self.json_path, 'r') as file:
+                series_json = json.load(file)
+            return series_json
+        except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
 
@@ -97,7 +94,7 @@ class Base:
     def saveJson(self):
         # Disable all the no-member violations in this function
         # pylint: disable=no-member
-        with open(self.json_path, 'w') as json_file:
+        with open(self.json_path, 'w', encoding='utf8') as json_file:
             json.dump(self.new_data, json_file, indent=4, ensure_ascii=False)
         return
 
@@ -113,15 +110,18 @@ class Base:
         return
 
 
-class TitleJson(Base):
 
-    def __init__(self, manga_data, route, save_covers):
-        super().__init__(manga_data, route, 'manga')
+class TitleJson(JsonBase):
+
+    def __init__(self, data, route, save_covers):
+        super().__init__(data, route, 'manga')
         self.save_covers = save_covers
         self.regex = re.compile('[\\\\/:*?"<>|]')
+        
         if self.save_covers == 'save':
             self.cover_route = self.route.joinpath('!covers')
             self.cover_route.mkdir(parents=True, exist_ok=True)
+        
         self.cover_regex = re.compile(r'(?:https\:\/\/mangadex\.org\/images\/(?:manga|covers)\/)(.+)(?:(?:\?.+)|$)')
         self.cover_url = re.sub(r'\?[0-9]+', '', self.data["mainCover"])
         self.links = self.getLinks()
@@ -134,37 +134,37 @@ class TitleJson(Base):
         json_links = {}
         try:
             if 'al' in self.data["links"]:
-                json_links["anilist"] = quote(f'https://anilist.co/manga/{self.data["links"]["al"]}')
+                json_links["anilist"] = f'https://anilist.co/manga/{self.data["links"]["al"]}'
             if 'ap' in self.data["links"]:
-                json_links["anime_planet"] = quote(f'https://www.anime-planet.com/manga/{self.data["links"]["ap"]}')
+                json_links["anime_planet"] = f'https://www.anime-planet.com/manga/{quote(self.data["links"]["ap"])}'
             if 'bw' in self.data["links"]:
                 if re.match(r'series/[0-9]+', self.data["links"]["bw"]):
-                    json_links["bookwalker"] = quote(f'https://bookwalker.jp/{self.data["links"]["bw"]}/list')
+                    json_links["bookwalker"] = f'https://bookwalker.jp/{self.data["links"]["bw"]}/list'
                 else:
-                    json_links["bookwalker"] = quote(f'https://bookwalker.jp/{self.data["links"]["bw"]}')
+                    json_links["bookwalker"] = f'https://bookwalker.jp/{self.data["links"]["bw"]}'
             if 'kt' in self.data["links"]:
-                json_links["kitsu"] = quote(f'https://kitsu.io/manga/{self.data["links"]["kt"]}')
+                json_links["kitsu"] = f'https://kitsu.io/manga/{self.data["links"]["kt"]}'
             if 'mu' in self.data["links"]:
-                json_links["manga_updates"] = quote(f'https://www.mangaupdates.com/series.html?id={self.data["links"]["mu"]}')
+                json_links["manga_updates"] = f'https://www.mangaupdates.com/series.html?id={self.data["links"]["mu"]}'
             if 'nu' in self.data["links"]:
                 json_links["novel_updates"] = quote(f'https://www.novelupdates.com/series/{self.data["links"]["nu"]}')
             if 'amz' in self.data["links"]:
-                json_links["amazon_jp"] = quote(self.data["links"]["amz"])
+                json_links["amazon_jp"] = self.data["links"]["amz"]
             if 'cdj' in self.data["links"]:
-                json_links["cd_japan"] = quote(self.data["links"]["cdj"])
+                json_links["cd_japan"] = self.data["links"]["cdj"]
             if 'ebj' in self.data["links"]:
                 ebj_link = self.data["links"]["ebj"]
                 if 'https://www.ebookjapan.jp/ebj/' in ebj_link:
                     new_ebj_link = re.sub(r'https://www.ebookjapan.jp/ebj/', r'https://ebookjapan.yahoo.co.jp/books/', ebj_link)
-                    json_links["ebookjapan"] = quote(new_ebj_link)
+                    json_links["ebookjapan"] = new_ebj_link
                 else:
-                    json_links["ebookjapan"] = quote(ebj_link)
+                    json_links["ebookjapan"] = ebj_link
             if 'mal' in self.data["links"]:
-                json_links["myanimelist"] = quote(f'https://myanimelist.net/manga/{self.data["links"]["mal"]}')
+                json_links["myanimelist"] = f'https://myanimelist.net/manga/{self.data["links"]["mal"]}'
             if 'raw' in self.data["links"]:
-                json_links["raw"] = quote(self.data["links"]["raw"])
+                json_links["raw"] = self.data["links"]["raw"]
             if 'engtl' in self.data["links"]:
-                json_links["official_english"] = quote(self.data["links"]["engtl"] )
+                json_links["official_english"] = self.data["links"]["engtl"] 
         except TypeError:
             pass
         return json_links
@@ -172,9 +172,9 @@ class TitleJson(Base):
 
     def downloadCover(self, cover, cover_name):
         cover_response = requests.get(cover).content
-        print(f'Saving cover {cover_name}...')
 
         if not os.path.exists(os.path.join(self.cover_route, cover_name)):
+            print(f'Saving cover {cover_name}...')
             with open(os.path.join(self.cover_route, cover_name), 'wb') as file:
                 file.write(cover_response)
         return
@@ -188,7 +188,7 @@ class TitleJson(Base):
 
         self.downloadCover(cover, cover_name)
 
-        if not isinstance(json_covers, str):
+        if not isinstance(json_covers["altCovers"], str):
             for c in json_covers["altCovers"]:
                 cover_url = c["url"]
                 cover_ext = self.cover_regex.match(cover_url).group(1).rsplit('?', 1)[0].rsplit('.', 1)[-1]
@@ -251,7 +251,7 @@ class TitleJson(Base):
 
 
 
-class AccountJSON(Base):
+class AccountJSON(JsonBase):
 
     def __init__(self, data, route, form):
         super().__init__(data, route, form)
