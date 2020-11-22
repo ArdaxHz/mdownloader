@@ -1,10 +1,13 @@
 #!/usr/bin/python3
-import requests
-import re
 import os
+import re
 
+import requests
 from tqdm import tqdm
-from components.response_pb2 import Response, MangaViewer, TitleDetailView
+
+from .response_pb2 import Response, MangaViewer, TitleDetailView
+
+
 
 class MangaPlus:
 
@@ -17,9 +20,9 @@ class MangaPlus:
         self.extension = 'jpg'
 
     def idChecker(self):
-        mplus_url = re.compile(r"(?:https:\/\/mangaplus\.shueisha\.co\.jp\/viewer\/)([0-9]+)")
-        mplus_id = mplus_url.match(self.chapter_data["external"]).group(1)
-        url = f"https://jumpg-webapi.tokyo-cdn.com/api/manga_viewer?chapter_id={mplus_id}&split=no&img_quality=super_high"
+        mplus_url = re.compile(r'(?:https:\/\/mangaplus\.shueisha\.co\.jp\/viewer\/)([0-9]+)')
+        mplus_id = mplus_url.match(self.chapter_data["pages"]).group(1)
+        url = f'https://jumpg-webapi.tokyo-cdn.com/api/manga_viewer?chapter_id={mplus_id}&split=no&img_quality=super_high'
         return url
 
 
@@ -48,6 +51,8 @@ class MangaPlus:
 
 
     def plusImages(self):
+        # Disable all the no-member violations in this function
+        # pylint: disable=no-member
         response = requests.get(self.api_url)
         viewer = Response.FromString(response.content).success.manga_viewer
         pages = [p.manga_page for p in viewer.pages if p.manga_page.image_url]
@@ -56,7 +61,7 @@ class MangaPlus:
 
         if exists:
             print('File already downloaded.')
-            if type in (1, 2, 3):
+            if self.type in (1, 2, 3):
                 self.json_file.core(0)
             self.chapter_instance.close()
             return
@@ -68,7 +73,7 @@ class MangaPlus:
 
         downloaded_all = self.checkExist(pages)
 
-        if downloaded_all and type in (1, 2, 3):
+        if downloaded_all and self.type in (1, 2, 3):
             self.json_file.core(0)
 
         self.chapter_instance.close()

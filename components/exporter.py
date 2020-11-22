@@ -1,19 +1,11 @@
 #!/usr/bin/python3
-import sys
-import os
-import time
-import requests
-import asyncio
-import argparse
-import re
 import html
 import json
+import os
+import re
+import sys
 import zipfile
-import shutil
-
-from aiohttp import ClientSession, ClientError
 from pathlib import Path
-from tqdm import tqdm
 
 
 
@@ -53,17 +45,6 @@ class Base:
     def chapterNo(self):
         chapter_number = self.chapter_data["chapter"]
 
-        # if self.chapter_regrex.match(chapter_number):
-        #     pattern = self.chapter_regrex.match(chapter_number)
-        #     chap_no = pattern.group(1).zfill(3)
-        #     decimal_no = pattern.group(2)
-        #     chapter_number = f'c{chap_no}.{decimal_no}'
-        # elif self.chapter_title:
-        #     chapter_number = chapter_number.zfill(3)
-        # else:
-        #     chapter_number = re.sub(r'\D', '-', chapter_number)
-        #     chapter_number = f'c{chapter_number.zfill(3)}'
-
         if self.chapter_title:
             chapter_number = chapter_number.zfill(3)
         else:
@@ -101,10 +82,6 @@ class Base:
 
     def suffixName(self):
         return f'[Oneshot] [{self.groups}]' if self.chapter_title else f'[{self.groups}]'
-        # if self.chapter_title:
-        #     return f'[Oneshot] [{self.groups}]'
-        # else:
-        #     return f'[{self.groups}]'
 
 
     def folderName(self):

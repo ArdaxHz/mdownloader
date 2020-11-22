@@ -1,44 +1,44 @@
 #!/usr/bin/python3
+import json
 import os
+import re
 import shutil
 import time
-import re
-import json
 
-from components.downloader import downloadChapter, downloadBatch
+from .downloader import downloadChapter, downloadBatch
 
 api_message = 'The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.'
 md_url = re.compile(r'(?:https\:\/\/mangadex\.org\/)(title|chapter|manga|group|user)(?:\/)([0-9]+)')
 url_re = re.compile(r'(?:https|ftp|http)(?::\/\/)(?:.+)')
 
 
-def typeChecker(id, language, route, type, make_folder, save_format, covers):
+def typeChecker(id, language, route, type, save_format, make_folder, covers):
 
     if type in ('title', 'manga', 'group', 'user'):
-        downloadBatch(id, language, route, type, make_folder, save_format, covers)
+        downloadBatch(id, language, route, type, save_format, make_folder, covers)
     elif type == 'chapter':
-        downloadChapter(id, route, 0, '', make_folder, save_format, '')
+        downloadChapter(id, '', route, 0, save_format, make_folder, '')
     else:
         print('Please enter a title/chapter/group/user id. For non-title downloads, you must add the argument "--type [chapter|user|group]".')
         return
     return
 
 
-def urlChecker(id, language, route, type, make_folder, save_format, covers):
+def urlChecker(id, language, route, type, save_format, make_folder, covers):
 
     input_url = md_url.match(id)
     type = input_url.group(1)
 
     if type in ('title', 'manga', 'group', 'user'):
         id = input_url.group(2)
-        downloadBatch(id, language, route, type, make_folder, save_format, covers)
+        downloadBatch(id, language, route, type, save_format, make_folder, covers)
     elif type == 'chapter':
         id = input_url.group(2)
-        downloadChapter(id, route, 0, '', make_folder, save_format, '')
+        downloadChapter(id, '', route, 0, save_format, make_folder, '')
     return
 
 
-def bulkDownloader(filename, language, route, type, make_folder, save_format, covers):
+def bulkDownloader(filename, language, route, type, save_format, make_folder, covers):
 
     #Open file and read lines
     with open(filename, 'r') as item:
@@ -54,29 +54,20 @@ def bulkDownloader(filename, language, route, type, make_folder, save_format, co
         print(api_message)
         for id in titles:
             if not id.isdigit():
-                
                 if md_url.match(id):
-                    urlChecker(id, language, route, type, make_folder, save_format, covers)                   
-                    
-                    # titles.pop(0)
-                    # with open(filename, 'w') as file:
-                    #     for line in titles:
-                    #         file.write(line + '\n')
-                    
-                    # print(titles)
+                    urlChecker(id, language, route, type, save_format, make_folder, covers)
                 else:
                     titles.pop(0)
                     with open(filename, 'w') as file:
                         for line in titles:
                             file.write(line + '\n')
-
             else:
-                typeChecker(id, language, route, type, make_folder, save_format, covers)
+                typeChecker(id, language, route, type, save_format, make_folder, covers)
             
         print(f'All the ids in {filename} have been downloaded')
     return
 
-def main(id, language, route, type, make_folder, save_format, covers):
+def main(id, language, route, type, save_format, make_folder, covers):
 
     #check if valid zip formats
     save_format = save_format.lower()
@@ -87,11 +78,11 @@ def main(id, language, route, type, make_folder, save_format, covers):
     #Check the id is valid number
     if not id.isdigit():
         if os.path.exists(id):
-            bulkDownloader(id, language, route, type, make_folder, save_format, covers)        
+            bulkDownloader(id, language, route, type, save_format, make_folder, covers)
         elif url_re.search(id):
             if md_url.match(id):
                 print(api_message)
-                urlChecker(id, language, route, type, make_folder, save_format, covers)
+                urlChecker(id, language, route, type, save_format, make_folder, covers)
             else:
                 print('Please use a MangaDex title/chapter/group/user link.')
                 return
@@ -100,5 +91,5 @@ def main(id, language, route, type, make_folder, save_format, covers):
             return
     else:
         print(api_message)
-        typeChecker(id, language, route, type, make_folder, save_format, covers)
+        typeChecker(id, language, route, type, save_format, make_folder, covers)
     return

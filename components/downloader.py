@@ -1,18 +1,19 @@
 #!/usr/bin/python3
-import requests
 import asyncio
-import re
-import os
 import html
 import json
-
+import os
+import re
 from datetime import datetime
+
+import requests
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
-from components.exporter import ChapterSaver
-from components.mangaplus import MangaPlus
-from components.jsonmaker import AccountJSON, TitleJson
-from components.__version__ import __version__
+
+from .__version__ import __version__
+from .exporter import ChapterSaver
+from .jsonmaker import AccountJSON, TitleJson
+from .mangaplus import MangaPlus
 
 headers = {'User-Agent': f'mDownloader/{__version__}'}
 domain  = 'https://mangadex.org'
@@ -33,8 +34,8 @@ def checkExist(pages, instance, make_folder):
     return exists
 
 
-async def wait_with_progress(coros):
-    for f in tqdm(asyncio.as_completed(coros), total=len(coros), desc=(str(datetime.now(tz=None))[:-7])):
+async def displayProgress(tasks):
+    for f in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc=(str(datetime.now(tz=None))[:-7])):
         try:
             await f
         except Exception as e:
@@ -42,7 +43,7 @@ async def wait_with_progress(coros):
     return
 
 
-async def downloadImages(image, url, pages, instance):
+async def downloadImages(url, image, pages, instance):
     retry = 0
 
     #try to download it 5 times
@@ -50,7 +51,7 @@ async def downloadImages(image, url, pages, instance):
         async with ClientSession() as session:
             try:
                 async with session.get(url + image) as response:
-    
+
                     assert response.status == 200
                     response = await response.read()
 
@@ -58,7 +59,7 @@ async def downloadImages(image, url, pages, instance):
                     extension = image.rsplit('.', 1)[1]
 
                     instance.add_image(response, page_no, extension)
-                    
+
                     retry = 5
                     return
 
@@ -76,7 +77,7 @@ async def downloadImages(image, url, pages, instance):
 # type 1 -> title
 # type 2 -> group
 # type 3 -> user
-def downloadChapter(chapter_id, route, type, title, make_folder, save_format, json_file):
+def downloadChapter(chapter_id, title, route, type, save_format, make_folder, json_file):
 
     #Connect to API and get chapter info
     url = f'{domain}/api/v2/chapter/{chapter_id}?saver=0'
@@ -94,16 +95,19 @@ def downloadChapter(chapter_id, route, type, title, make_folder, save_format, js
             print(f"Chapter ID doesn't exist. Error: {response.status_code}")
         return
     else:
-        data = response.json()
-        chapter_data = data['data']
+        chapter_data = response.json()
+        chapter_data = chapter_data["data"]
 
-        server_url = chapter_data["server"]
-        url = f'{server_url}{chapter_data["hash"]}/'
-
-        if chapter_data['status'] not in ('OK', 'external'):
+        if chapter_data["status"] not in ('OK', 'external', 'delayed'):
             return
-        
-        #chapter download
+        elif chapter_data["status"] == 'external' and r'https://mangaplus.shueisha.co.jp/viewer/' not in chapter_data["pages"]:
+            print('Chapter external to MangaDex, skipping...')
+            return
+        elif chapter_data["status"] == 'delayed':
+            print('Delayed chapter, skipping...')
+            return
+
+        #chapter, group, user downloads
         if type in (0, 2, 3):
             title = re_regrex.sub('_', html.unescape(chapter_data["mangaTitle"]))
 
@@ -120,12 +124,14 @@ def downloadChapter(chapter_id, route, type, title, make_folder, save_format, js
 
         print(f'Downloading {title} | Volume: {chapter_data["volume"]} | Chapter: {chapter_data["chapter"]} | Title: {chapter_data["title"]}')
 
-        #Extenal chapters
+        #External chapters
         if chapter_data["status"] == 'external':
             print('External chapter... Connecting to MangaPlus to download...')
             MangaPlus(chapter_data, type, instance, json_file).plusImages()
         else:
-            pages = chapter_data['pages']
+            server_url = chapter_data["server"]
+            url = f'{server_url}{chapter_data["hash"]}/'
+            pages = chapter_data["pages"]
             exists = checkExist(pages, instance, make_folder)
 
             if exists:
@@ -140,10 +146,10 @@ def downloadChapter(chapter_id, route, type, title, make_folder, save_format, js
             tasks = []
 
             for image in pages:
-                task = asyncio.ensure_future(downloadImages(image, url, pages, instance))
+                task = asyncio.ensure_future(downloadImages(url, image, pages, instance))
                 tasks.append(task)
 
-            runner = wait_with_progress(tasks)
+            runner = displayProgress(tasks)
             loop.run_until_complete(runner)
 
             downloaded_all = checkExist(pages, instance, make_folder)
@@ -155,7 +161,7 @@ def downloadChapter(chapter_id, route, type, title, make_folder, save_format, js
             return
 
 
-def downloadBatch(id, language, route, form, make_folder, save_format, covers):
+def downloadBatch(id, language, route, form, save_format, make_folder, covers):
    
     #Connect to API and get manga info
     url = f'{domain}/api/v2/{form}/{id}?include=chapters'
@@ -167,12 +173,12 @@ def downloadBatch(id, language, route, form, make_folder, save_format, covers):
         return
 
     data = response.json()
-    data = data['data']
+    data = data["data"]
     form = form.lower()
 
     if form in ('title', 'manga'):
         type = 1
-        title = re_regrex.sub('_', html.unescape(data['manga']['title']))
+        title = re_regrex.sub('_', html.unescape(data["manga"]["title"]))
 
         title = title.rstrip()
         title = title.rstrip('.')
@@ -184,19 +190,19 @@ def downloadBatch(id, language, route, form, make_folder, save_format, covers):
     
     elif form == 'group':
         type = 2
-        name = data['group']['name']
+        name = data["group"]["name"]
         title = ''
 
         json_file = AccountJSON(data, route, 'group')
     
     else:
         type = 3
-        name = data['user']['username']
+        name = data["user"]["username"]
         title = ''
 
         json_file = AccountJSON(data, route, 'user')
 
-    if not data['chapters']:
+    if not data["chapters"]:
         print(f'{form.title()} {id} - {title} has no chapters.')
         if form in ('title', 'manga'):
             json_file.chapters(None)
@@ -204,21 +210,21 @@ def downloadBatch(id, language, route, form, make_folder, save_format, covers):
         return
 
     if json_file.data_json:
-        chapters_data = json_file.data_json['chapters']
+        chapters_data = json_file.data_json["chapters"]
     else:
         chapters_data = {}
 
     print(f'---------------------------------------------------------------------\nDownloading {form.title()}: {name}\n---------------------------------------------------------------------')
 
     # Loop chapters
-    for chapter in data['chapters']:
+    for chapter in data["chapters"]:
 
         # Only chapters of language selected. Default language: English.
-        if chapter['language'] == language:
-            chapter_id = chapter['id']
+        if chapter["language"] == language:
+            chapter_id = chapter["id"]
 
             if str(chapter_id) not in chapters_data:
-                downloadChapter(chapter_id, route, type, title, make_folder, save_format, json_file)
+                downloadChapter(chapter_id, title, route, type, save_format, make_folder, json_file)
                 continue
             else:
                 continue
