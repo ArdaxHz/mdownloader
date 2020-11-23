@@ -19,12 +19,12 @@ class JsonBase:
         self.route = Path(route)
         self.route.mkdir(parents=True, exist_ok=True)
         self.domain = 'https://mangadex.org'
-        
+
         if self.type == 'manga':
             self.json_path = self.route.joinpath(f'{self.id}_data').with_suffix('.json')
         else:
             self.json_path = self.route.joinpath(f'{self.type.lower()}_{self.id}_data').with_suffix('.json')
-        
+
         self.data_json = self.checkExist()
         self.lang_name = self.getLangs()
         self.chapter_json = {}
@@ -38,7 +38,7 @@ class JsonBase:
 
     def checkExist(self):
         try:
-            with open(self.json_path, 'r') as file:
+            with open(self.json_path, 'r', encoding='utf8') as file:
                 series_json = json.load(file)
             return series_json
         except (FileNotFoundError, json.JSONDecodeError):
@@ -147,7 +147,7 @@ class TitleJson(JsonBase):
             if 'mu' in self.data["links"]:
                 json_links["manga_updates"] = f'https://www.mangaupdates.com/series.html?id={self.data["links"]["mu"]}'
             if 'nu' in self.data["links"]:
-                json_links["novel_updates"] = quote(f'https://www.novelupdates.com/series/{self.data["links"]["nu"]}')
+                json_links["novel_updates"] = f'https://www.novelupdates.com/series/{quote(self.data["links"]["nu"])}'
             if 'amz' in self.data["links"]:
                 json_links["amazon_jp"] = self.data["links"]["amz"]
             if 'cdj' in self.data["links"]:
@@ -164,7 +164,7 @@ class TitleJson(JsonBase):
             if 'raw' in self.data["links"]:
                 json_links["raw"] = self.data["links"]["raw"]
             if 'engtl' in self.data["links"]:
-                json_links["official_english"] = self.data["links"]["engtl"] 
+                json_links["official_english"] = self.data["links"]["engtl"]
         except TypeError:
             pass
         return json_links

@@ -15,7 +15,6 @@ class ExporterBase:
         self.series_title = series_title
         self.chapter_data = chapter_data
         self.languages = self.getLangs()
-        self.languages = self.languages["iso"]
         self.lang_code = chapter_data["language"]
         self.oneshot = self.oneshotChecker()
         self.chapter_regrex = re.compile(r'([0-9]+)\.([0-9]+)')
@@ -32,7 +31,7 @@ class ExporterBase:
     def getLangs(self):
         with open('languages.json', 'r') as file:
             languages = json.load(file)
-        return languages
+        return languages["iso"]
 
 
     def oneshotChecker(self):
