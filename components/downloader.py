@@ -11,7 +11,7 @@ from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
 from .__version__ import __version__
-from .exporter import ChapterSaver
+from .exporter import ChapterExporter
 from .jsonmaker import AccountJSON, TitleJson
 from .mangaplus import MangaPlus
 
@@ -20,14 +20,18 @@ domain  = 'https://mangadex.org'
 re_regrex = re.compile('[\\\\/:*?"<>|]')
 
 
-def checkExist(pages, instance, make_folder):
+# Check if all the images are downloaded
+def checkExist(pages, exporter_instance, make_folder):
     exists = 0
 
-    if len(pages) == len(instance.archive.namelist()):
+    # Only image files are counted
+    zip_count = [i for i in exporter_instance.archive.namelist() if not i.endswith('.json')]
+
+    if len(pages) == len(zip_count):
         if make_folder == 'no':
             exists = 1
         else:
-            if len(pages) == len(os.listdir(instance.folder_path)):
+            if len(pages) == len(os.listdir(exporter_instance.folder_path)):
                 exists = 1
             else:
                 exists = 0
@@ -45,10 +49,10 @@ async def displayProgress(tasks):
     return
 
 
-async def downloadImages(url, image, pages, instance):
+async def imageDownloader(url, image, pages, exporter_instance):
     retry = 0
 
-    #try to download it 5 times
+    # Try to download it 5 times
     while retry < 5:
         async with ClientSession() as session:
             try:
@@ -60,7 +64,8 @@ async def downloadImages(url, image, pages, instance):
                     page_no = pages.index(image) + 1
                     extension = image.rsplit('.', 1)[1]
 
-                    instance.addImage(response, page_no, extension)
+                    # Add image to archive
+                    exporter_instance.addImage(response, page_no, extension)
 
                     retry = 5
                     return
@@ -79,12 +84,11 @@ async def downloadImages(url, image, pages, instance):
 # type 1 -> title
 # type 2 -> group
 # type 3 -> user
-def downloadChapter(chapter_id, title, route, type, save_format, make_folder, json_file):
+def chapterDownloader(chapter_id, title, route, type, save_format, make_folder, json_file):
 
-    #Connect to API and get chapter info
+    # Connect to API and get chapter info
     url = f'{domain}/api/v2/chapter/{chapter_id}?saver=0'
-
-    response = requests.get(url, headers = headers)
+    response = requests.get(url, headers=headers)
 
     if response.status_code != 200:
         if response.status_code == 451: #Unavailable chapters
@@ -100,11 +104,14 @@ def downloadChapter(chapter_id, title, route, type, save_format, make_folder, js
         chapter_data = response.json()
         chapter_data = chapter_data["data"]
 
+        # Make sure only downloadable chapters are downloaded
         if chapter_data["status"] not in ('OK', 'external', 'delayed'):
             return
+        # Only MangaPlus external chapters supported
         elif chapter_data["status"] == 'external' and r'https://mangaplus.shueisha.co.jp/viewer/' not in chapter_data["pages"]:
             print('Chapter external to MangaDex, skipping...')
             return
+        # Delayed chapters can't be downloaded
         elif chapter_data["status"] == 'delayed':
             print('Delayed chapter, skipping...')
             return
@@ -119,8 +126,10 @@ def downloadChapter(chapter_id, title, route, type, save_format, make_folder, js
 
         series_route = os.path.join(route, title)
 
-        instance = ChapterSaver(title, chapter_data, series_route, save_format, make_folder)
+        # Make the file names
+        exporter_instance = ChapterExporter(title, chapter_data, series_route, save_format, make_folder)
         
+        # Add chapter data to the json for title, group or user downloads
         if type in (1, 2, 3):
             json_file.chapters(chapter_data)
 
@@ -128,47 +137,51 @@ def downloadChapter(chapter_id, title, route, type, save_format, make_folder, js
 
         #External chapters
         if chapter_data["status"] == 'external':
+            # Call MangaPlus downloader
             print('External chapter... Connecting to MangaPlus to download...')
-            MangaPlus(chapter_data, type, instance, json_file).plusImages()
+            MangaPlus(chapter_data, type, exporter_instance, json_file).plusImages()
         else:
             server_url = chapter_data["server"]
             url = f'{server_url}{chapter_data["hash"]}/'
             pages = chapter_data["pages"]
-            exists = checkExist(pages, instance, make_folder)
+            exists = checkExist(pages, exporter_instance, make_folder)
 
+            # Check if the chapter has been downloaded already
             if exists:
                 print('File already downloaded.')
                 if type in (1, 2, 3):
                     json_file.core(0)
-                instance.close()
+                exporter_instance.close()
                 return
 
             # ASYNC FUNCTION
             loop  = asyncio.get_event_loop()
             tasks = []
 
+            # Download images
             for image in pages:
-                task = asyncio.ensure_future(downloadImages(url, image, pages, instance))
+                task = asyncio.ensure_future(imageDownloader(url, image, pages, exporter_instance))
                 tasks.append(task)
 
             runner = displayProgress(tasks)
             loop.run_until_complete(runner)
 
-            downloaded_all = checkExist(pages, instance, make_folder)
+            downloaded_all = checkExist(pages, exporter_instance, make_folder)
 
+            # If all the images are downloaded, save the json file with the latest downloaded chapter
             if downloaded_all and type in (1, 2, 3):
                 json_file.core(0)
 
-            instance.close()
+            # Close archive
+            exporter_instance.close()
             return
 
 
-def downloadBatch(id, language, route, form, save_format, make_folder, covers):
+def bulkDownloader(id, language, route, form, save_format, make_folder, covers):
    
-    #Connect to API and get manga info
+    # Connect to API and get info
     url = f'{domain}/api/v2/{form}/{id}?include=chapters'
-
-    response = requests.get(url, headers = headers)
+    response = requests.get(url, headers=headers)
 
     if response.status_code != 200:
         print(f"{form.title()} {id} doesn't exist. Request status error: {response.status_code}. Skipping...")
@@ -176,9 +189,9 @@ def downloadBatch(id, language, route, form, save_format, make_folder, covers):
 
     data = response.json()
     data = data["data"]
-    form = form.lower()
     chapter_count = 0
 
+    # Call the relevant jsonmaker class
     if form in ('title', 'manga'):
         type = 1
         chapter_count = len(data["chapters"])
@@ -208,6 +221,7 @@ def downloadBatch(id, language, route, form, save_format, make_folder, covers):
 
         json_file = AccountJSON(data, route, 'user')
 
+    # Skip titles/groups/users without chapters
     if not data["chapters"]:
         print(f'{form.title()} {id} - {title} has no chapters.')
         if form in ('title', 'manga'):
@@ -215,9 +229,11 @@ def downloadBatch(id, language, route, form, save_format, make_folder, covers):
             json_file.core(1)
         return
 
+    # API displays a maximum of 6000 chapters
     if chapter_count > 6000:
         print(f'Due to API limits, a maximum of 6000 chapters can be downloaded for this {form.lower()}.')
 
+    # Check if a json exists
     if json_file.data_json:
         chapters_data = json_file.data_json["chapters"]
     else:
@@ -225,20 +241,29 @@ def downloadBatch(id, language, route, form, save_format, make_folder, covers):
 
     print(f'{"-"*69}\nDownloading {form.title()}: {name}\n{"-"*69}')
 
+    # Check if at least one chapter was downloaded
+    downloaded = False
+
     # Loop chapters
     for chapter in data["chapters"]:
 
         # Only chapters of language selected. Default language: English.
         if chapter["language"] == language:
+            downloaded = True
             chapter_id = chapter["id"]
 
             if str(chapter_id) not in chapters_data:
-                downloadChapter(chapter_id, title, route, type, save_format, make_folder, json_file)
+                chapterDownloader(chapter_id, title, route, type, save_format, make_folder, json_file)
                 continue
             else:
                 continue
     
+    # No chapters downloaded
+    if not downloaded:
+        print('No chapters found in the selected language.')
+
     # print(f'{"-"*69}\nFinished Downloading {form.title()}: {name}\n{"-"*69}')
     
+    # Save the json and covers if selected
     json_file.core(1)
     return

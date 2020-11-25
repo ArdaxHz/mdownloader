@@ -19,6 +19,8 @@ class MangaPlus:
         self.api_url = self.idChecker()
         self.extension = 'jpg'
 
+
+    # Get the MangaPlus id for the api
     def idChecker(self):
         mplus_url = re.compile(r'(?:https:\/\/mangaplus\.shueisha\.co\.jp\/viewer\/)([0-9]+)')
         mplus_id = mplus_url.match(self.chapter_data["pages"]).group(1)
@@ -26,6 +28,7 @@ class MangaPlus:
         return url
 
 
+    # Decrypt the image so it can be saved
     def decryptImage(self, url, encryption_hex):
         resp = requests.get(url)
         data = bytearray(resp.content)
@@ -35,11 +38,14 @@ class MangaPlus:
             data[s] ^= key[s % a]
         return data
 
-    
+
+    # Check if all the images are downloaded    
     def checkExist(self, pages):
         exists = 0
 
-        if len(pages) == len(self.chapter_instance.archive.namelist()):
+        zip_count = [i for i in self.chapter_instance.archive.namelist() if not i.endswith('.json')]
+
+        if len(pages) == len(zip_count):
             if self.chapter_instance.make_folder == 'no':
                 exists = 1
             else:
@@ -50,6 +56,7 @@ class MangaPlus:
         return exists
 
 
+    # Get the images from the MangaPlus api
     def plusImages(self):
         # Disable all the no-member violations in this function
         # pylint: disable=no-member
@@ -66,6 +73,7 @@ class MangaPlus:
             self.chapter_instance.close()
             return
 
+        # Decrypt then save each image
         for page in tqdm(pages):
             image = self.decryptImage(page.image_url, page.encryption_key)
             page_no = pages.index(page) + 1
@@ -73,6 +81,7 @@ class MangaPlus:
 
         downloaded_all = self.checkExist(pages)
 
+        # If all the images are downloaded, save the json file with the latest downloaded chapter
         if downloaded_all and self.type in (1, 2, 3):
             self.json_file.core(0)
 

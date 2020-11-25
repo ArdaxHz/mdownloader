@@ -20,22 +20,25 @@ class JsonBase:
         self.route.mkdir(parents=True, exist_ok=True)
         self.domain = 'https://mangadex.org'
 
+        # Format json name
         if self.type == 'manga':
             self.json_path = self.route.joinpath(f'{self.id}_data').with_suffix('.json')
         else:
-            self.json_path = self.route.joinpath(f'{self.type.lower()}_{self.id}_data').with_suffix('.json')
+            self.json_path = self.route.joinpath(f'{self.type}_{self.id}_data').with_suffix('.json')
 
         self.data_json = self.checkExist()
         self.lang_name = self.getLangs()
         self.chapter_json = {}
 
 
+    # Get the language names
     def getLangs(self):
         with open('languages.json', 'r') as file:
             languages = json.load(file)
         return languages["md"]
 
 
+    # Check if the json already exists
     def checkExist(self):
         try:
             with open(self.json_path, 'r', encoding='utf8') as file:
@@ -45,6 +48,7 @@ class JsonBase:
             return {}
 
 
+    # Format the chapter data
     def chapters(self, chapter_data):
         if chapter_data is not None:
             chapter_id = chapter_data["id"]
@@ -73,12 +77,10 @@ class JsonBase:
             else:
                 json_chapter[chapter_id]["images"] = {}
 
-                try:
-                    chapter_data["serverFallback"]
-                except KeyError:
-                    json_chapter[chapter_id]["images"]["url"] = f'{chapter_data["server"]}{chapter_data["hash"]}/'
-                else:
+                if 'serverFallback' in chapter_data:
                     json_chapter[chapter_id]["images"]["url"] = f'https://s2.mangadex.org/data/{chapter_data["hash"]}/'
+                else:
+                    json_chapter[chapter_id]["images"]["url"] = f'{chapter_data["server"]}{chapter_data["hash"]}/'                   
 
                 json_chapter[chapter_id]["images"]["pages"] = chapter_data["pages"]
 
@@ -91,6 +93,7 @@ class JsonBase:
             return self.chapter_json
 
 
+    # Save the json
     def saveJson(self):
         # Disable all the no-member violations in this function
         # pylint: disable=no-member
@@ -99,6 +102,7 @@ class JsonBase:
         return
 
     
+    # Add the chapter data to the json
     def addChaptersJson(self):
         # Disable all the no-member violations in this function
         # pylint: disable=no-member
@@ -118,6 +122,7 @@ class TitleJson(JsonBase):
         self.save_covers = save_covers
         self.regex = re.compile('[\\\\/:*?"<>|]')
         
+        # Make the covers folder in the manga folder
         if self.save_covers == 'save':
             self.cover_route = self.route.joinpath('!covers')
             self.cover_route.mkdir(parents=True, exist_ok=True)
@@ -130,6 +135,7 @@ class TitleJson(JsonBase):
         self.covers = self.getCovers()
 
 
+    # All the manga page's external links
     def getLinks(self):
         json_links = {}
         try:
@@ -170,6 +176,7 @@ class TitleJson(JsonBase):
         return json_links
 
 
+    # Download the cover
     def downloadCover(self, cover, cover_name):
         cover_response = requests.get(cover).content
 
@@ -180,6 +187,7 @@ class TitleJson(JsonBase):
         return
 
 
+    # Get the covers to download
     def saveCovers(self):
         json_covers = self.covers
         cover = json_covers["mainCover"]
@@ -199,6 +207,7 @@ class TitleJson(JsonBase):
         return
 
 
+    # Format the covers into the json
     def getCovers(self):
         response = requests.get(f'{self.domain}/api/v2/manga/{self.id}/covers')
         data = response.json()
@@ -214,6 +223,7 @@ class TitleJson(JsonBase):
         return json_covers
 
 
+    # The social data of the manga
     def getSocials(self):
         json_social = {"views": self.data["views"]}
         json_social["follows"] = self.data["follows"]
@@ -222,6 +232,7 @@ class TitleJson(JsonBase):
         return json_social
 
 
+    # General manga information
     def title(self):
         json_title = {"id": self.id}
         json_title["title"] = self.data["title"]
@@ -235,6 +246,7 @@ class TitleJson(JsonBase):
         return json_title
 
 
+    # Format the json for exporting
     def core(self, save_type):
         self.new_data = self.title_json
         self.new_data["externalLinks"] = self.links
@@ -258,13 +270,15 @@ class AccountJSON(JsonBase):
         self.account_data = self.accountData()
 
 
+    # Get the account name
     def accountData(self):
         json_account = {"id": self.id}
         json_account["name"] =  self.data["name"] if self.type == 'group' else self.data["username"]
-        json_account["link"] = f'{self.domain}/{self.type.lower()}/{self.id}'
+        json_account["link"] = f'{self.domain}/{self.type}/{self.id}'
         return json_account
 
 
+    # Format the json for exporting
     def core(self, save_type):
         self.new_data = self.account_data
 
