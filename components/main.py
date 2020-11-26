@@ -17,9 +17,9 @@ def typeChecker(id, language, route, type, save_format, make_folder, covers):
     type = type.lower()
 
     if type in ('title', 'manga', 'group', 'user'):
-        chapterDownloader(id, language, route, type, save_format, make_folder, covers)
+        bulkDownloader(id, language, route, type, save_format, make_folder, covers)
     elif type == 'chapter':
-        bulkDownloader(id, '', route, 0, save_format, make_folder, '')
+        chapterDownloader(id, '', route, 0, save_format, make_folder, '')
     else:
         print('Please enter a title/chapter/group/user id. For non-title downloads, you must add the argument "--type [chapter|user|group]".')
         return
