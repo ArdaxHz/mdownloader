@@ -8,11 +8,13 @@ from urllib.parse import quote
 
 import requests
 
+from .languages import languages_names
+
 
 
 class JsonBase:
 
-    def __init__(self, data, route, form):
+    def __init__(self, data: dict, route: str, form: str):
         self.type = form
         self.data = data[self.type]
         self.id = self.data["id"]
@@ -27,70 +29,96 @@ class JsonBase:
             self.json_path = self.route.joinpath(f'{self.type}_{self.id}_data').with_suffix('.json')
 
         self.data_json = self.checkExist()
-        self.lang_name = self.getLangs()
-        self.chapter_json = {}
-
-
-    # Get the language names
-    def getLangs(self):
-        with open('languages.json', 'r') as file:
-            languages = json.load(file)
-        return languages["md"]
 
 
     # Check if the json already exists
-    def checkExist(self):
+    def checkExist(self) -> dict:
         try:
             with open(self.json_path, 'r', encoding='utf8') as file:
                 series_json = json.load(file)
+
+            if isinstance(series_json["chapters"], dict):
+                chapters_json_to_list = []
+
+                for chapter_id in series_json["chapters"]:
+                    chapter_data = series_json["chapters"][chapter_id]
+                    
+                    temp_json = {
+                        "id": int(chapter_id)
+                        }
+                    
+                    if 'lang_name' in series_json["chapters"][chapter_id]:
+                        temp_json["volume"] = chapter_data["volume"]
+                        temp_json["chapter"] = chapter_data["chapter"]
+                        temp_json["title"] = chapter_data["title"]
+                        temp_json["langName"] = chapter_data["lang_name"]
+                        temp_json["langCode"] = chapter_data["lang_code"]
+                        temp_json["groups"] = chapter_data["group(s)"]
+                        temp_json["timestamp"] = chapter_data["timestamp"]
+                        temp_json["link"] = f'{self.domain}/chapter/{chapter_id}'
+                        temp_json["images"] = {}
+                        
+                        try:
+                            temp_json["images"]["url"] = chapter_data["images"]["backup_url"]
+                        except KeyError:
+                            temp_json["images"]["url"] = chapter_data["images"]["url"]
+
+                        temp_json["images"]["pages"] = chapter_data["images"]["pages"]
+
+                        temp_json["mangaData"] = {
+                            "mangaId": chapter_data["manga_id"],
+                            "mangaTitle": chapter_data["manga_title"],
+                            "mangaLink": f'{self.domain}/manga/{chapter_data["manga_id"]}'
+                        }
+                    else:
+                        temp_json.update(chapter_data)
+
+                    chapters_json_to_list.append(temp_json)
+
+                series_json["chapters"] = chapters_json_to_list
+
             return series_json
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
 
     # Format the chapter data
-    def chapters(self, chapter_data):
-        if chapter_data is not None:
-            chapter_id = chapter_data["id"]
+    def chapters(self, chapter_data: dict) -> dict:
 
-            json_chapter = {}
-            json_chapter[chapter_id] = {
-                "volume": chapter_data["volume"],
-                "chapter": chapter_data["chapter"],
-                "title": chapter_data["title"],
-                "langName": self.lang_name[chapter_data["language"]],
-                "langCode": chapter_data["language"],
-                "groups": chapter_data["groups"],
-                "timestamp": chapter_data["timestamp"],
-                "link": f'{self.domain}/chapter/{chapter_data["id"]}'
+        json_chapter = {
+            "id": chapter_data["id"],
+            "volume": chapter_data["volume"],
+            "chapter": chapter_data["chapter"],
+            "title": chapter_data["title"],
+            "langName": languages_names.get(chapter_data["language"], "Other"),
+            "langCode": chapter_data["language"],
+            "groups": chapter_data["groups"],
+            "timestamp": chapter_data["timestamp"],
+            "hash": chapter_data["hash"],
+            "link": f'{self.domain}/chapter/{chapter_data["id"]}'
+        }
+
+        if chapter_data["status"] == "external":
+            json_chapter["images"] = 'This chapter is external to MangaDex so an image list is not available.'
+        else:
+            json_chapter["images"] = {}
+
+            if 'serverFallback' in chapter_data:
+                json_chapter["images"]["url"] = f'{chapter_data["serverFallback"]}{chapter_data["hash"]}/'
+            else:
+                json_chapter["images"]["url"] = f'{chapter_data["server"]}{chapter_data["hash"]}/'                   
+
+            json_chapter["images"]["pages"] = chapter_data["pages"]
+
+        if self.type != 'manga':
+            json_chapter["mangaData"] = {
+                "mangaId": chapter_data["mangaId"],
+                "mangaTitle": chapter_data["mangaTitle"],
+                "mangaLink": f'{self.domain}/manga/{chapter_data["mangaId"]}'
             }
 
-            if self.type != 'manga':
-                json_chapter[chapter_id]["mangaData"] = {
-                    "mangaId": chapter_data["mangaId"],
-                    "mangaTitle": chapter_data["mangaTitle"],
-                    "mangaLink": f'{self.domain}/manga/{chapter_data["mangaId"]}'
-                }
-
-            if chapter_data["status"] == "external":
-                json_chapter[chapter_id]["images"] = 'This chapter is external to MangaDex so an image list is not available.'
-            else:
-                json_chapter[chapter_id]["images"] = {}
-
-                if 'serverFallback' in chapter_data:
-                    json_chapter[chapter_id]["images"]["url"] = f'https://s2.mangadex.org/data/{chapter_data["hash"]}/'
-                else:
-                    json_chapter[chapter_id]["images"]["url"] = f'{chapter_data["server"]}{chapter_data["hash"]}/'                   
-
-                json_chapter[chapter_id]["images"]["pages"] = chapter_data["pages"]
-
-            self.chapter_json.update(json_chapter)
-            return self.chapter_json
-        
-        else:
-            json_chapter = 'This title has no chapters.'
-            self.chapter_json = json_chapter
-            return self.chapter_json
+        self.chapter_json = json_chapter
+        return self.chapter_json
 
 
     # Save the json
@@ -107,23 +135,31 @@ class JsonBase:
         # Disable all the no-member violations in this function
         # pylint: disable=no-member
         if not self.data_json:
-            self.new_data["chapters"] = self.chapter_json
+            try:
+                if self.chapter_json not in self.new_data["chapters"]:
+                    self.new_data["chapters"].append(self.chapter_json)
+            except KeyError:
+                self.new_data["chapters"] = [self.chapter_json]
         else:
             self.new_data["chapters"] = self.data_json["chapters"]
-            self.new_data["chapters"].update(self.chapter_json)
+            try:
+                if self.chapter_json not in self.new_data["chapters"]:
+                    self.new_data["chapters"].append(self.chapter_json)
+            except AttributeError:
+                pass
         return
 
 
 
 class TitleJson(JsonBase):
 
-    def __init__(self, data, route, save_covers):
+    def __init__(self, data: dict, route: str, save_covers: bool):
         super().__init__(data, route, 'manga')
         self.save_covers = save_covers
         self.regex = re.compile('[\\\\/:*?"<>|]')
         
         # Make the covers folder in the manga folder
-        if self.save_covers == 'save':
+        if self.save_covers:
             self.cover_route = self.route.joinpath('!covers')
             self.cover_route.mkdir(parents=True, exist_ok=True)
         
@@ -136,7 +172,7 @@ class TitleJson(JsonBase):
 
 
     # All the manga page's external links
-    def getLinks(self):
+    def getLinks(self) -> dict:
         json_links = {}
         try:
             if 'al' in self.data["links"]:
@@ -177,7 +213,7 @@ class TitleJson(JsonBase):
 
 
     # Download the cover
-    def downloadCover(self, cover, cover_name):
+    def downloadCover(self, cover: str, cover_name: str):
         cover_response = requests.get(cover).content
 
         if not os.path.exists(os.path.join(self.cover_route, cover_name)):
@@ -208,7 +244,7 @@ class TitleJson(JsonBase):
 
 
     # Format the covers into the json
-    def getCovers(self):
+    def getCovers(self) -> dict:
         response = requests.get(f'{self.domain}/api/v2/manga/{self.id}/covers')
         data = response.json()
         covers_data = data["data"]
@@ -224,7 +260,7 @@ class TitleJson(JsonBase):
 
 
     # The social data of the manga
-    def getSocials(self):
+    def getSocials(self) -> dict:
         json_social = {"views": self.data["views"]}
         json_social["follows"] = self.data["follows"]
         json_social["comments"] = self.data["comments"]
@@ -233,7 +269,7 @@ class TitleJson(JsonBase):
 
 
     # General manga information
-    def title(self):
+    def title(self) -> dict:
         json_title = {"id": self.id}
         json_title["title"] = self.data["title"]
         json_title["language"] = self.data["publication"]["language"]
@@ -247,31 +283,30 @@ class TitleJson(JsonBase):
 
 
     # Format the json for exporting
-    def core(self, save_type):
+    def core(self, save_type: int):
         self.new_data = self.title_json
         self.new_data["externalLinks"] = self.links
         self.new_data["covers"] = self.covers
 
         self.addChaptersJson()
 
-        if save_type == 1:
-            if self.save_covers == 'save':
-                self.saveCovers()
+        if save_type and self.save_covers:
+            self.saveCovers()
 
         self.saveJson()
         return
 
 
 
-class AccountJSON(JsonBase):
+class AccountJson(JsonBase):
 
-    def __init__(self, data, route, form):
+    def __init__(self, data: dict, route: str, form: str):
         super().__init__(data, route, form)
         self.account_data = self.accountData()
 
 
     # Get the account name
-    def accountData(self):
+    def accountData(self) -> dict:
         json_account = {"id": self.id}
         json_account["name"] =  self.data["name"] if self.type == 'group' else self.data["username"]
         json_account["link"] = f'{self.domain}/{self.type}/{self.id}'

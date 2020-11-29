@@ -7,18 +7,18 @@ import sys
 import zipfile
 from pathlib import Path
 
+from .languages import languages_iso
+
 
 
 class ExporterBase:
 
-    def __init__(self, series_title, chapter_data):
+    def __init__(self, series_title: str, chapter_data: dict):
         self.series_title = series_title
         self.chapter_data = chapter_data
         self.chapter_id = chapter_data["id"]
-        self.lang_code = self.getLangs()
+        self.lang_code = self.getLangIso()
         self.oneshot = self.oneshotChecker()
-        self.chapter_regrex = re.compile(r'([0-9]+)\.([0-9]+)')
-        self.name_regex = re.compile('[\\\\/:*?"<>|]')
         self.groups = self.groupNames()
         self.chapter_number = self.chapterNo()
         self.volume = self.volumeNo()
@@ -29,14 +29,12 @@ class ExporterBase:
 
 
     # Get iso language code
-    def getLangs(self):
-        with open('languages.json', 'r') as file:
-            languages = json.load(file)
-        return languages["iso"][self.chapter_data["language"]]
+    def getLangIso(self) -> str:
+        return languages_iso.get(self.chapter_data["language"], "NA")
 
 
     # If oneshot, add to file name
-    def oneshotChecker(self):
+    def oneshotChecker(self) -> int:
         if self.chapter_data["title"].lower() == 'oneshot':
             return 1
         elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] == '' and self.chapter_data["title"] == '':
@@ -48,7 +46,7 @@ class ExporterBase:
 
 
     # Format the chapter number
-    def chapterNo(self):
+    def chapterNo(self) -> str:
         chapter_number = self.chapter_data["chapter"]
 
         if self.oneshot in (1, 2):
@@ -65,7 +63,7 @@ class ExporterBase:
 
 
     # Ignore language code if in english
-    def langCode(self):
+    def langCode(self) -> str:
         if self.lang_code == 'eng':
             return ''
         else:
@@ -73,7 +71,7 @@ class ExporterBase:
 
 
     # Get the volume number if applicable
-    def volumeNo(self):
+    def volumeNo(self) -> str:
         if self.chapter_data["volume"] == '' or self.oneshot in (1, 2):
             return ''
         else:
@@ -81,17 +79,17 @@ class ExporterBase:
 
 
     # The formatted prefix name
-    def prefixName(self):
+    def prefixName(self) -> str:
         return f'{self.series_title}{self.language} - {self.chapter_number}{self.volume}'
 
 
     # The chapter's groups
-    def groupNames(self):
-        return self.name_regex.sub('_', html.unescape(', '.join([g["name"] for g in self.chapter_data["groups"]])))
+    def groupNames(self) -> str:
+        return re.sub(r'[\\\\/:*?"<>|]', '_', html.unescape(', '.join([g["name"] for g in self.chapter_data["groups"]])))
 
 
     # Formatting the groups as the suffix
-    def suffixName(self):
+    def suffixName(self) -> str:
         if self.oneshot == 1:
             return f'[Oneshot] [{self.groups}]'
         elif self.oneshot == 2: 
@@ -101,32 +99,34 @@ class ExporterBase:
 
 
     # The final folder name combining the prefix and suffix for the archive/folder name
-    def folderName(self):
+    def folderName(self) -> str:
         return f'{self.prefix} {self.suffix}'
 
 
     # Each page name
-    def pageName(self, page_no, ext):
+    def pageName(self, page_no, ext) -> str:
         return f'{self.prefix} - p{page_no:0>3} {self.suffix}.{ext}'
 
 
 
-class ChapterExporter(ExporterBase):
-    def __init__(self, series_title, chapter_data, destination, save_format, make_folder):
+class ArchiveExporter(ExporterBase):
+    def __init__(self,
+            series_title: str,
+            chapter_data: dict,
+            destination: str,
+            save_format: bool):
         super().__init__(series_title, chapter_data)
+        
         self.destination = destination
         self.save_format = save_format
         self.path = Path(destination)
-        self.make_folder = make_folder
         self.path.mkdir(parents=True, exist_ok=True)
         self.archive_path = os.path.join(destination, f'{self.folder_name}.{save_format}')
-        self.folder_path = self.path.joinpath(self.folder_name)
         self.archive = self.checkZip()
-        self.folder = None if self.make_folder == 'no' else self.makeFolder()
-
+ 
 
     # Make a zipfile, if it exists, open it instead
-    def makeZip(self):
+    def makeZip(self) -> zipfile.ZipFile:
         try:
             return zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED) 
         except zipfile.BadZipFile:
@@ -137,7 +137,7 @@ class ChapterExporter(ExporterBase):
 
 
     # Check the zipfile to see if it is a duplicate or not
-    def checkZip(self):
+    def checkZip(self) -> zipfile.ZipFile:
         version_no = 1
         self.archive = self.makeZip()
         chapter_hash = self.archive.comment.decode().split('\n')[-1]
@@ -177,15 +177,6 @@ class ChapterExporter(ExporterBase):
 
             self.archive.comment = to_add.encode()
             return self.archive
-
-
-    # If folder make is on, make the folder
-    def makeFolder(self):
-        try:
-            return self.folder_path.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            sys.exit('Error creating folder')
-        return
     
 
     # Add images to the archive
@@ -194,30 +185,15 @@ class ChapterExporter(ExporterBase):
         return
 
 
-    # Add images to the folder
-    def folderAdd(self):
-        with open(self.folder_path.joinpath(self.page_name), 'wb') as file:
-            file.write(self.response)
-        return
-
-
-    # Check if the image is in the archive/folder, skip if it is
+    # Check if the image is in the archive, skip if it is
     def checkImages(self):
-        if self.page_name in self.archive.namelist():
-            pass
-        else:
+        if self.page_name not in self.archive.namelist():
             self.imageCompress()
-        
-        if self.folder is not None:
-            if self.page_name in os.listdir(self.folder_path):
-                pass
-            else:
-                self.folderAdd()
         return
 
 
     # Format the image name then add to archive
-    def addImage(self, response, page_no, ext):
+    def addImage(self, response: bytes, page_no: int, ext: str):
         self.page_name = self.pageName(page_no, ext)
         self.response = response
 
@@ -232,4 +208,80 @@ class ChapterExporter(ExporterBase):
             self.archive.writestr(f'{self.chapter_id}.json', json.dumps(self.chapter_data, indent=4, ensure_ascii=False))
 
         self.archive.close()
+        return
+
+
+
+class FolderExporter(ExporterBase):
+    def __init__(self,
+            series_title: str,
+            chapter_data: dict,
+            destination: str):
+        super().__init__(series_title, chapter_data)
+
+        self.path = Path(destination)
+        self.path.mkdir(parents=True, exist_ok=True)
+        self.checkFolder()
+
+
+    # Make the folder
+    def makeFolder(self) -> bool:
+        try:
+            if os.path.exists(self.folder_path):
+                return 1
+            else:
+                self.folder_path.mkdir(parents=True, exist_ok=True)
+                return 0
+        except OSError:
+            sys.exit('Error creating folder')
+
+
+    # Check if the image is in the folder, skip if it is
+    def checkFolder(self):
+        self.folder_path = self.path.joinpath(self.folder_name)
+        self.makeFolder()
+        # version_no = 1
+        # if self.makeFolder():
+        #     if f'{self.chapter_id}.json' not in os.listdir(self.folder_path):
+        #         version_no += 1
+        #         while True:
+        #             self.folder_path = self.path.joinpath(f'{self.folder_name}{{v{version_no}}}')
+        #             if self.makeFolder():
+        #                 if f'{self.chapter_id}.json' not in os.listdir(self.folder_path):
+        #                     break
+        #                 else:
+        #                     continue
+        #             else:
+        #                 break
+        return
+
+
+    # Add images to the folder
+    def folderAdd(self):
+        with open(self.folder_path.joinpath(self.page_name), 'wb') as file:
+            file.write(self.response)
+        return
+
+
+    def checkImages(self):
+        if self.page_name not in os.listdir(self.folder_path):
+            self.folderAdd()
+        return
+
+
+    # Format the image name then add to folder
+    def addImage(self, response: bytes, page_no: int, ext: str):
+        self.page_name = self.pageName(page_no, ext)
+        self.response = response
+
+        self.checkImages()
+        return
+
+
+    # Save chapter data to the folder
+    def close(self):
+        # Add the chapter data json to the folder
+        if f'{self.chapter_id}.json' not in os.listdir(self.folder_path):
+            with open(self.folder_path.joinpath(f'{self.chapter_id}.json'), 'w') as json_file:
+                json.dump(self.chapter_data, json_file, indent=4, ensure_ascii=False)
         return

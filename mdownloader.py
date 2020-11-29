@@ -3,6 +3,7 @@ import argparse
 import os
 import re
 from pathlib import Path
+from typing import Union
 
 import requests
 
@@ -13,7 +14,15 @@ except ModuleNotFoundError:
     pass
 
 
-def beforeMain(id, language, directory, type, save_format, folder, covers):
+def beforeMain(
+        id: Union[int, str],
+        language: str,
+        directory: str,
+        type: str,
+        save_format: str,
+        folder: str,
+        covers: str):
+    # pylint: disable=unsubscriptable-object
 
     excluded = ['LICENSE', 'README.md', 'components']
     components_path = Path('components')
