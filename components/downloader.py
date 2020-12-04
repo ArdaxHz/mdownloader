@@ -52,11 +52,13 @@ async def displayProgress(tasks: list):
 
 async def imageDownloader(
         url: str,
+        fallback_url: str,
         image: str,
         pages: list,
         exporter_instance: Type[Union[ArchiveExporter, FolderExporter]]):
     # pylint: disable=unsubscriptable-object
     retry = 0
+    fallback_retry = 0
 
     # Try to download it 5 times
     while retry < 5:
@@ -68,7 +70,7 @@ async def imageDownloader(
                     response = await response.read()
 
                     page_no = pages.index(image) + 1
-                    extension = image.rsplit('.', 1)[1]
+                    extension = image.split('.', 1)[1]
 
                     # Add image to archive
                     exporter_instance.addImage(response, page_no, extension)
@@ -82,8 +84,13 @@ async def imageDownloader(
                 retry += 1
 
                 if retry == 5:
-                    print(f'Could not download image {image} after 5 times.')
-                return
+                    if fallback_url != '' and fallback_retry == 0:
+                        retry = 0
+                        fallback_retry = 1
+                        url = fallback_url
+                    else:
+                        print(f'Could not download image {image} after 5 times.')
+                        return
 
 
 # download_type 0 -> chapter
@@ -96,7 +103,7 @@ def chapterDownloader(
         make_folder: bool,
         download_type: int=0,
         json_file: Optional[Type[Union[AccountJson, TitleJson]]]=None,
-        title: Optional[str]=None):
+        title: Optional[str]=''):
     # pylint: disable=unsubscriptable-object
 
     # Connect to API and get chapter info
@@ -104,11 +111,13 @@ def chapterDownloader(
     response = requests.get(url, headers=headers)
 
     if response.status_code != 200:
-        if response.status_code == 451: #Unavailable chapters
+        if response.status_code > 500: # Unknown Error
+            print(f"Something went wrong. Error: {response.status_code}")
+        if response.status_code == 451: # Unavailable chapters
             print(f"Unavailable Chapter. This could be because the chapter was deleted by the group or you're not allowed to read it. Error: {response.status_code}")
-        elif response.status_code == 403: #Restricted Chapters. Like korean webtoons
+        elif response.status_code == 403: # Restricted Chapters. Like korean webtoons
             print(f"Restricted Chapter. You're not allowed to read this chapter. Error: {response.status_code}")
-        elif response.status_code == 410: #Deleted Chapters.
+        elif response.status_code == 410: # Deleted Chapters.
             print(f"Deleted Chapter. Error: {response.status_code}")
         else:
             print(f"Chapter ID doesn't exist. Error: {response.status_code}")
@@ -130,7 +139,7 @@ def chapterDownloader(
             return
 
         #chapter, group, user downloads
-        if download_type in (0, 2, 3):
+        if download_type in (0, 2):
             title = re_regrex.sub('_', html.unescape(chapter_data["mangaTitle"]))
 
             title = title.rstrip()
@@ -146,7 +155,7 @@ def chapterDownloader(
             exporter_instance = ArchiveExporter(title, chapter_data, series_route, save_format)
         
         # Add chapter data to the json for title, group or user downloads
-        if download_type in (1, 2, 3):
+        if download_type in (1, 2):
             json_file.chapters(chapter_data)
 
         print(f'Downloading {title} | Volume: {chapter_data["volume"]} | Chapter: {chapter_data["chapter"]} | Title: {chapter_data["title"]}')
@@ -162,11 +171,15 @@ def chapterDownloader(
             url = f'{server_url}{chapter_data["hash"]}/'
             pages = chapter_data["pages"]
             exists = checkExist(pages, exporter_instance)
+            fallback_url = ''
+
+            if 'serverFallback' in chapter_data:
+                fallback_url = f'{chapter_data["serverFallback"]}{chapter_data["hash"]}/'
 
             # Check if the chapter has been downloaded already
             if exists:
                 print('File already downloaded.')
-                if download_type in (1, 2, 3):
+                if download_type in (1, 2):
                     json_file.core(0)
                 exporter_instance.close()
                 return
@@ -177,7 +190,7 @@ def chapterDownloader(
 
             # Download images
             for image in pages:
-                task = asyncio.ensure_future(imageDownloader(url, image, pages, exporter_instance))
+                task = asyncio.ensure_future(imageDownloader(url, fallback_url, image, pages, exporter_instance))
                 tasks.append(task)
 
             runner = displayProgress(tasks)
@@ -186,7 +199,7 @@ def chapterDownloader(
             downloaded_all = checkExist(pages, exporter_instance)
 
             # If all the images are downloaded, save the json file with the latest downloaded chapter
-            if downloaded_all and download_type in (1, 2, 3):
+            if downloaded_all and download_type in (1, 2):
                 json_file.core(0)
 
             # Close the archive
@@ -236,8 +249,7 @@ def bulkDownloader(
         print(f'{form.title()} {id} - {name} has no chapters.')
         return
 
-    print_message = f'Downloading {form.title()}: {name}'
-    print(f'{"-"*69}\n{print_message}\n{"-"*69}')
+    print(f'{"-"*69}\nDownloading {form.title()}: {name}\n{"-"*69}')
 
     # Filter out the unwanted chapters
     chapters = [c["id"] for c in data["chapters"] if c["language"] == language]

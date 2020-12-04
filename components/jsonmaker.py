@@ -314,7 +314,7 @@ class AccountJson(JsonBase):
 
 
     # Format the json for exporting
-    def core(self, save_type):
+    def core(self, save_type: int):
         self.new_data = self.account_data
 
         self.addChaptersJson()

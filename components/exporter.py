@@ -52,11 +52,19 @@ class ExporterBase:
         if self.oneshot in (1, 2):
             chapter_number = chapter_number.zfill(3)
         else:
-            parts = chapter_number.split('.', 1)
-            c = int(parts[0])
-            chap_no = str(c).zfill(3)
-            chap_prefix = 'c' if c < 1000 else 'd'
-            chap_no = chap_no + '.' + parts[1] if len(parts) > 1 else chap_no
+            if re.search(r'[\\\\/-:*?"<>|]', chapter_number):
+                decimal = chapter_number.split('.', 1)
+                parts = re.split(r'\D', decimal[0], 1)
+                c = int(parts[0])
+                parts = [i.zfill(3) for i in parts]
+                chap_prefix = 'c' if c < 1000 else 'd'
+                chap_no = '-'.join(parts) + '.' + decimal[1] if len(decimal) > 1 else '-'.join(parts)
+            else:
+                parts = chapter_number.split('.', 1)
+                c = int(parts[0])
+                chap_no = str(c).zfill(3)
+                chap_prefix = 'c' if c < 1000 else 'd'
+                chap_no = chap_no + '.' + parts[1] if len(parts) > 1 else chap_no
             chapter_number = chap_prefix + chap_no
 
         return chapter_number
@@ -72,10 +80,16 @@ class ExporterBase:
 
     # Get the volume number if applicable
     def volumeNo(self) -> str:
-        if self.chapter_data["volume"] == '' or self.oneshot in (1, 2):
+        volume_number = self.chapter_data["volume"]
+
+        if volume_number == '' or self.oneshot in (1, 2):
             return ''
         else:
-            return f' (v{self.chapter_data["volume"].zfill(2)})'
+            parts = volume_number.split('.', 1)
+            v = int(parts[0])
+            vol_no = str(v).zfill(2)
+            volume_number = vol_no + '.' + parts[1] if len(parts) > 1 else vol_no
+            return f' (v{volume_number})'
 
 
     # The formatted prefix name
@@ -92,8 +106,9 @@ class ExporterBase:
     def suffixName(self) -> str:
         if self.oneshot == 1:
             return f'[Oneshot] [{self.groups}]'
-        elif self.oneshot == 2: 
-            return f'[Oneshot] [{self.chapter_data["title"]}] [{self.groups}]'
+        elif self.oneshot == 2:
+            chapter_title = f'{self.chapter_data["title"][:31]}...' if len(self.chapter_data["title"]) > 30 else self.chapter_data["title"]
+            return f'[Oneshot] [{chapter_title}] [{self.groups}]'
         else:
             return f'[{self.groups}]'
 
@@ -104,7 +119,7 @@ class ExporterBase:
 
 
     # Each page name
-    def pageName(self, page_no, ext) -> str:
+    def pageName(self, page_no: int, ext: str) -> str:
         return f'{self.prefix} - p{page_no:0>3} {self.suffix}.{ext}'
 
 
@@ -243,6 +258,7 @@ class FolderExporter(ExporterBase):
         # version_no = 1
         # if self.makeFolder():
         #     if f'{self.chapter_id}.json' not in os.listdir(self.folder_path):
+        #             print('The archive with the same chapter number and groups exists, but not the same chapter hash, making a different archive...')
         #         version_no += 1
         #         while True:
         #             self.folder_path = self.path.joinpath(f'{self.folder_name}{{v{version_no}}}')
@@ -263,6 +279,7 @@ class FolderExporter(ExporterBase):
         return
 
 
+    # Check if images are in the folder
     def checkImages(self):
         if self.page_name not in os.listdir(self.folder_path):
             self.folderAdd()
