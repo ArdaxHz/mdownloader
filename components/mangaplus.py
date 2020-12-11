@@ -19,13 +19,13 @@ class MangaPlus:
             self,
             chapter_data: dict,
             download_type: int,
-            chapter_instance: Type[Union[ArchiveExporter, FolderExporter]],
+            exporter: Type[Union[ArchiveExporter, FolderExporter]],
             json_file: Optional[Type[Union[AccountJson, TitleJson]]]):
         # pylint: disable=unsubscriptable-object
         
         self.chapter_data = chapter_data
         self.type = download_type
-        self.chapter_instance = chapter_instance
+        self.exporter = exporter
         self.json_file = json_file
         self.api_url = self.idChecker()
         self.extension = 'jpg'
@@ -54,10 +54,10 @@ class MangaPlus:
     def checkExist(self, pages: list) -> bool:
         exists = 0
 
-        if isinstance(self.chapter_instance, ArchiveExporter):
-            zip_count = [i for i in self.chapter_instance.archive.namelist() if i.endswith('.jpg')]
+        if isinstance(self.exporter, ArchiveExporter):
+            zip_count = [i for i in self.exporter.archive.namelist() if i.endswith('.jpg')]
         else:
-            zip_count = [i for i in os.listdir(self.chapter_instance.folder_path) if i.endswith('.jpg')]
+            zip_count = [i for i in os.listdir(self.exporter.folder_path) if i.endswith('.jpg')]
 
         if len(pages) == len(zip_count):
             exists = 1
@@ -79,14 +79,14 @@ class MangaPlus:
             print('File already downloaded.')
             if self.type in (1, 2, 3):
                 self.json_file.core(0)
-            self.chapter_instance.close()
+            self.exporter.close()
             return
 
         # Decrypt then save each image
         for page in tqdm(pages, desc=(str(datetime.now(tz=None))[:-7])):
             image = self.decryptImage(page.image_url, page.encryption_key)
             page_no = pages.index(page) + 1
-            self.chapter_instance.addImage(image, page_no, self.extension)
+            self.exporter.addImage(image, page_no, self.extension)
 
         downloaded_all = self.checkExist(pages)
 
@@ -94,5 +94,5 @@ class MangaPlus:
         if downloaded_all and self.type in (1, 2, 3):
             self.json_file.core(0)
 
-        self.chapter_instance.close()
+        self.exporter.close()
         return

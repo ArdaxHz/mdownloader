@@ -13,11 +13,11 @@ from .languages import languages_iso
 
 class ExporterBase:
 
-    def __init__(self, series_title: str, chapter_data: dict):
+    def __init__(self, series_title: str, chapter_data: dict, chapter_prefix: str):
         self.series_title = series_title
         self.chapter_data = chapter_data
         self.chapter_id = chapter_data["id"]
-        self.lang_code = self.getLangIso()
+        self.chapter_prefix = chapter_prefix
         self.oneshot = self.oneshotChecker()
         self.groups = self.groupNames()
         self.chapter_number = self.chapterNo()
@@ -28,11 +28,6 @@ class ExporterBase:
         self.folder_name = self.folderName()
 
 
-    # Get iso language code
-    def getLangIso(self) -> str:
-        return languages_iso.get(self.chapter_data["language"], "NA")
-
-
     # If oneshot, add to file name
     def oneshotChecker(self) -> int:
         if self.chapter_data["title"].lower() == 'oneshot':
@@ -41,6 +36,8 @@ class ExporterBase:
             return 1
         elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] == '':
             return 2
+        elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] != '' and self.chapter_data["title"] != '':
+            return 3
         else:
             return 0
 
@@ -49,7 +46,7 @@ class ExporterBase:
     def chapterNo(self) -> str:
         chapter_number = self.chapter_data["chapter"]
 
-        if self.oneshot in (1, 2):
+        if self.oneshot in (1, 2, 3):
             chapter_number = chapter_number.zfill(3)
         else:
             if re.search(r'[\\\\/-:*?"<>|]', chapter_number):
@@ -57,13 +54,13 @@ class ExporterBase:
                 parts = re.split(r'\D', decimal[0], 1)
                 c = int(parts[0])
                 parts = [i.zfill(3) for i in parts]
-                chap_prefix = 'c' if c < 1000 else 'd'
+                chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
                 chap_no = '-'.join(parts) + '.' + decimal[1] if len(decimal) > 1 else '-'.join(parts)
             else:
                 parts = chapter_number.split('.', 1)
                 c = int(parts[0])
                 chap_no = str(c).zfill(3)
-                chap_prefix = 'c' if c < 1000 else 'd'
+                chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
                 chap_no = chap_no + '.' + parts[1] if len(parts) > 1 else chap_no
             chapter_number = chap_prefix + chap_no
 
@@ -72,10 +69,10 @@ class ExporterBase:
 
     # Ignore language code if in english
     def langCode(self) -> str:
-        if self.lang_code == 'eng':
+        if self.chapter_data["language"] == 'gb':
             return ''
         else:
-            return f' [{self.lang_code}]'
+            return f' [{languages_iso.get(self.chapter_data["language"], "NA")}]'
 
 
     # Get the volume number if applicable
@@ -104,11 +101,13 @@ class ExporterBase:
 
     # Formatting the groups as the suffix
     def suffixName(self) -> str:
+        chapter_title = f'{self.chapter_data["title"][:31]}...' if len(self.chapter_data["title"]) > 30 else self.chapter_data["title"]
         if self.oneshot == 1:
             return f'[Oneshot] [{self.groups}]'
         elif self.oneshot == 2:
-            chapter_title = f'{self.chapter_data["title"][:31]}...' if len(self.chapter_data["title"]) > 30 else self.chapter_data["title"]
             return f'[Oneshot] [{chapter_title}] [{self.groups}]'
+        elif self.oneshot == 3:
+            return f'[{chapter_title}] [{self.groups}]'
         else:
             return f'[{self.groups}]'
 
@@ -129,9 +128,12 @@ class ArchiveExporter(ExporterBase):
             series_title: str,
             chapter_data: dict,
             destination: str,
+            chapter_prefix: str,
+            add_data: bool,
             save_format: bool):
-        super().__init__(series_title, chapter_data)
+        super().__init__(series_title, chapter_data, chapter_prefix)
         
+        self.add_data = add_data
         self.destination = destination
         self.save_format = save_format
         self.path = Path(destination)
@@ -219,7 +221,7 @@ class ArchiveExporter(ExporterBase):
     # Close the archive
     def close(self):
         # Add the chapter data json to the archive
-        if f'{self.chapter_id}.json' not in self.archive.namelist():
+        if self.add_data and f'{self.chapter_id}.json' not in self.archive.namelist():
             self.archive.writestr(f'{self.chapter_id}.json', json.dumps(self.chapter_data, indent=4, ensure_ascii=False))
 
         self.archive.close()
@@ -231,9 +233,12 @@ class FolderExporter(ExporterBase):
     def __init__(self,
             series_title: str,
             chapter_data: dict,
-            destination: str):
-        super().__init__(series_title, chapter_data)
+            destination: str,
+            add_data: bool,
+            chapter_prefix: str):
+        super().__init__(series_title, chapter_data, chapter_prefix)
 
+        self.add_data = add_data
         self.path = Path(destination)
         self.path.mkdir(parents=True, exist_ok=True)
         self.checkFolder()
@@ -298,7 +303,7 @@ class FolderExporter(ExporterBase):
     # Save chapter data to the folder
     def close(self):
         # Add the chapter data json to the folder
-        if f'{self.chapter_id}.json' not in os.listdir(self.folder_path):
+        if self.add_data and f'{self.chapter_id}.json' not in os.listdir(self.folder_path):
             with open(self.folder_path.joinpath(f'{self.chapter_id}.json'), 'w') as json_file:
                 json.dump(self.chapter_data, json_file, indent=4, ensure_ascii=False)
         return

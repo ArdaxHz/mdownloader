@@ -6,30 +6,34 @@ This is a MangaDex specific downloader, other sites will not be supported.
 `pip install -r requirements.txt`
 
 ## Excecute 
-`python3 mdownloader.py [options] [<title|chapter|group|user link/id> or filename]`
+`python3 mdownloader.py [options] (<title|chapter|group|user link/id> or filename)`
 
 To bulk download, create a file in the same folder as the downloader. Inside, add one id or link per line, the id being . The link can be either for chapters or titles, no need to specify which it is using the "--type" argument. Instead of typing the id when executing, enter the filename. Since title is the default download type, there is no need to add it as an option for bulk download. Any line that isn't a mangadex title/chapter/group/user link/id will be skipped.
 
-`python3 mdownloader.py mylist.txt [-t chapter/group/user]`
+`python3 mdownloader.py mylist.txt [-t <chapter|group|user>]`
 
 ```
+link_1
 id_1
 id_2
+link_2
 id_3
+link_3
 ...
 ```
 
 ## Options
 ```
     -l --language (optional. Use the MD code of the language you want to download. Default: English)
-    -d --directory (optional. Must be the absolute path (i.e. /Users/bocchi/Desktop/). Default: script-folder/downloads)
+    -d --directory (optional. Can be an absolute or relative path. Default: script-folder/downloads)
     -t --type (optional. You can choose between 'title', 'chapter', 'group' or 'user' options. Default: title)
     -s --save_format (optional. Choose between comic archive or zip as the file type (both are zip files). You can choose between 'cbz' and 'zip' options. Default: cbz))
-    -f --folder (optional. Makes a chapter folder. You can choose between 'yes' and 'no' options. Default: no)
+    -f --folder (optional. Downloads the images to a folder instead of an archive. You can choose between 'yes' and 'no' options. Default: no)
     -c --covers (optional. Download the manga covers, works only with title downloads. You can choose between 'skip' and 'save' options. Default: skip)
+    -j --json (optional. Add the chapter data as found on the api to the archive or folder. You can choose between 'add' and 'ignore' options. Default: ignore)
 ```
 
-Images will be downloaded in the same directory as this script with the following structure:
+Images will be downloaded in the download directory relative to the script location with the following structure:
 
 ```
     Manga Title
@@ -67,6 +71,9 @@ This follows Daiz's [naming scheme](https://github.com/Daiz/manga-naming-scheme)
 
 ## Other
 Used the MangaPlus image decrypter from [here.](https://github.com/hurlenko/mloader)
+
+**Extremely Beta:**
+Chapter number prefix (usually 'c') is determined by looking at the all the series' chapters and comparing each volume's chapters with each other. If a volume has a chapter number that is in another volume, the chapter prefix will be incremented relative to the volume number. E.g. *Vol. 1 > c*, *Vol. 2 > d*, etc.
 
 ## TODO
 Need Ideas

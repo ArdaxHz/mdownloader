@@ -3,7 +3,6 @@ import argparse
 import os
 import re
 from pathlib import Path
-from typing import Union
 
 import requests
 
@@ -14,14 +13,7 @@ except ModuleNotFoundError:
     pass
 
 
-def beforeMain(
-        id: Union[int, str],
-        language: str,
-        directory: str,
-        type: str,
-        save_format: str,
-        folder: str,
-        covers: str):
+def beforeMain(args):
     # pylint: disable=unsubscriptable-object
 
     excluded = ['LICENSE', 'README.md', 'components']
@@ -114,7 +106,7 @@ def beforeMain(
         if len(announcement_message) > 0:
             print(announcement_message.capitalize())
 
-    main(id, language, directory, type, save_format, folder, covers)
+    main(args)
 
     return
 
@@ -122,14 +114,15 @@ def beforeMain(
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--language', '-l', default='gb', help='Specify the language to download. NEEDED for non-English title downloads.')
+    parser.add_argument('--language', '-l', default='gb', help='Specify the language to download. NEEDED to download non-English chapters on title/group/user downloads.')
     parser.add_argument('--directory', '-d', default='./downloads', help='The download location, can be an absolute or relative path.')
     parser.add_argument('--type', '-t', default='title', nargs='?', const='chapter', help='Type of id to download, title or chapter.') #title, chapter, group or user
     parser.add_argument('--save_format', '-s', default='cbz', help='Choose to download as a zip archive or as a comic archive.') #zip or cbz
     parser.add_argument('--folder', '-f', default='no', nargs='?', const='yes', choices=['yes', 'no'], help='Make chapter folder.') #yes or no
     parser.add_argument('--covers', '-c', default='skip', nargs='?', const='save', choices=['skip', 'save'], help='Download the covers of the manga. Works only with title downloads.')
-    parser.add_argument('id', help='ID to download. Can be chapter, title, link or file.')
+    parser.add_argument('--json', '-j', default='ignore', nargs='?', const='add', choices=['add', 'ignore'], help='Add the chapter data as a json in the chapter archive/folder.')
+    parser.add_argument('id', help='ID to download. Can be chapter, title, group, user, link/id or file.')
 
     args = parser.parse_args()
 
-    beforeMain(args.id, args.language, args.directory, args.type, args.save_format, args.folder, args.covers)
+    beforeMain(args)

@@ -22,15 +22,15 @@ re_regrex = re.compile('[\\\\/:*?"<>|]')
 
 
 # Check if all the images are downloaded
-def checkExist(pages: list, exporter_instance: Type[Union[ArchiveExporter, FolderExporter]]) -> bool:
+def checkExist(pages: list, exporter: Type[Union[ArchiveExporter, FolderExporter]]) -> bool:
     # pylint: disable=unsubscriptable-object
     exists = 0
 
     # Only image files are counted
-    if isinstance(exporter_instance, ArchiveExporter):
-        zip_count = [i for i in exporter_instance.archive.namelist() if i.endswith(('.png', '.jpg', '.jpeg', '.gif'))]
+    if isinstance(exporter, ArchiveExporter):
+        zip_count = [i for i in exporter.archive.namelist() if i.endswith(('.png', '.jpg', '.jpeg', '.gif'))]
     else:
-        zip_count = [i for i in os.listdir(exporter_instance.folder_path) if i.endswith(('.png', '.jpg', '.jpeg', '.gif'))]
+        zip_count = [i for i in os.listdir(exporter.folder_path) if i.endswith(('.png', '.jpg', '.jpeg', '.gif'))]
 
     if len(pages) == len(zip_count):
         exists = 1
@@ -55,7 +55,7 @@ async def imageDownloader(
         fallback_url: str,
         image: str,
         pages: list,
-        exporter_instance: Type[Union[ArchiveExporter, FolderExporter]]):
+        exporter: Type[Union[ArchiveExporter, FolderExporter]]):
     # pylint: disable=unsubscriptable-object
     retry = 0
     fallback_retry = 0
@@ -73,7 +73,7 @@ async def imageDownloader(
                     extension = image.split('.', 1)[1]
 
                     # Add image to archive
-                    exporter_instance.addImage(response, page_no, extension)
+                    exporter.addImage(response, page_no, extension)
 
                     retry = 5
                     return
@@ -101,6 +101,8 @@ def chapterDownloader(
         route: str,
         save_format: str,
         make_folder: bool,
+        add_data: bool,
+        chapter_prefix_dict: dict={},
         download_type: int=0,
         json_file: Optional[Type[Union[AccountJson, TitleJson]]]=None,
         title: Optional[str]=''):
@@ -111,7 +113,7 @@ def chapterDownloader(
     response = requests.get(url, headers=headers)
 
     if response.status_code != 200:
-        if response.status_code > 500: # Unknown Error
+        if response.status_code >= 500: # Unknown Error
             print(f"Something went wrong. Error: {response.status_code}")
         if response.status_code == 451: # Unavailable chapters
             print(f"Unavailable Chapter. This could be because the chapter was deleted by the group or you're not allowed to read it. Error: {response.status_code}")
@@ -148,11 +150,13 @@ def chapterDownloader(
 
         series_route = os.path.join(route, title)
 
+        chapter_prefix = chapter_prefix_dict.get(chapter_data["volume"], 'c')
+
         # Make the file names
         if make_folder:
-            exporter_instance = FolderExporter(title, chapter_data, series_route)
+            exporter = FolderExporter(title, chapter_data, series_route, chapter_prefix, add_data)
         else:
-            exporter_instance = ArchiveExporter(title, chapter_data, series_route, save_format)
+            exporter = ArchiveExporter(title, chapter_data, series_route, chapter_prefix, add_data, save_format)
         
         # Add chapter data to the json for title, group or user downloads
         if download_type in (1, 2):
@@ -164,14 +168,13 @@ def chapterDownloader(
         if chapter_data["status"] == 'external':
             # Call MangaPlus downloader
             print('External chapter... Connecting to MangaPlus to download...')
-            MangaPlus(chapter_data, download_type, exporter_instance, json_file).plusImages()
+            MangaPlus(chapter_data, download_type, exporter, json_file).plusImages()
             return
         else:
-            server_url = chapter_data["server"]
-            url = f'{server_url}{chapter_data["hash"]}/'
-            pages = chapter_data["pages"]
-            exists = checkExist(pages, exporter_instance)
+            url = f'{chapter_data["server"]}{chapter_data["hash"]}/'
             fallback_url = ''
+            pages = chapter_data["pages"]
+            exists = checkExist(pages, exporter)
 
             if 'serverFallback' in chapter_data:
                 fallback_url = f'{chapter_data["serverFallback"]}{chapter_data["hash"]}/'
@@ -181,7 +184,7 @@ def chapterDownloader(
                 print('File already downloaded.')
                 if download_type in (1, 2):
                     json_file.core(0)
-                exporter_instance.close()
+                exporter.close()
                 return
 
             # ASYNC FUNCTION
@@ -190,31 +193,32 @@ def chapterDownloader(
 
             # Download images
             for image in pages:
-                task = asyncio.ensure_future(imageDownloader(url, fallback_url, image, pages, exporter_instance))
+                task = asyncio.ensure_future(imageDownloader(url, fallback_url, image, pages, exporter))
                 tasks.append(task)
 
             runner = displayProgress(tasks)
             loop.run_until_complete(runner)
 
-            downloaded_all = checkExist(pages, exporter_instance)
+            downloaded_all = checkExist(pages, exporter)
 
             # If all the images are downloaded, save the json file with the latest downloaded chapter
             if downloaded_all and download_type in (1, 2):
                 json_file.core(0)
 
             # Close the archive
-            exporter_instance.close()
+            exporter.close()
             return
 
 
 def bulkDownloader(
-        id: int,
+        id: str,
         language: str,
         route: str,
         form: str,
         save_format: str,
         make_folder: bool,
-        covers: bool):
+        covers: bool,
+        add_data: bool):
    
     # Connect to API and get info
     url = f'{domain}/api/v2/{form}/{id}?include=chapters'
@@ -252,12 +256,59 @@ def bulkDownloader(
     print(f'{"-"*69}\nDownloading {form.title()}: {name}\n{"-"*69}')
 
     # Filter out the unwanted chapters
-    chapters = [c["id"] for c in data["chapters"] if c["language"] == language]
+    chapters = [c for c in data["chapters"] if c["language"] == language]
+
+    volume_dict = {}
+    chapter_prefix_dict = {}
 
     # No chapters in the selected language
     if not chapters:
         print(f'No chapters found in the selected language, {language}.')
         return
+
+    # Sort each chapter into volumes
+    for c in chapters:
+        manga_id = c["mangaId"]
+        volume_no = c["volume"]
+        try:
+            volume_dict[manga_id][volume_no].append(c["chapter"])
+        except KeyError:
+            temp_dict = {volume_no: [c["chapter"]]}
+            try:
+                volume_dict[manga_id].update(temp_dict)
+            except KeyError:
+                temp_dict = {manga_id: temp_dict}
+                volume_dict.update(temp_dict)
+
+    list_volume_dict = list(reversed(list(volume_dict)))
+    prefix = 'b'
+
+    # Check if the volume numbers overlap and assign prefix to each volume
+    for manga in list_volume_dict:
+        current_manga = volume_dict[manga]
+        manga_list = list(reversed(list(current_manga)))
+        for current_volume in manga_list:
+            next_volume_index = manga_list.index(current_volume) + 1
+            previous_volume_index = manga_list.index(current_volume) - 1
+            result = False
+
+            try:
+                next_volume = manga_list[next_volume_index]
+                result = any(elem in current_manga[next_volume] for elem in current_manga[current_volume])
+            except (KeyError, IndexError):
+                previous_volume = manga_list[previous_volume_index]
+                result = any(elem in current_manga[previous_volume] for elem in current_manga[current_volume])
+
+            if current_volume != '':
+                if result:
+                    temp_json = {current_volume: chr(ord(prefix) + next_volume_index)}
+                else:
+                    temp_json = {current_volume: 'c'}
+
+                try:
+                    chapter_prefix_dict[manga].update(temp_json)
+                except KeyError:
+                    chapter_prefix_dict[manga] = temp_json
 
     # Initalise json classes and make series folders
     if download_type == 1:
@@ -277,12 +328,14 @@ def bulkDownloader(
         chapters_data = []
 
     # Loop chapters
-    for chapter_id in chapters:
+    for chapter in chapters:
+        chapter_id = chapter["id"]
+        chapter_prefixes = chapter_prefix_dict.get(chapter["mangaId"], {})
         if chapter_id not in chapters_data:
             if download_type == 1:
-                chapterDownloader(chapter_id, route, save_format, make_folder, download_type, json_file, title)
+                chapterDownloader(chapter_id, route, save_format, make_folder, add_data, chapter_prefixes, download_type, json_file, title)
             else:
-                chapterDownloader(chapter_id, route, save_format, make_folder, download_type, json_file)
+                chapterDownloader(chapter_id, route, save_format, make_folder, add_data, chapter_prefixes, download_type, json_file)
 
     # print(f'{"-"*69}\nFinished Downloading {form.title()}: {name}\n{"-"*69}')
     
