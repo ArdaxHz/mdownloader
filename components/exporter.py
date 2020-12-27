@@ -36,7 +36,7 @@ class ExporterBase:
             return 1
         elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] == '':
             return 2
-        elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] != '' and self.chapter_data["title"] != '':
+        elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] != '' and (self.chapter_data["title"] != '' or self.chapter_data["title"] == ''):
             return 3
         else:
             return 0
@@ -102,14 +102,18 @@ class ExporterBase:
     # Formatting the groups as the suffix
     def suffixName(self) -> str:
         chapter_title = f'{self.chapter_data["title"][:31]}...' if len(self.chapter_data["title"]) > 30 else self.chapter_data["title"]
+        title = f'[{chapter_title}] ' if len(chapter_title) > 0 else ''
+        oneshot_prefix = '[Oneshot] '
+        group_suffix = f'[{self.groups}]'
+
         if self.oneshot == 1:
-            return f'[Oneshot] [{self.groups}]'
+            return f'{oneshot_prefix}{group_suffix}'
         elif self.oneshot == 2:
-            return f'[Oneshot] [{chapter_title}] [{self.groups}]'
+            return f'{oneshot_prefix}{title}{group_suffix}'
         elif self.oneshot == 3:
-            return f'[{chapter_title}] [{self.groups}]'
+            return f'{title}{group_suffix}'
         else:
-            return f'[{self.groups}]'
+            return group_suffix
 
 
     # The final folder name combining the prefix and suffix for the archive/folder name

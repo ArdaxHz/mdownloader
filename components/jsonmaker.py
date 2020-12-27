@@ -64,12 +64,19 @@ class JsonBase:
                             temp_json["images"]["url"] = chapter_data["images"]["url"]
 
                         temp_json["images"]["pages"] = chapter_data["images"]["pages"]
+                        temp_json["mangaData"] = {}
+                        
+                        try:
+                            
+                            temp_json["mangaData"]["mangaId"] = chapter_data["manga_id"]
+                            temp_json["mangaData"]["mangaTitle"] = chapter_data["manga_title"]
+                            temp_json["mangaData"]["mangaLink"] = f'{self.domain}/manga/{chapter_data["manga_id"]}'
+                        except KeyError:
+                            if self.type == 'manga':
+                                temp_json["mangaData"]["mangaId"] = self.id
+                                temp_json["mangaData"]["mangaTitle"] = self.data["title"]
+                                temp_json["mangaData"]["mangaLink"] = f'{self.domain}/manga/{self.id}'
 
-                        temp_json["mangaData"] = {
-                            "mangaId": chapter_data["manga_id"],
-                            "mangaTitle": chapter_data["manga_title"],
-                            "mangaLink": f'{self.domain}/manga/{chapter_data["manga_id"]}'
-                        }
                     else:
                         temp_json.update(chapter_data)
 
