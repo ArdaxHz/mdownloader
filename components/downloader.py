@@ -17,7 +17,7 @@ from .jsonmaker import AccountJson, TitleJson
 from .mangaplus import MangaPlus
 
 headers = {'User-Agent': f'mDownloader/{__version__}'}
-domain  = 'https://mangadex.org'
+domain  = 'https://api.mangadex.org/v2'
 re_regrex = re.compile('[\\\\/:*?"<>|]')
 
 
@@ -109,7 +109,7 @@ def chapterDownloader(
     # pylint: disable=unsubscriptable-object
 
     # Connect to API and get chapter info
-    url = f'{domain}/api/v2/chapter/{chapter_id}?saver=0'
+    url = f'{domain}/chapter/{chapter_id}?saver=0'
     response = requests.get(url, headers=headers)
 
     if response.status_code != 200:
@@ -221,7 +221,7 @@ def bulkDownloader(
         add_data: bool):
    
     # Connect to API and get info
-    url = f'{domain}/api/v2/{form}/{id}?include=chapters'
+    url = f'{domain}/{form}/{id}?include=chapters'
     response = requests.get(url, headers=headers)
 
     if response.status_code != 200:

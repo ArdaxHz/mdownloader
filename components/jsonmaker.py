@@ -64,19 +64,20 @@ class JsonBase:
                             temp_json["images"]["url"] = chapter_data["images"]["url"]
 
                         temp_json["images"]["pages"] = chapter_data["images"]["pages"]
-                        temp_json["mangaData"] = {}
                         
                         try:
-                            
-                            temp_json["mangaData"]["mangaId"] = chapter_data["manga_id"]
-                            temp_json["mangaData"]["mangaTitle"] = chapter_data["manga_title"]
-                            temp_json["mangaData"]["mangaLink"] = f'{self.domain}/manga/{chapter_data["manga_id"]}'
+                            temp_json["mangaData"] = {
+                                "mangaId": chapter_data["manga_id"],
+                                "mangaTitle": chapter_data["manga_title"],
+                                "mangaLink": f'{self.domain}/manga/{chapter_data["manga_id"]}'
+                            }
                         except KeyError:
                             if self.type == 'manga':
-                                temp_json["mangaData"]["mangaId"] = self.id
-                                temp_json["mangaData"]["mangaTitle"] = self.data["title"]
-                                temp_json["mangaData"]["mangaLink"] = f'{self.domain}/manga/{self.id}'
-
+                                temp_json["mangaData"] = {
+                                    "mangaId": self.id,
+                                    "mangaTitle": self.data["title"],
+                                    "mangaLink": f'{self.domain}/manga/{self.id}'
+                                }
                     else:
                         temp_json.update(chapter_data)
 
@@ -94,8 +95,8 @@ class JsonBase:
 
         json_chapter = {
             "id": chapter_data["id"],
-            "volume": chapter_data["volume"],
             "chapter": chapter_data["chapter"],
+            "volume": chapter_data["volume"],
             "title": chapter_data["title"],
             "langName": languages_names.get(chapter_data["language"], "Other"),
             "langCode": chapter_data["language"],
@@ -252,7 +253,7 @@ class TitleJson(JsonBase):
 
     # Format the covers into the json
     def getCovers(self) -> dict:
-        response = requests.get(f'{self.domain}/api/v2/manga/{self.id}/covers')
+        response = requests.get(f'https://api.mangadex.org/v2/manga/{self.id}/covers')
         data = response.json()
         covers_data = data["data"]
 
