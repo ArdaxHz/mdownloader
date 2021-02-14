@@ -15,7 +15,7 @@ except ModuleNotFoundError:
 
 
 def updateChecker(args):
-    pylint: disable=unsubscriptable-object
+    # pylint: disable=unsubscriptable-object
 
     excluded = ['LICENSE', 'README.md', 'components']
     components_path = Path('components')
@@ -37,7 +37,7 @@ def updateChecker(args):
             missing_components = [f for f in components_data if f["name"] not in os.listdir('./components')]
         
         if len(missing_root) > 0 or len(missing_components) > 0:
-            download_missing = input('Do you want to download the missing required files? y or n ')
+            download_missing = input("Do you want to download the missing required files? 'y' or 'n' ")
             
             if download_missing.lower() == 'y':
                 
@@ -75,7 +75,7 @@ def updateChecker(args):
         remote_components = [f["name"] for f in components_data]
 
         if remote_version > local_version:
-            download_update = input('Looks like there is an update available, do you want to download it?\nThe update will remove the unnecessary files from the components folder, backup any changes made if needed.\ny or n ')
+            download_update = input("Looks like there is an update available, do you want to download it?\nThe update will remove the unnecessary files from the components folder, backup any changes made if needed.\n'y' or 'n' ")
 
             if download_update.lower() == 'y':
                 [os.remove(i) for i in os.listdir('./components') if (i not in remote_components and i != '__pycache__')]

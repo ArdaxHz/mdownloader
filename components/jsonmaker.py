@@ -308,7 +308,6 @@ class TitleJson(JsonBase):
                 self.saveCovers()
         
         self.addChaptersJson()
-
         self.saveJson()
         return
 
@@ -332,7 +331,6 @@ class AccountJson(JsonBase):
     # Format the json for exporting
     def core(self, save_type: int=0):
         self.new_data = self.account_data
-
         self.addChaptersJson()
         self.saveJson()
         return

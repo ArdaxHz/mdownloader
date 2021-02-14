@@ -67,6 +67,7 @@ async def displayProgress(tasks: list):
     return
 
 
+# Download the MD chapter images
 async def imageDownloader(
         url: str,
         image: str,
@@ -126,15 +127,15 @@ def chapterDownloader(
 
     if response.status_code != 200:
         if response.status_code >= 500: # Unknown Error
-            print(f"Something went wrong. Error: {response.status_code}")
+            print(f"{chapter_id} - Something went wrong. Error: {response.status_code}")
         if response.status_code == 451: # Unavailable chapters
-            print(f"Unavailable Chapter. This could be because the chapter was deleted by the group or you're not allowed to read it. Error: {response.status_code}")
+            print(f"{chapter_id} - Unavailable Chapter. This could be because the chapter was deleted by the group or you're not allowed to read it. Error: {response.status_code}")
         elif response.status_code == 403: # Restricted Chapters. Like korean webtoons
-            print(f"Restricted Chapter. You're not allowed to read this chapter. Error: {response.status_code}")
+            print(f"{chapter_id} - Restricted Chapter. You're not allowed to read this chapter. Error: {response.status_code}")
         elif response.status_code == 410: # Deleted Chapters.
-            print(f"Deleted Chapter. Error: {response.status_code}")
+            print(f"{chapter_id} - Deleted Chapter. Error: {response.status_code}")
         else:
-            print(f"Chapter ID doesn't exist. Error: {response.status_code}")
+            print(f"{chapter_id} - Chapter ID doesn't exist. Error: {response.status_code}")
         return
 
     chapter_data = response.json()

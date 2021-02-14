@@ -2,9 +2,10 @@
 import html
 import os
 import re
-from typing import Type, Union
+from typing import Match, Optional, Pattern, Type, Union
 
 import requests
+from requests.models import Response
 
 from . import constants
 from .__version__ import __version__
@@ -17,16 +18,25 @@ domain = constants.MANGADEX_API_URL
 re_regrex = re.compile(constants.REGEX)
 
 
-# Connect to API and get the data
-def getData(form: str, id: str) -> dict:
-    params = {'include': 'chapters'}
-    url = domain.format(form, id)
+# Connect to the API and get the data
+def requestAPI(form: str, download_id: str) -> Optional[Response]:
+    if form == 'rss':
+        params = {}
+        url = download_id
+    else:    
+        params = {'include': 'chapters'}
+        url = domain.format(form, download_id)
+
     response = requests.get(url, headers=headers, params=params)
 
     if response.status_code != 200:
-        print(f"Something went wrong. Error: {response.status_code}. Skipping...")
+        print(f"Something went wrong. Error: {response.status_code}.")
         return
+    return response
 
+
+# Convert response data into a parsable json
+def getData(response: Response) -> dict:
     data = response.json()
     data = data["data"]
     return data
@@ -46,10 +56,12 @@ def getChapterCount(form: str, data: dict):
 
 
 # Check if there are any chapters
-def checkForChapters(chapters: list, form: str, id: str, name: str):
+def checkForChapters(chapters: list, form: str, download_id: str, name: str):
     if not chapters:
-        print(f'{form.title()}: {id} - {name} has no chapters.')
-        return
+        print(f'{form.title()}: {download_id} - {name} has no chapters.')
+        return False
+    else:
+        return True
 
 
 # Print the download messages
@@ -71,7 +83,8 @@ def getJsonData(title_json: Type[TitleJson]) -> list:
         return []
 
 
-def natsort(x):
+# Sort the chapter numbers naturally
+def natsort(x) -> Union[int, float]:
 	try:
 		x = float(x)
 	except ValueError:
@@ -80,7 +93,7 @@ def natsort(x):
 
 
 # Get the chapter id and language from the rss feed
-def __rssItemFetcher(t, tag, regex):
+def rssItemFetcher(t: str, tag: str, regex: Pattern) -> Match:
     link = re.findall(f'<{tag}>.+<\/{tag}>', t)[0]
     link = link.replace(f'<{tag}>', '').replace(f'</{tag}>', '')
     match = re.match(regex, link).group(1)
@@ -88,7 +101,7 @@ def __rssItemFetcher(t, tag, regex):
 
 
 # Filter out the unwanted chapters
-def filterChapters(chapters, language):
+def filterChapters(chapters: list, language: str) -> Optional[list]:
     chapters = [c for c in chapters if c["language"] == language]
 
     if not chapters:
@@ -97,6 +110,7 @@ def filterChapters(chapters, language):
     return chapters
 
 
+# Assign each volume a prefix, default: c
 def getPrefixes(chapters: list) -> dict:
     volume_dict = {}
     chapter_prefix_dict = {}
@@ -167,6 +181,7 @@ def getChapterRange(chapters_list: list, chap_list: list) -> list:
     return chapters_range
 
 
+# Check which chapters you want to download
 def rangeChapters(chapters: list) -> list:
     chapters_list = list(set([c["chapter"] for c in chapters]))
     chapters_list.sort(key=natsort)
@@ -196,8 +211,9 @@ def rangeChapters(chapters: list) -> list:
     return chapters
 
 
+# Download titles
 def titleDownloader(
-        id: Union[int, str],
+        download_id: Union[int, str],
         language: str,
         route: str,
         form: str,
@@ -211,12 +227,13 @@ def titleDownloader(
 
     if form in ('title', 'manga'):
         download_type = 1
-        data = getData(form, id)
-        if data is None:
+        response = requestAPI(form, download_id)
+        if response is None:
             return
 
-        check = checkForChapters(data["chapters"], form, id, data["manga"]["title"])
-        if check is not None:
+        data = getData(response)
+        check = checkForChapters(data["chapters"], form, download_id, data["manga"]["title"])
+        if not check:
             return
 
         getChapterCount(form, data)
@@ -263,8 +280,9 @@ def titleDownloader(
     return
 
 
+# Download group and user chapters
 def groupUserDownloader(
-        id: str,
+        download_id: str,
         language: str,
         route: str,
         form: str,
@@ -272,17 +290,18 @@ def groupUserDownloader(
         make_folder: bool,
         add_data: bool):
 
-    data = getData(form, id)
-    if data is None:
+    response = requestAPI(form, download_id)
+    if response is None:
         return
 
+    data = getData(response)
     name = data["group"]["name"] if form == 'group' else data["user"]["username"]
-    check = checkForChapters(data["chapters"], form, id, name)
-    if check is not None:
+    check = checkForChapters(data["chapters"], form, download_id, name)
+    if not check:
         return
 
     downloadMessage(0, form, name)
-    
+
     # Initalise json classes and make series folders
     account_json = AccountJson(data, route, form)
 
@@ -315,11 +334,7 @@ def rssDownloader(
         make_folder: bool,
         add_data: bool):
 
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f'Something went wrong. Error: {response.status_code}.')
-        return
-
+    response = requestAPI('rss', url)
     data = response.content.decode()
     chapters = []
 
@@ -331,9 +346,9 @@ def rssDownloader(
             tags = re.findall(r'<.+>.+<\/.+>', l, re.DOTALL)
             for t in tags:
                 temp_dict = {}
-                temp_dict["id"] = __rssItemFetcher(t, 'link', r'.+\/(\d+)')
+                temp_dict["id"] = rssItemFetcher(t, 'link', r'.+\/(\d+)')
 
-                lang_name = __rssItemFetcher(t, 'description', r'.+Language:\s(.+)')
+                lang_name = rssItemFetcher(t, 'description', r'.+Language:\s(.+)')
                 lang_id = getLangMD(lang_name)
                 temp_dict["language"] = lang_id
 
@@ -343,12 +358,7 @@ def rssDownloader(
     if chapters is None:
         return
 
-    # links = re.findall(r'<link>.+</link>', data)
-    # links = [l.replace('<link>', '').replace('</link>', '') for l in links]
-    # chapters = [re.sub(r'.+\/', '', l) for l in links]
-    # chapters = [c for c in chapters if len(c) > 0]
-
-    downloadMessage(0, 'rss', "\nRSS feeds are not filtered by language.")
+    downloadMessage(0, 'rss', 'This will only download chapters of the language selected, default: English.')
 
     for chapter in chapters:
         chapter = chapter["id"]
