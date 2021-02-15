@@ -2,3 +2,4 @@
 components/__pycache__
 downloads
 *.txt
+*.py_temp

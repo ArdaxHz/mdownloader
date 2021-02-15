@@ -6,14 +6,15 @@ from pathlib import Path
 
 import requests
 
+from components.main import formatArgs
+
 try:
-    from components.main import main
     from components.__version__ import __version__
 except ModuleNotFoundError:
     pass
 
 
-def beforeMain(args):
+def updateChecker(args):
     # pylint: disable=unsubscriptable-object
 
     excluded = ['LICENSE', 'README.md', 'components']
@@ -36,7 +37,7 @@ def beforeMain(args):
             missing_components = [f for f in components_data if f["name"] not in os.listdir('./components')]
         
         if len(missing_root) > 0 or len(missing_components) > 0:
-            download_missing = input('Do you want to download the missing required files? y or n ')
+            download_missing = input("Do you want to download the missing required files? 'y' or 'n' ")
             
             if download_missing.lower() == 'y':
                 
@@ -74,7 +75,7 @@ def beforeMain(args):
         remote_components = [f["name"] for f in components_data]
 
         if remote_version > local_version:
-            download_update = input('Looks like there is an update available, do you want to download it?\nThe update will remove the unnecessary files from the components folder, backup any changes made if needed.\ny or n ')
+            download_update = input("Looks like there is an update available, do you want to download it?\nThe update will remove the unnecessary files from the components folder, backup any changes made if needed.\n'y' or 'n' ")
 
             if download_update.lower() == 'y':
                 [os.remove(i) for i in os.listdir('./components') if (i not in remote_components and i != '__pycache__')]
@@ -106,23 +107,25 @@ def beforeMain(args):
         if len(announcement_message) > 0:
             print(announcement_message.capitalize())
 
-    main(args)
+    formatArgs(args)
 
     return
 
 
 if __name__ == "__main__":
-
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('--language', '-l', default='gb', help='Specify the language to download. NEEDED to download non-English chapters on title/group/user downloads.')
     parser.add_argument('--directory', '-d', default='./downloads', help='The download location, can be an absolute or relative path.')
-    parser.add_argument('--type', '-t', default='title', nargs='?', const='chapter', help='Type of id to download, title or chapter.') #title, chapter, group or user
-    parser.add_argument('--save_format', '-s', default='cbz', help='Choose to download as a zip archive or as a comic archive.') #zip or cbz
-    parser.add_argument('--folder', '-f', default='no', nargs='?', const='yes', choices=['yes', 'no'], help='Make chapter folder.') #yes or no
+    parser.add_argument('--type', '-t', default='title', nargs='?', const='chapter', help='Type of id to download, title or chapter.')
+    parser.add_argument('--save_format', '-s', default='cbz', nargs='?', const='zip', choices=['cbz', 'zip'], help='Choose to download as a zip archive or as a comic archive.')
+    parser.add_argument('--folder', '-f', default='no', nargs='?', const='yes', choices=['yes', 'no'], help='Make chapter folder.')
     parser.add_argument('--covers', '-c', default='skip', nargs='?', const='save', choices=['skip', 'save'], help='Download the covers of the manga. Works only with title downloads.')
     parser.add_argument('--json', '-j', default='ignore', nargs='?', const='add', choices=['add', 'ignore'], help='Add the chapter data as a json in the chapter archive/folder.')
+    parser.add_argument('--range', '-r', default='all', nargs='?', const='range', choices=['all', 'range'], 
+        help='Select custom chapters to download, add an "!" before a chapter number or range to exclude those chapters. Use "all" if you want to download all the chapters while excluding some.')
     parser.add_argument('id', help='ID to download. Can be chapter, title, group, user, link/id or file.')
 
     args = parser.parse_args()
 
-    beforeMain(args)
+    updateChecker(args)

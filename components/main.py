@@ -1,43 +1,54 @@
 #!/usr/bin/python3
-import json
 import os
 import re
 import shutil
-import time
-from typing import Optional, Union, Type
 
-from .downloader import chapterDownloader, bulkDownloader
+from .bulk_downloader import titleDownloader, groupUserDownloader, rssDownloader
+from .chapter_downloader import chapterDownloader
 
 api_message = 'The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.'
 md_url = re.compile(r'(?:https:\/\/)?(?:www.|api.)?(?:mangadex\.org\/)(?:api\/)?(?:v\d\/)?(title|chapter|manga|group|user)(?:\/)(\d+)')
 md_image_url = re.compile(r'(?:https:\/\/)?(?:(?:(?:s\d|www)\.)?(?:mangadex\.org\/)|.+\.mangadex\.network(?::\d+)?\/)(?:.+)?(?:data\/)([a-f0-9]+)(?:\/)((?:\w+|\d+-\w+)\.(?:jpg|jpeg|png|gif))')
+md_rss_url = re.compile(r'(?:https:\/\/)?(?:www.)?(?:mangadex\.org\/)(rss)(?:\/)([A-Za-z0-9]+)(?:(?:\/)(.+)(?:\/)(\d+))?')
 url_re = re.compile(r'(?:https|ftp|http)(?::\/\/)(?:.+)')
 
 
-# Call the different functions depending on the download_type of download
+# Check if the url given is a MangaDex one
+def __urlMatch(url):
+    if md_url.match(url) or md_image_url.match(url) or md_rss_url.match(url):
+        return True
+    else:
+        return False
+
+
+# Call the different functions depending on the type of download
 def typeChecker(
-        id: str,
+        download_id: str,
         language: str,
         route: str,
         download_type: str,
         save_format: str,
         make_folder: bool,
         covers: bool,
-        add_data: bool):
+        add_data: bool,
+        range_download: bool):
     # pylint: disable=unsubscriptable-object
     download_type = download_type.lower()
 
-    if download_type in ('title', 'manga', 'group', 'user'):
-        bulkDownloader(id, language, route, download_type, save_format, make_folder, covers, add_data)
+    if download_type in ('title', 'manga'):
+        titleDownloader(download_id, language, route, download_type, save_format, make_folder, add_data, covers, range_download)
+    elif download_type in ('group', 'user'):
+        groupUserDownloader(download_id, language, route, download_type, save_format, make_folder, add_data)
     elif download_type == 'chapter':
-        chapterDownloader(id, route, save_format, make_folder, add_data)
+        chapterDownloader(download_id, route, save_format, make_folder, add_data)
+    elif download_type == 'rss':
+        rssDownloader(download_id, language, route, save_format, make_folder, add_data)
     else:
-        print('Please enter a title/chapter/group/user id. For non-title downloads, you must add the argument "--type [chapter|user|group]".')
-        return
+        print('Please enter a title/chapter/group/user download_id. For non-title downloads, you must add the argument "--type [chapter|user|group]".')
     return
 
 
-# Get the id and download_type from the url
+# Get the id and download type from the url
 def urlChecker(
         url: str,
         language: str,
@@ -46,18 +57,22 @@ def urlChecker(
         save_format: str,
         make_folder: bool,
         covers: bool,
-        add_data: bool):
+        add_data: bool,
+        range_download: bool):
 
     if md_url.match(url):
         input_url = md_url.match(url)
         download_type = input_url.group(1)
-        id = input_url.group(2)
+        download_id = input_url.group(2)
+    elif md_rss_url.match(url):
+        download_id = url
+        download_type = 'rss'
     else:
         input_url = md_image_url.match(url)
-        id = input_url.group(1)
+        download_id = input_url.group(1)
         download_type = 'chapter'
 
-    typeChecker(id, language, route, download_type, save_format, make_folder, covers, add_data)
+    typeChecker(download_id, language, route, download_type, save_format, make_folder, covers, add_data, range_download)
     return
 
 
@@ -69,7 +84,8 @@ def fileDownloader(
         save_format: str,
         make_folder: bool,
         covers: bool,
-        add_data: bool):
+        add_data: bool,
+        range_download: bool):
 
     #Open file and read lines
     with open(filename, 'r') as bulk_file:
@@ -79,7 +95,7 @@ def fileDownloader(
         print('Empty file!')
         return
 
-    links = [line for line in links if len(line) > 0 and (md_url.match(line) or md_image_url.match(line) or line.isdigit())]
+    links = [line for line in links if len(line) > 0 and (__urlMatch(line) or line.isdigit())]
     
     if not links:
         print('No MangaDex link or id found')
@@ -93,20 +109,44 @@ def fileDownloader(
     # shutil.copy(filename, backup)
 
     print(api_message)
-    for id in links:
-        if not id.isdigit():
-            urlChecker(id, language, route, download_type, save_format, make_folder, covers, add_data)
+    for download_id in links:
+        if not download_id.isdigit():
+            urlChecker(download_id, language, route, download_type, save_format, make_folder, covers, add_data, range_download)
         else:
-            typeChecker(id, language, route, download_type, save_format, make_folder, covers, add_data)
+            typeChecker(download_id, language, route, download_type, save_format, make_folder, covers, add_data, range_download)
         
     print(f'All the ids in {filename} have been downloaded')
     return
 
 
-def main(args):
+def main(download_id, language, route, download_type, save_format, make_folder, covers, add_data, range_download):
+    #Check the id is valid number
+    if not download_id.isdigit():
+        # If id is a valid file, use that to download
+        if os.path.exists(download_id):
+            fileDownloader(download_id, language, route, download_type, save_format, make_folder, covers, add_data, range_download)
+        # If the id is a url, check if it's a MangaDex url to download
+        elif url_re.search(download_id):
+            if __urlMatch(download_id):
+                print(api_message)
+                urlChecker(download_id, language, route, download_type, save_format, make_folder, covers, add_data, range_download)
+            else:
+                print('Please use a MangaDex title/chapter/group/user link.')
+                return
+        else:
+            print('File not found!')
+            return
+    # Use the id and download_type argument to download
+    else:
+        print(api_message)
+        typeChecker(download_id, language, route, download_type, save_format, make_folder, covers, add_data, range_download)
+    return
+
+
+def formatArgs(args):
     # pylint: disable=unsubscriptable-object
 
-    id: str = args.id
+    download_id: str = args.id
     language: str = args.language
     route: str = args.directory
     download_type: str = args.type
@@ -114,12 +154,7 @@ def main(args):
     make_folder: str = args.folder
     covers: str = args.covers
     add_data: str = args.json 
-
-    #check if valid zip formats
-    save_format = save_format.lower()
-    if save_format not in ('zip', 'cbz'):
-        print('Please either use zip or cbz as the save formats.')
-        return
+    range_download: str = args.range
 
     if make_folder == 'yes':
         make_folder = True
@@ -136,24 +171,10 @@ def main(args):
     else:
         add_data = False
 
-    #Check the id is valid number
-    if not id.isdigit():
-        # If id is a valid file, use that to download
-        if os.path.exists(id):
-            fileDownloader(id, language, route, download_type, save_format, make_folder, covers, add_data)
-        # If the id is a url, check if it's a MangaDex url to download
-        elif url_re.search(id):
-            if md_url.match(id) or md_image_url.match(id):
-                print(api_message)
-                urlChecker(id, language, route, download_type, save_format, make_folder, covers, add_data)
-            else:
-                print('Please use a MangaDex title/chapter/group/user link.')
-                return
-        else:
-            print('File not found!')
-            return
-    # Use the id and download_type argument to download
+    if range_download == 'range':
+        range_download = True
     else:
-        print(api_message)
-        typeChecker(id, language, route, download_type, save_format, make_folder, covers, add_data)
+        range_download = False
+
+    main(download_id, language, route, download_type, save_format, make_folder, covers, add_data, range_download)    
     return
