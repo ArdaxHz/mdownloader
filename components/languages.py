@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+from typing import Optional
+
 language_error = 'Not a valid language option, exiting.'
 
 languages_iso = {
@@ -94,7 +96,7 @@ def __getKey(language, languages_dict):
 
 
 # Convert the inputted language into the format MangaDex uses
-def getLangMD(language):
+def getLangMD(language: str) -> Optional[str]:
 
     if len(language) < 2:
         print(language_error)

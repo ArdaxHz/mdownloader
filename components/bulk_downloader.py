@@ -300,6 +300,7 @@ def groupUserDownloader(
     if not check:
         return
 
+    getChapterCount(form, data)
     downloadMessage(0, form, name)
 
     # Initalise json classes and make series folders

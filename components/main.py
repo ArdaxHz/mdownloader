@@ -5,6 +5,7 @@ import shutil
 
 from .bulk_downloader import titleDownloader, groupUserDownloader, rssDownloader
 from .chapter_downloader import chapterDownloader
+from .languages import getLangMD
 
 api_message = 'The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.'
 md_url = re.compile(r'(?:https:\/\/)?(?:www.|api.)?(?:mangadex\.org\/)(?:api\/)?(?:v\d\/)?(title|chapter|manga|group|user)(?:\/)(\d+)')
@@ -175,6 +176,10 @@ def formatArgs(args):
         range_download = True
     else:
         range_download = False
+
+    language = getLangMD(language)
+    if language is None:
+        return
 
     main(download_id, language, route, download_type, save_format, make_folder, covers, add_data, range_download)    
     return
