@@ -237,14 +237,13 @@ def titleDownloader(
             return
 
         getChapterCount(form, data)
+        chapters = filterChapters(data["chapters"], language)
+        if chapters is None:
+            return
+
+        chapter_prefix_dict = getPrefixes(chapters)
     else:
         download_type = 2
-
-    chapters = filterChapters(data["chapters"], language)
-    if chapters is None:
-        return
-
-    chapter_prefix_dict = getPrefixes(chapters)
 
     title = re_regrex.sub('_', html.unescape(data["manga"]["title"]))
     title = title.rstrip()
@@ -265,10 +264,9 @@ def titleDownloader(
     # Loop chapters
     for chapter in chapters:
         chapter_id = chapter["id"]
-        chapter_prefixes = chapter_prefix_dict.get(chapter["mangaId"], {})
 
         if chapter_id not in chapters_data:
-            chapterDownloader(chapter_id, route, save_format, make_folder, add_data, chapter_prefixes, download_type, title, title_json, account_json)
+            chapterDownloader(chapter_id, route, save_format, make_folder, add_data, chapter_prefix_dict, download_type, title, title_json, account_json)
 
     downloadMessage(1, form, title)
 

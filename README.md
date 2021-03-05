@@ -73,8 +73,5 @@ This follows Daiz's [naming scheme](https://github.com/Daiz/manga-naming-scheme)
 ## Other
 Used the MangaPlus image decrypter from [here.](https://github.com/hurlenko/mloader)
 
-**Extremely Beta:**
-Chapter number prefix (usually 'c') is determined by looking at the all the series' chapters and comparing each volume's chapters with each other. If a volume has a chapter number that is in another volume, the chapter prefix will be incremented relative to the volume number. E.g. *Vol. 1 > c*, *Vol. 2 > d*, etc.
-
 ## TODO
 Maybe add MDList download
