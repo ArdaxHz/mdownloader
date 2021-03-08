@@ -237,13 +237,14 @@ def titleDownloader(
             return
 
         getChapterCount(form, data)
-        chapters = filterChapters(data["chapters"], language)
-        if chapters is None:
-            return
-
-        chapter_prefix_dict = getPrefixes(chapters)
     else:
         download_type = 2
+
+    chapters = filterChapters(data["chapters"], language)
+    if chapters is None:
+        return
+
+    chapter_prefix_dict = getPrefixes(chapters)
 
     title = re_regrex.sub('_', html.unescape(data["manga"]["title"]))
     title = title.rstrip()
