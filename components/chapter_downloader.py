@@ -70,14 +70,17 @@ async def displayProgress(tasks: list):
 # Download the MD chapter images
 async def imageDownloader(
         url: str,
+        fallback_url: str,
         image: str,
         pages: list,
         exporter: Type[Union[ArchiveExporter, FolderExporter]]):
     # pylint: disable=unsubscriptable-object
     retry = 0
+    fallback_retry = 0
+    retry_max_times = 3
 
-    # Try to download it 5 times
-    while retry < 5:
+    # Try to download it retry_max_times times
+    while retry < retry_max_times:
         async with ClientSession() as session:
             try:
                 async with session.get(url + image) as response:
@@ -91,7 +94,7 @@ async def imageDownloader(
                     # Add image to archive
                     exporter.addImage(response, page_no, extension)
 
-                    retry = 5
+                    retry = retry_max_times
                     return
 
             except (ClientError, AssertionError, ConnectionResetError, asyncio.TimeoutError):
@@ -99,9 +102,15 @@ async def imageDownloader(
 
                 retry += 1
 
-                if retry == 5:
-                    print(f'Could not download image {image} after 5 times.')
-                    return
+                if retry == retry_max_times:
+                    if fallback_url != '' and fallback_retry == 0:
+                        retry = 0
+                        fallback_retry = 1
+                        url = fallback_url
+                        print(f'Retrying with the fallback url.')
+                    else:
+                        print(f'Could not download image {image} after {retry} times.')
+                        return
 
 
 # download_type 0 -> chapter
@@ -195,6 +204,7 @@ def chapterDownloader(
         pages = [p.manga_page for p in viewer.pages if p.manga_page.image_url]
     else:
         url = f'{chapter_data["server"]}{chapter_data["hash"]}/'
+        fallback_url = f'{chapter_data["serverFallback"]}{chapter_data["hash"]}/' if 'serverFallback' in chapter_data else ''
         pages = chapter_data["pages"]
 
     # Check if the chapter has been downloaded already
@@ -221,7 +231,7 @@ def chapterDownloader(
 
         # Download images
         for image in pages:
-            task = asyncio.ensure_future(imageDownloader(url, image, pages, exporter))
+            task = asyncio.ensure_future(imageDownloader(url, fallback_url, image, pages, exporter))
             tasks.append(task)
 
         runner = displayProgress(tasks)

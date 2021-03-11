@@ -108,9 +108,10 @@ class JsonBase:
             json_chapter["images"] = 'This chapter is external to MangaDex so an image list is not available.'
         else:
             json_chapter["images"] = {
-                "url": f'{chapter_data["server"]}{chapter_data["hash"]}/',
-                "pages": chapter_data["pages"]
-            }
+                "url": f'{chapter_data["server"]}{chapter_data["hash"]}/'}
+            if 'serverFallback' in chapter_data:
+                json_chapter["images"]["urlFallback"] = f'{chapter_data["serverFallback"]}{chapter_data["hash"]}/'
+            json_chapter["images"]["pages"] = chapter_data["pages"]
 
         if self.type != 'manga':
             json_chapter["mangaData"] = {

@@ -245,8 +245,8 @@ class FolderExporter(ExporterBase):
             series_title: str,
             chapter_data: dict,
             destination: str,
-            add_data: bool,
-            chapter_prefix: str):
+            chapter_prefix: str,
+            add_data: bool):
         super().__init__(series_title, chapter_data, chapter_prefix)
 
         self.add_data = add_data
