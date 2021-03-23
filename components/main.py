@@ -8,14 +8,14 @@ from .chapter_downloader import chapterDownloader
 from .languages import getLangMD
 
 api_message = 'The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.'
-md_url = re.compile(r'(?:https:\/\/)?(?:www.|api.)?(?:mangadex\.org\/)(?:api\/)?(?:v\d\/)?(title|chapter|manga|group|user)(?:\/)(\d+)')
-md_image_url = re.compile(r'(?:https:\/\/)?(?:(?:(?:s\d|www)\.)?(?:mangadex\.org\/)|.+\.mangadex\.network(?::\d+)?\/)(?:.+)?(?:data\/)([a-f0-9]+)(?:\/)((?:\w+|\d+-\w+)\.(?:jpg|jpeg|png|gif))')
-md_rss_url = re.compile(r'(?:https:\/\/)?(?:www.)?(?:mangadex\.org\/)(rss)(?:\/)([A-Za-z0-9]+)(?:(?:\/)(.+)(?:\/)(\d+))?')
+md_url = re.compile(r'(?:https:\/\/)?(?:www.|api.)?(?:mangadex\.(?:org|cc)\/)(?:api\/)?(?:v\d\/)?(title|chapter|manga|group|user)(?:\/)(\d+)')
+md_image_url = re.compile(r'(?:https:\/\/)?(?:(?:(?:s\d|www)\.)?(?:mangadex\.(?:org|cc)\/)|.+\.mangadex\.network(?::\d+)?\/)(?:.+)?(?:data\/)([a-f0-9]+)(?:\/)((?:\w+|\d+-\w+)\.(?:jpg|jpeg|png|gif))')
+md_rss_url = re.compile(r'(?:https:\/\/)?(?:www.)?(?:mangadex\.(?:org|cc)\/)(rss)(?:\/)([A-Za-z0-9]+)(?:(?:\/)(.+)(?:\/)(\d+))?')
 url_re = re.compile(r'(?:https|ftp|http)(?::\/\/)(?:.+)')
 
 
 # Check if the url given is a MangaDex one
-def __urlMatch(url):
+def urlMatch(url):
     if md_url.match(url) or md_image_url.match(url) or md_rss_url.match(url):
         return True
     else:
@@ -33,7 +33,6 @@ def typeChecker(
         covers: bool,
         add_data: bool,
         range_download: bool):
-    # pylint: disable=unsubscriptable-object
     download_type = download_type.lower()
 
     if download_type in ('title', 'manga'):
@@ -96,7 +95,7 @@ def fileDownloader(
         print('Empty file!')
         return
 
-    links = [line for line in links if len(line) > 0 and (__urlMatch(line) or line.isdigit())]
+    links = [line for line in links if len(line) > 0 and (urlMatch(line) or line.isdigit())]
     
     if not links:
         print('No MangaDex link or id found')
@@ -128,7 +127,7 @@ def main(download_id, language, route, download_type, save_format, make_folder, 
             fileDownloader(download_id, language, route, download_type, save_format, make_folder, covers, add_data, range_download)
         # If the id is a url, check if it's a MangaDex url to download
         elif url_re.search(download_id):
-            if __urlMatch(download_id):
+            if urlMatch(download_id):
                 print(api_message)
                 urlChecker(download_id, language, route, download_type, save_format, make_folder, covers, add_data, range_download)
             else:
@@ -145,7 +144,6 @@ def main(download_id, language, route, download_type, save_format, make_folder, 
 
 
 def formatArgs(args):
-    # pylint: disable=unsubscriptable-object
 
     download_id: str = args.id
     language: str = args.language

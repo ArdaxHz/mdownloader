@@ -29,7 +29,7 @@ def requestAPI(form: str, download_id: str) -> Optional[Response]:
 
     response = requests.get(url, headers=headers, params=params)
 
-    if response.status_code != 200:
+    if response.status_code not in range(200, 300):
         print(f"Something went wrong. Error: {response.status_code}.")
         return
     return response
@@ -246,10 +246,7 @@ def titleDownloader(
 
     chapter_prefix_dict = getPrefixes(chapters)
 
-    title = re_regrex.sub('_', html.unescape(data["manga"]["title"]))
-    title = title.rstrip()
-    title = title.rstrip('.')
-    title = title.rstrip()
+    title = re_regrex.sub('_', html.unescape(data["manga"]["title"])).rstrip(' .')
     series_route = os.path.join(route, title)
 
     downloadMessage(0, form, title)

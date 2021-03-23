@@ -41,7 +41,6 @@ def mplusDecryptImage(url: str, encryption_hex: str) -> bytearray:
 
 # Check if all the images are downloaded
 def checkExist(pages: list, exporter: Type[Union[ArchiveExporter, FolderExporter]]) -> bool:
-    # pylint: disable=unsubscriptable-object
     exists = 0
 
     # Only image files are counted
@@ -74,7 +73,6 @@ async def imageDownloader(
         image: str,
         pages: list,
         exporter: Type[Union[ArchiveExporter, FolderExporter]]):
-    # pylint: disable=unsubscriptable-object
     retry = 0
     fallback_retry = 0
     retry_max_times = 3
@@ -85,7 +83,7 @@ async def imageDownloader(
             try:
                 async with session.get(url + image) as response:
 
-                    assert response.status == 200
+                    assert response.status in range(200, 300)
                     response = await response.read()
 
                     page_no = pages.index(image) + 1
@@ -127,14 +125,12 @@ def chapterDownloader(
         title: Optional[str]='',
         title_json: Optional[Type[TitleJson]]=None,
         account_json: Optional[Type[AccountJson]]=None):
-    # pylint: disable=unsubscriptable-object
-
     # Connect to API and get chapter info
     params = {'saver': '0'}
     url = domain.format('chapter', chapter_id)
     response = requests.get(url, headers=headers, params=params)
 
-    if response.status_code != 200:
+    if response.status_code not in range(200, 300):
         if response.status_code >= 500: # Unknown Error
             print(f"{chapter_id} - Something went wrong. Error: {response.status_code}")
         if response.status_code == 451: # Unavailable chapters
@@ -169,11 +165,7 @@ def chapterDownloader(
 
     # chapter, group, user downloads
     if download_type == 0:
-        title = re_regrex.sub('_', html.unescape(chapter_data["mangaTitle"]))
-
-        title = title.rstrip()
-        title = title.rstrip('.')
-        title = title.rstrip()
+        title = re_regrex.sub('_', html.unescape(chapter_data["mangaTitle"])).rstrip(' .')
 
     series_route = os.path.join(route, title)
     chapter_prefix = chapter_prefix_dict.get(chapter_data["volume"], 'c')

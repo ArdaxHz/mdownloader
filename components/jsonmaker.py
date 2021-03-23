@@ -30,11 +30,11 @@ class JsonBase:
         else:
             self.json_path = self.route.joinpath(f'{self.type}_{self.id}_data').with_suffix('.json')
 
-        self.data_json = self.__checkExist()
+        self.data_json = self.checkExist()
 
 
     # Check if the json already exists
-    def __checkExist(self) -> dict:
+    def checkExist(self) -> dict:
         try:
             with open(self.json_path, 'r', encoding='utf8') as file:
                 series_json = json.load(file)

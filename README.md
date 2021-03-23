@@ -48,7 +48,7 @@ This follows Daiz's [naming scheme](https://github.com/Daiz/manga-naming-scheme)
 
 ## Languages
 
-| Language        | MD Code       | ISO Code      | Language        | MD Code       | ISO Code      |
+| Language        | MD Code       | ISO-639 Code  | Language        | MD Code       | ISO-639 Code  |
 |:---------------:| ------------- | ------------- |:---------------:| ------------- | ------------- |
 | Arabic          | sa            | ara           | Japanese        | jp            | jpn           |
 | Bengali         | bd            | ben           | Korean          | kr            | kor           |

@@ -88,7 +88,7 @@ languages_names = {
 
 
 # Get key from value
-def __getKey(language, languages_dict):
+def getKey(language, languages_dict):
     for key, value in languages_dict.items():
         if language == value:
             return key
@@ -104,7 +104,7 @@ def getLangMD(language: str) -> Optional[str]:
     elif len(language) == 2:
         return language
     elif len(language) == 3:
-        return __getKey(language, languages_iso)
+        return getKey(language, languages_iso)
     else:
         languages_match = [l for l in languages_names.values() if language.lower() in l.lower()]
 
@@ -121,6 +121,6 @@ def getLangMD(language: str) -> Optional[str]:
                 return
             else:
                 lang_to_use = languages_match[(lang - 1)]
-                return __getKey(lang_to_use, languages_names)
+                return getKey(lang_to_use, languages_names)
         else:
-            return __getKey(languages_match[0], languages_names)
+            return getKey(languages_match[0], languages_names)

@@ -20,18 +20,18 @@ class ExporterBase:
         self.chapter_data = chapter_data
         self.chapter_id = chapter_data["id"]
         self.chapter_prefix = chapter_prefix
-        self.oneshot = self.__oneshotChecker()
-        self.groups = self.__groupNames()
-        self.chapter_number = self.__chapterNo()
-        self.volume = self.__volumeNo()
-        self.language = self.__langCode()
-        self.prefix = self.__prefixName()
-        self.suffix = self.__suffixName()
-        self.folder_name = self.__folderName()
+        self.oneshot = self.oneshotChecker()
+        self.groups = self.groupNames()
+        self.chapter_number = self.chapterNo()
+        self.volume = self.volumeNo()
+        self.language = self.langCode()
+        self.prefix = self.prefixName()
+        self.suffix = self.suffixName()
+        self.folder_name = self.folderName()
 
 
     # If oneshot, add to file name
-    def __oneshotChecker(self) -> int:
+    def oneshotChecker(self) -> int:
         if self.chapter_data["title"].lower() == 'oneshot':
             return 1
         elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] == '' and self.chapter_data["title"] == '':
@@ -45,7 +45,7 @@ class ExporterBase:
 
 
     # Format the chapter number
-    def __chapterNo(self) -> str:
+    def chapterNo(self) -> str:
         chapter_number = self.chapter_data["chapter"]
 
         if self.oneshot in (1, 2, 3):
@@ -70,7 +70,7 @@ class ExporterBase:
 
 
     # Ignore language code if in english
-    def __langCode(self) -> str:
+    def langCode(self) -> str:
         if self.chapter_data["language"] == 'gb':
             return ''
         else:
@@ -78,7 +78,7 @@ class ExporterBase:
 
 
     # Get the volume number if applicable
-    def __volumeNo(self) -> str:
+    def volumeNo(self) -> str:
         volume_number = self.chapter_data["volume"]
 
         if volume_number == '' or self.oneshot in (1, 2):
@@ -92,17 +92,17 @@ class ExporterBase:
 
 
     # The formatted prefix name
-    def __prefixName(self) -> str:
+    def prefixName(self) -> str:
         return f'{self.series_title}{self.language} - {self.chapter_number}{self.volume}'
 
 
     # The chapter's groups
-    def __groupNames(self) -> str:
+    def groupNames(self) -> str:
         return re.sub(REGEX, '_', html.unescape(', '.join([g["name"] for g in self.chapter_data["groups"]])))
 
 
     # Formatting the groups as the suffix
-    def __suffixName(self) -> str:
+    def suffixName(self) -> str:
         chapter_title = f'{self.chapter_data["title"][:31]}...' if len(self.chapter_data["title"]) > 30 else self.chapter_data["title"]
         title = f'[{chapter_title}] ' if len(chapter_title) > 0 else ''
         oneshot_prefix = '[Oneshot] '
@@ -119,7 +119,7 @@ class ExporterBase:
 
 
     # The final folder name combining the prefix and suffix for the archive/folder name
-    def __folderName(self) -> str:
+    def folderName(self) -> str:
         return f'{self.prefix} {self.suffix}'
 
 
