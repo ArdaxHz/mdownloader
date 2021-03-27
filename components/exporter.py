@@ -11,6 +11,8 @@ from pathlib import Path
 from .constants import REGEX
 from .languages import languages_iso
 
+re_regrex = re.compile(REGEX)
+
 
 
 class ExporterBase:
@@ -98,13 +100,13 @@ class ExporterBase:
 
     # The chapter's groups
     def groupNames(self) -> str:
-        return re.sub(REGEX, '_', html.unescape(', '.join([g["name"] for g in self.chapter_data["groups"]])))
+        return re_regrex.sub('_', html.unescape(', '.join([g["name"] for g in self.chapter_data["groups"]])))
 
 
     # Formatting the groups as the suffix
     def suffixName(self) -> str:
         chapter_title = f'{self.chapter_data["title"][:31]}...' if len(self.chapter_data["title"]) > 30 else self.chapter_data["title"]
-        title = f'[{chapter_title}] ' if len(chapter_title) > 0 else ''
+        title = f'[{re_regrex.sub("_", html.unescape(chapter_title))}] ' if len(chapter_title) > 0 else ''
         oneshot_prefix = '[Oneshot] '
         group_suffix = f'[{self.groups}]'
 
