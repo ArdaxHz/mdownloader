@@ -8,21 +8,22 @@ from urllib.parse import quote
 
 import requests
 
-from . import constants
+from .constants import ImpVar
 from .languages import languages_names
 
 
 
 class JsonBase:
 
-    def __init__(self, data: dict, route: str, form: str):
+    def __init__(self, session, data: dict, route: str, form: str):
+        self.session = session
         self.type = form
         self.data = data[self.type]
         self.id = self.data["id"]
         self.route = Path(route)
         self.route.mkdir(parents=True, exist_ok=True)
-        self.domain = constants.MANGADEX_URL
-        self.api_url = constants.MANGADEX_API_URL
+        self.domain = ImpVar.MANGADEX_URL
+        self.api_url = ImpVar.MANGADEX_API_URL
 
         # Format json name
         if self.type == 'manga':
@@ -156,13 +157,13 @@ class JsonBase:
 
 class TitleJson(JsonBase):
 
-    def __init__(self, data: dict, route: str, save_covers: bool, download_type: int):
-        super().__init__(data, route, 'manga')
+    def __init__(self, session, data: dict, route: str, save_covers: bool, download_type: int):
+        super().__init__(session, data, route, 'manga')
         self.download_type = download_type
 
         if self.download_type == 1:
             self.save_covers = save_covers
-            self.regex = re.compile(constants.REGEX)
+            self.regex = re.compile(ImpVar.REGEX)
 
             # Make the covers folder in the manga folder
             if self.save_covers:
@@ -221,7 +222,7 @@ class TitleJson(JsonBase):
 
     # Download the cover
     def downloadCover(self, cover: str, cover_name: str):
-        cover_response = requests.get(cover)
+        cover_response = self.session.get(cover)
 
         if cover_response.status_code != 200:
             print(f'Could not save {cover_name}...')
@@ -258,7 +259,7 @@ class TitleJson(JsonBase):
 
     # Format the covers into the json
     def getCovers(self) -> dict:
-        response = requests.get(f'{self.api_url.format("manga", self.id)}/covers')
+        response = self.session.get(f'{self.api_url.format("manga", self.id)}/covers')
         data = response.json()
         covers_data = data["data"]
 
@@ -316,8 +317,8 @@ class TitleJson(JsonBase):
 
 class AccountJson(JsonBase):
 
-    def __init__(self, data: dict, route: str, form: str):
-        super().__init__(data, route, form)
+    def __init__(self, session, data: dict, route: str, form: str):
+        super().__init__(session, data, route, form)
         self.account_data = self.accountData()
 
 

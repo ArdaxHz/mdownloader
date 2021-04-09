@@ -1,23 +1,23 @@
 #!/usr/bin/python3
 import asyncio
 import html
+import json
 import os
 import re
 from datetime import datetime
-from typing import Optional, Type, Union
+from typing import Type, Union
 
 import requests
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
-from . import constants
+from .constants import ImpVar, RequestAPI
 from .exporter import ArchiveExporter, FolderExporter
-from .jsonmaker import AccountJson, TitleJson
 from .response_pb2 import Response
 
-headers = constants.HEADERS
-domain = constants.MANGADEX_API_URL
-re_regrex = re.compile(constants.REGEX)
+headers = ImpVar.HEADERS
+domain = ImpVar.MANGADEX_API_URL
+re_regrex = re.compile(ImpVar.REGEX)
 
 
 # Get the MangaPlus api link
@@ -41,6 +41,7 @@ def mplusDecryptImage(url: str, encryption_hex: str) -> bytearray:
 
 # Check if all the images are downloaded
 def checkExist(pages: list, exporter: Type[Union[ArchiveExporter, FolderExporter]]) -> bool:
+    # pylint: disable=unsubscriptable-object
     exists = 0
 
     # Only image files are counted
@@ -73,6 +74,7 @@ async def imageDownloader(
         image: str,
         pages: list,
         exporter: Type[Union[ArchiveExporter, FolderExporter]]):
+    # pylint: disable=unsubscriptable-object
     retry = 0
     fallback_retry = 0
     retry_max_times = 3
@@ -83,7 +85,7 @@ async def imageDownloader(
             try:
                 async with session.get(url + image) as response:
 
-                    assert response.status in range(200, 300)
+                    assert response.status == 200
                     response = await response.read()
 
                     page_no = pages.index(image) + 1
@@ -114,37 +116,14 @@ async def imageDownloader(
 # download_type 0 -> chapter
 # download_type 1 -> title
 # download_type 2 -> group/user
-def chapterDownloader(
-        chapter_id: Union[int, str],
-        route: str,
-        save_format: str,
-        make_folder: bool,
-        add_data: bool,
-        chapter_prefix_dict: dict={},
-        download_type: int=0,
-        title: Optional[str]='',
-        title_json: Optional[Type[TitleJson]]=None,
-        account_json: Optional[Type[AccountJson]]=None):
+def chapterDownloader(md_model):
+    chapter_id = md_model.id
+
     # Connect to API and get chapter info
-    params = {'saver': '0'}
-    url = domain.format('chapter', chapter_id)
-    response = requests.get(url, headers=headers, params=params)
-
-    if response.status_code not in range(200, 300):
-        if response.status_code >= 500: # Unknown Error
-            print(f"{chapter_id} - Something went wrong. Error: {response.status_code}")
-        if response.status_code == 451: # Unavailable chapters
-            print(f"{chapter_id} - Unavailable Chapter. This could be because the chapter was deleted by the group or you're not allowed to read it. Error: {response.status_code}")
-        elif response.status_code == 403: # Restricted Chapters. Like korean webtoons
-            print(f"{chapter_id} - Restricted Chapter. You're not allowed to read this chapter. Error: {response.status_code}")
-        elif response.status_code == 410: # Deleted Chapters.
-            print(f"{chapter_id} - Deleted Chapter. Error: {response.status_code}")
-        else:
-            print(f"{chapter_id} - Chapter ID doesn't exist. Error: {response.status_code}")
-        return
-
-    chapter_data = response.json()
-    chapter_data = chapter_data["data"]
+    response = RequestAPI.requestData(md_model, **{'saver': '0'})
+    RequestAPI.checkForError(chapter_id, response)
+    chapter_data = RequestAPI.getData(response)
+    md_model.chapter_data = chapter_data
 
     # Make sure only downloadable chapters are downloaded
     if chapter_data["status"] not in ('OK', 'external', 'delayed'):
@@ -164,23 +143,25 @@ def chapterDownloader(
         external = False
 
     # chapter, group, user downloads
-    if download_type == 0:
-        title = re_regrex.sub('_', html.unescape(chapter_data["mangaTitle"])).rstrip(' .')
+    if md_model.type_id == 0:
+        title = re_regrex.sub('_', html.unescape(chapter_data["mangaTitle"]))
+        title = title.rstrip(' .')
+        md_model.title = title
+        md_model.route = os.path.join(md_model.route, title)
 
-    series_route = os.path.join(route, title)
-    chapter_prefix = chapter_prefix_dict.get(chapter_data["volume"], 'c')
+    md_model.prefix = md_model.chapter_prefix_dict.get(chapter_data["volume"], 'c')
 
     # Make the files
-    if make_folder:
-        exporter = FolderExporter(title, chapter_data, series_route, chapter_prefix, add_data)
+    if md_model.make_folder:
+        exporter = FolderExporter(md_model)
     else:
-        exporter = ArchiveExporter(title, chapter_data, series_route, chapter_prefix, add_data, save_format)
+        exporter = ArchiveExporter(md_model)
     
     # Add chapter data to the json for title, group or user downloads
-    if download_type in (1, 2):
-        title_json.chapters(chapter_data)
-        if download_type == 2:
-            account_json.chapters(chapter_data)
+    if md_model.type_id in (1, 2):
+        md_model.title_json.chapters(chapter_data)
+        if md_model.type_id == 2:
+            md_model.account_json.chapters(chapter_data)
 
     print(f'Downloading {title} | Volume: {chapter_data["volume"]} | Chapter: {chapter_data["chapter"]} | Title: {chapter_data["title"]}')
 
@@ -204,10 +185,10 @@ def chapterDownloader(
 
     if exists:
         print('File already downloaded.')
-        if download_type in (1, 2):
-            title_json.core()
-            if download_type == 2:
-                account_json.core()
+        if md_model.type_id in (1, 2):
+            md_model.title_json.core()
+            if md_model.type_id == 2:
+                md_model.account_json.core()
         exporter.close()
         return
 
@@ -232,10 +213,10 @@ def chapterDownloader(
     downloaded_all = checkExist(pages, exporter)
 
     # If all the images are downloaded, save the json file with the latest downloaded chapter
-    if downloaded_all and download_type in (1, 2):
-        title_json.core()
-        if download_type == 2:
-            account_json.core()
+    if downloaded_all and md_model.type_id in (1, 2):
+        md_model.title_json.core()
+        if md_model.type_id == 2:
+            md_model.account_json.core()
 
     # Close the archive
     exporter.close()

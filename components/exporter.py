@@ -8,10 +8,10 @@ import sys
 import zipfile
 from pathlib import Path
 
-from .constants import REGEX
+from .constants import ImpVar
 from .languages import languages_iso
 
-re_regrex = re.compile(REGEX)
+re_regrex = re.compile(ImpVar.REGEX)
 
 
 
@@ -132,22 +132,15 @@ class ExporterBase:
 
 
 class ArchiveExporter(ExporterBase):
-    def __init__(
-            self,
-            series_title: str,
-            chapter_data: dict,
-            destination: str,
-            chapter_prefix: str,
-            add_data: bool,
-            save_format: bool):
-        super().__init__(series_title, chapter_data, chapter_prefix)
+    def __init__(self, params):
+        super().__init__(params.title, params.chapter_data, params.chapter_prefix)
         
-        self.add_data = add_data
-        self.destination = destination
-        self.save_format = save_format
-        self.path = Path(destination)
+        self.add_data = params.add_data
+        self.destination = params.route
+        self.save_format = params.save_format
+        self.path = Path(params.route)
         self.path.mkdir(parents=True, exist_ok=True)
-        self.archive_path = os.path.join(destination, f'{self.folder_name}.{save_format}')
+        self.archive_path = os.path.join(self.destination, f'{self.folder_name}.{self.save_format}')
         self.archive = self.checkZip()
  
 
@@ -242,17 +235,11 @@ class ArchiveExporter(ExporterBase):
 
 
 class FolderExporter(ExporterBase):
-    def __init__(
-            self,
-            series_title: str,
-            chapter_data: dict,
-            destination: str,
-            chapter_prefix: str,
-            add_data: bool):
-        super().__init__(series_title, chapter_data, chapter_prefix)
+    def __init__(self, params):
+        super().__init__(params.title, params.chapter_data, params.chapter_prefix)
 
-        self.add_data = add_data
-        self.path = Path(destination)
+        self.add_data = params.add_data
+        self.path = Path(params.route)
         self.path.mkdir(parents=True, exist_ok=True)
         self.checkFolder()
 

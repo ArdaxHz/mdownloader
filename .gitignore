@@ -3,3 +3,5 @@ components/__pycache__
 downloads
 *.txt
 *.py_temp
+.env
+*.json
