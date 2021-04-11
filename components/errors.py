@@ -9,3 +9,8 @@ class MDownloaderError(Exception):
 class NoChaptersError(MDownloaderError):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
+
+
+class MDArgumentError(MDownloaderError):
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)

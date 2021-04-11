@@ -17,6 +17,11 @@ def urlMatch(url):
         return False
 
 
+def checkForLinks(links, message):
+    if not links:
+        raise MDownloaderError(message)
+
+
 # Call the different functions depending on the type of download
 def typeChecker(md_model):
 
@@ -29,8 +34,7 @@ def typeChecker(md_model):
     elif md_model.download_type == 'rss':
         rssDownloader(md_model)
     else:
-        print('Please enter a title/chapter/group/user download_id. For non-title downloads, you must add the argument "--type [chapter|user|group]".')
-    return
+        raise MDownloaderError('Please enter a title/chapter/group/user download_id. For non-title downloads, you must add the argument "--type [chapter|user|group]".')
 
 
 def fileDownloader(md_model):
@@ -39,15 +43,9 @@ def fileDownloader(md_model):
     with open(md_model.id, 'r') as bulk_file:
         links = [line.rstrip('\n') for line in bulk_file]
 
-    if not links:
-        print('Empty file!')
-        return
-
+    checkForLinks(links, 'Empty file!')
     links = [line for line in links if len(line) > 0 and (urlMatch(line) or line.isdigit())]
-    
-    if not links:
-        print('No MangaDex link or id found')
-        return
+    checkForLinks(links, 'No MangaDex link or id found')
 
     print(ImpVar.API_MESSAGE)
     for download_id in links:
@@ -82,11 +80,9 @@ def main(args):
                 print(ImpVar.API_MESSAGE)
                 typeChecker(md_model)
             else:
-                print('Please use a MangaDex title/chapter/group/user link.')
-                return
+                raise MDownloaderError('Please use a MangaDex title/chapter/group/user link.')
         else:
-            print('File not found!')
-            return
+            raise MDownloaderError('File not found!')
     # Use the id and download_type argument to download
     else:
         print(ImpVar.API_MESSAGE)

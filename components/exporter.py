@@ -132,13 +132,13 @@ class ExporterBase:
 
 
 class ArchiveExporter(ExporterBase):
-    def __init__(self, params):
-        super().__init__(params.title, params.chapter_data, params.chapter_prefix)
+    def __init__(self, md_model):
+        super().__init__(md_model.title, md_model.chapter_data, md_model.chapter_prefix)
         
-        self.add_data = params.add_data
-        self.destination = params.route
-        self.save_format = params.save_format
-        self.path = Path(params.route)
+        self.add_data = md_model.add_data
+        self.destination = md_model.route
+        self.save_format = md_model.save_format
+        self.path = Path(md_model.route)
         self.path.mkdir(parents=True, exist_ok=True)
         self.archive_path = os.path.join(self.destination, f'{self.folder_name}.{self.save_format}')
         self.archive = self.checkZip()
@@ -235,11 +235,11 @@ class ArchiveExporter(ExporterBase):
 
 
 class FolderExporter(ExporterBase):
-    def __init__(self, params):
-        super().__init__(params.title, params.chapter_data, params.chapter_prefix)
+    def __init__(self, md_model):
+        super().__init__(md_model.title, md_model.chapter_data, md_model.chapter_prefix)
 
-        self.add_data = params.add_data
-        self.path = Path(params.route)
+        self.add_data = md_model.add_data
+        self.path = Path(md_model.route)
         self.path.mkdir(parents=True, exist_ok=True)
         self.checkFolder()
 

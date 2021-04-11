@@ -1,9 +1,11 @@
+import os
+from components.exporter import ArchiveExporter, FolderExporter
 from components.errors import MDownloaderError
 import http
 import pickle
 import random
 import re
-from typing import Optional, Union
+from typing import Optional, Type, Union
 
 import requests
 from requests.models import Response
@@ -140,6 +142,7 @@ class MDownloader(AuthMD):
         self.title_json = {}
         self.account_json = {}
         self.chapter_prefix_dict = {}
+        self.exporter = None
 
         self.type_id = 0
         self.title = ''
@@ -204,7 +207,45 @@ class MDownloader(AuthMD):
             input_url = ImpVar.MD_IMAGE_URL.match(url)
             self.id = input_url.group(1)
             self.download_type = 'chapter'
+    
 
+    # Check if all the images are downloaded
+    def checkExist(self, pages: list) -> bool:
+        # pylint: disable=unsubscriptable-object
+        exists = 0
+
+        # Only image files are counted
+        if isinstance(self.exporter, ArchiveExporter):
+            zip_count = [i for i in self.exporter.archive.namelist() if i.endswith(('.png', '.jpg', '.jpeg', '.gif'))]
+        else:
+            zip_count = [i for i in os.listdir(self.exporter.folder_path) if i.endswith(('.png', '.jpg', '.jpeg', '.gif'))]
+
+        if len(pages) == len(zip_count):
+            exists = 1
+        return exists
+
+
+    def existsBeforeDownload(self, exists):
+        if exists:
+            if self.type_id in (1, 2):
+                self.title_json.core()
+                if self.type_id == 2:
+                    self.account_json.core()
+            self.exporter.close()
+        raise MDownloaderError('File already downloaded.')
+
+
+    def existsAfterDownload(self, downloaded_all):
+        # If all the images are downloaded, save the json file with the latest downloaded chapter
+        if downloaded_all and self.type_id in (1, 2):
+            self.title_json.core()
+            if self.type_id == 2:
+                self.account_json.core()
+        
+        # Close the archive
+        self.exporter.close()
+        del self.exporter
+        return
 
 
 class RequestAPI:

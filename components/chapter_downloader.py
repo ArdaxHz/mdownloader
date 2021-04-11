@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import asyncio
+from components.mangaplus import MangaPlus
 import html
 import json
 import os
@@ -157,6 +158,8 @@ def chapterDownloader(md_model):
     else:
         exporter = ArchiveExporter(md_model)
     
+    md_model.exporter = exporter
+    
     # Add chapter data to the json for title, group or user downloads
     if md_model.type_id in (1, 2):
         md_model.title_json.chapters(chapter_data)
@@ -169,56 +172,29 @@ def chapterDownloader(md_model):
     if external:
         # Call MangaPlus downloader
         print('External chapter. Connecting to MangaPlus to download.')
-
-        url = mplusIDChecker(chapter_data)
-        response = requests.get(url)
-
-        viewer = Response.FromString(response.content).success.manga_viewer
-        pages = [p.manga_page for p in viewer.pages if p.manga_page.image_url]
-    else:
-        url = f'{chapter_data["server"]}{chapter_data["hash"]}/'
-        fallback_url = f'{chapter_data["serverFallback"]}{chapter_data["hash"]}/' if 'serverFallback' in chapter_data else ''
-        pages = chapter_data["pages"]
-
-    # Check if the chapter has been downloaded already
-    exists = checkExist(pages, exporter)
-
-    if exists:
-        print('File already downloaded.')
-        if md_model.type_id in (1, 2):
-            md_model.title_json.core()
-            if md_model.type_id == 2:
-                md_model.account_json.core()
-        exporter.close()
+        MangaPlus(md_model).plusImages()
         return
 
-    if external:
-        for page in tqdm(pages, desc=(str(datetime.now(tz=None))[:-7])):
-            image = mplusDecryptImage(page.image_url, page.encryption_key)
-            page_no = pages.index(page) + 1
-            exporter.addImage(image, page_no, '.jpg')
-    else:
-        # ASYNC FUNCTION
-        loop  = asyncio.get_event_loop()
-        tasks = []
+    url = f'{chapter_data["server"]}{chapter_data["hash"]}/'
+    fallback_url = f'{chapter_data["serverFallback"]}{chapter_data["hash"]}/' if 'serverFallback' in chapter_data else ''
+    pages = chapter_data["pages"]
 
-        # Download images
-        for image in pages:
-            task = asyncio.ensure_future(imageDownloader(url, fallback_url, image, pages, exporter))
-            tasks.append(task)
+    # Check if the chapter has been downloaded already
+    exists = md_model.checkExist(pages, exporter)
+    md_model.existsBeforeDownload(exists)
 
-        runner = displayProgress(tasks)
-        loop.run_until_complete(runner)
+    # ASYNC FUNCTION
+    loop  = asyncio.get_event_loop()
+    tasks = []
 
-    downloaded_all = checkExist(pages, exporter)
+    # Download images
+    for image in pages:
+        task = asyncio.ensure_future(imageDownloader(url, fallback_url, image, pages, exporter))
+        tasks.append(task)
 
-    # If all the images are downloaded, save the json file with the latest downloaded chapter
-    if downloaded_all and md_model.type_id in (1, 2):
-        md_model.title_json.core()
-        if md_model.type_id == 2:
-            md_model.account_json.core()
+    runner = displayProgress(tasks)
+    loop.run_until_complete(runner)
 
-    # Close the archive
-    exporter.close()
-    del exporter
+    downloaded_all = md_model.checkExist(pages, exporter)
+    md_model.existsAfterDownload(downloaded_all)
     return
