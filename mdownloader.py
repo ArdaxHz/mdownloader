@@ -15,10 +15,8 @@ except ModuleNotFoundError:
 
 
 def updateChecker(args):
-    # pylint: disable=unsubscriptable-object
-
-    excluded = ['LICENSE', 'README.md', 'components']
-    components_path = Path('components')
+    # excluded = ['LICENSE', 'README.md', 'components']
+    # components_path = Path('components')
 
     # # Call GitHub api to check if there are missing local files
     # root_response = requests.get('https://api.github.com/repos/Rudoal/mdownloader/contents')
@@ -85,7 +83,7 @@ def updateChecker(args):
     #                 contents = response.content
 
     #                 with open(components_path.joinpath(f["name"]), 'wb') as file:
-    #                     file.write(contents)
+    #                     file.write(contents)doin
 
     #             for f in missing_root:
     #                 response = requests.get(f["download_url"])
@@ -116,9 +114,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--language', '-l', default='gb', help='Specify the language to download. NEEDED to download non-English chapters on title/group/user downloads.')
+    parser.add_argument('--language', '-l', default='en', help='Specify the language to download. NEEDED to download non-English chapters on title/group/user downloads.')
     parser.add_argument('--directory', '-d', default='./downloads', help='The download location, can be an absolute or relative path.')
-    parser.add_argument('--type', '-t', default='title', nargs='?', const='chapter', help='Type of id to download, title or chapter.')
+    parser.add_argument('--type', '-t', default='manga', nargs='?', const='chapter', help='Type of id to download, title or chapter.')
     parser.add_argument('--save_format', '-s', default='cbz', nargs='?', const='zip', help='Choose to download as a zip archive or as a comic archive.')
     parser.add_argument('--folder', '-f', default='no', nargs='?', const='yes', choices=['yes', 'no'], help='Make chapter folder.')
     parser.add_argument('--covers', '-c', default='skip', nargs='?', const='save', choices=['skip', 'save'], help='Download the covers of the manga. Works only with title downloads.')

@@ -19,8 +19,8 @@ class ExporterBase:
 
     def __init__(self, series_title: str, chapter_data: dict, chapter_prefix: str):
         self.series_title = series_title
-        self.chapter_data = chapter_data
-        self.chapter_id = chapter_data["id"]
+        self.chapter_id = chapter_data["data"]["id"]
+        self.chapter_data = chapter_data["data"]["attributes"]
         self.chapter_prefix = chapter_prefix
         self.oneshot = self.oneshotChecker()
         self.groups = self.groupNames()
@@ -73,15 +73,15 @@ class ExporterBase:
 
     # Ignore language code if in english
     def langCode(self) -> str:
-        if self.chapter_data["language"] == 'gb':
+        if self.chapter_data["translatedLanguage"] == 'en':
             return ''
         else:
-            return f' [{languages_iso.get(self.chapter_data["language"], "N/A")}]'
+            return f' [{languages_iso.get(self.chapter_data["translatedLanguage"], "N/A")}]'
 
 
     # Get the volume number if applicable
     def volumeNo(self) -> str:
-        volume_number = self.chapter_data["volume"]
+        volume_number = str(self.chapter_data["volume"])
 
         if volume_number == '' or self.oneshot in (1, 2):
             return ''
@@ -100,7 +100,8 @@ class ExporterBase:
 
     # The chapter's groups
     def groupNames(self) -> str:
-        return re_regrex.sub('_', html.unescape(', '.join([g["name"] for g in self.chapter_data["groups"]])))
+        # return re_regrex.sub('_', html.unescape(', '.join([g["name"] for g in self.chapter_data["groups"]])))
+        return ''
 
 
     # Formatting the groups as the suffix
@@ -133,7 +134,7 @@ class ExporterBase:
 
 class ArchiveExporter(ExporterBase):
     def __init__(self, md_model):
-        super().__init__(md_model.title, md_model.chapter_data, md_model.chapter_prefix)
+        super().__init__(md_model.title, md_model.chapter_data, md_model.prefix)
         
         self.add_data = md_model.add_data
         self.destination = md_model.route
@@ -159,7 +160,7 @@ class ArchiveExporter(ExporterBase):
         version_no = 1
         self.archive = self.makeZip()
         chapter_hash = self.archive.comment.decode().split('\n')[-1]
-        to_add = f'{self.chapter_data["id"]}\n{self.chapter_data["title"]}\n{self.chapter_data["hash"]}'
+        to_add = f'{self.chapter_id}\n{self.chapter_data["title"]}\n{self.chapter_data["hash"]}'
 
         if chapter_hash == '' or chapter_hash == self.chapter_data["hash"]:
             if self.archive.comment.decode() == to_add:

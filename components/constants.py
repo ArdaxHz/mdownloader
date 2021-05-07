@@ -1,11 +1,11 @@
+import json
 import os
-from components.exporter import ArchiveExporter, FolderExporter
 from components.errors import MDownloaderError
 import http
 import pickle
 import random
 import re
-from typing import Optional, Type, Union
+from typing import Union
 
 import requests
 from requests.models import Response
@@ -53,19 +53,20 @@ class ImpVar:
     domain = 'mangadex'
     tld = 'org'
 
-    MANGADEX_URL = '{}://{}.{}/{}/{}/'.format(scheme, domain, tld, {}, {})
-    MANGADEX_API_URL = '{}://api.{}.{}/v2/{}/{}/'.format(scheme, domain, tld, {}, {})
+    MANGADEX_URL = '{}://{}.{}'.format(scheme, domain, tld)
+    MANGADEX_API_URL = '{}://api.{}.{}'.format(scheme, domain, tld)
 
     API_MESSAGE = 'The max. requests allowed are 1500/10min for the API and 600/10min for everything else. You have to wait 10 minutes or you will get your IP banned.'
 
-    MD_URL = re.compile(r'(?:https:\/\/)?(?:www.|api.)?(?:mangadex\.org\/)(?:api\/)?(?:v\d\/)?(title|chapter|manga|group|user)(?:\/)(\d+)')
+    MD_URL = re.compile(r'(?:https:\/\/)?(?:www.|api.)?(?:mangadex\.org\/)(?:api\/)?(?:v\d\/)?(title|chapter|manga|group|user)(?:\/)((?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})|(?:\d+))')
     MD_IMAGE_URL = re.compile(r'(?:https:\/\/)?(?:(?:(?:s\d|www)\.)?(?:mangadex\.org\/)|.+\.mangadex\.network(?::\d+)?\/)(?:.+)?(?:data\/)([a-f0-9]+)(?:\/)((?:\w+|\d+-\w+)\.(?:jpg|jpeg|png|gif))')
-    MD_RSS_URL = re.compile(r'(?:https:\/\/)?(?:www.)?(?:mangadex\.org\/)(rss)(?:\/)([A-Za-z0-9]+)(?:(?:\/)(.+)(?:\/)(\d+))?')
+    MD_RSS_URL = re.compile(r'(?:https:\/\/)?(?:www.)?(?:mangadex\.org\/)(rss)(?:\/)([A-Za-z0-9]+)')
     URL_RE = re.compile(r'(?:https|ftp|http)(?::\/\/)(?:.+)')
 
     HEADERS = {'User-Agent': Headers.get_header()}
 
     REGEX = r'[\\\\/:*?"<>|]'
+    UUID_REGEX = r'[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}'
     FILE_NAME_REGEX = r'(?P<title>.+?)(?:\s\[(?P<language>[a-zA-Z]+)\])?\s-\s(?P<prefix>[c-z])?(?P<chapter>\S+)(?:\s\((?:v)(?P<volume>\S+?)\))?\s?(?:.+)(?:\[(?P<group>.+)\])(?:\{(?:v)(?P<version>\d)\})?(?:\.(?P<extension>.+))?'
 
 
@@ -75,6 +76,7 @@ class AuthMD:
     def __init__(self) -> None:
         self.session = requests.Session()
         self.successful_login = False
+        self.token_file = '.mdauth'
 
 
     def loginUsingDetails(self):
@@ -82,53 +84,42 @@ class AuthMD:
         username = input('Your username: ')
         password = input('Your password: ')
 
-        url = f"{ImpVar.MANGADEX_URL}/ajax/actions.ajax.php?function=login"
+        url = f"{ImpVar.MANGADEX_API_URL}/auth/login"
 
-        credentials = {"login_username": username, "login_password": password, "remember_me": '1'}
-        headers = {
-            "method": "POST",
-            "path": "/ajax/actions.ajax.php?function=login",
-            "scheme": "https",
-            "Accept": "*/*",
-            "accept-encoding": "gzip, deflate, br",
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "origin": url,
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-origin",
-            "x-requested-with": "XMLHttpRequest",
-        }
+        credentials = {"username": username, "password": password}
 
-        post = requests.post(url, data=credentials, headers=headers)
-        cookies = post.cookies
-
-        if post.status_code != 200:
-            print('Something went wrong.')
-        if cookies.get("mangadex_session"):
-            print('Wrong username/password.')
-        else:
-            self.successful_login = True
-            print('Login successful, saving cookies to file.')
-
-            with open('cookies.txt', 'wb') as f:
-                pickle.dump(cookies, f)
+        post = self.session.post(url, json=credentials)
         
-        return cookies
+        if post.status_code in range(200, 300):
+            print('Login successful!')
 
+            token = post.json()["token"]["session"]
+
+            self.session.headers.update({'Authorization': f'Bearer {token}'})
+
+            with open(self.token_file, 'w') as login_file:
+                login_file.write(json.dumps({'token': token}, indent=4))
+
+            self.successful_login = True
+        else:
+            print('Login unsuccessful, continuing without being logged in.')
+
+        return
     
     def login(self):
-        print('Trying to login through the cookies.txt file.')
+        print('Trying to login through the .mdauth file.')
 
         try:
-            cookies = http.cookiejar.MozillaCookieJar('cookies.txt')
-            cookies.load()
-            self.successful_login = True
-        except FileNotFoundError:
-            cookies = self.loginUsingDetails()
+            with open(self.token_file, 'r') as login_file:
+                token_file = json.loads(login_file)
 
-        if self.successful_login:
-            self.session.cookies = cookies
-        self.session.headers = ImpVar.HEADERS
+            token = token_file["token"]
+            self.session.headers.update({'Authorization': f'Bearer {token}'})
+
+            self.successful_login = True
+            print('Login successful!')
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.loginUsingDetails()
 
 
 
@@ -137,14 +128,15 @@ class MDownloader(AuthMD):
     def __init__(self) -> None:
         super().__init__()
         self.data = {}
+        self.chapters_data = []
         self.chapter_data = {}
-        self.chapters = []
-        self.title_json = {}
-        self.account_json = {}
+        self.title_json = None
+        self.account_json = None
         self.chapter_prefix_dict = {}
         self.exporter = None
 
         self.type_id = 0
+        self.chapter_id = ''
         self.title = ''
         self.prefix = ''
 
@@ -182,6 +174,8 @@ class MDownloader(AuthMD):
 
     def formatCovers(self, covers):
         if covers == 'save':
+            print('Covers are yet to be supported by the MangaDex api.')
+            return False
             return True
         else:
             return False
@@ -248,32 +242,32 @@ class MDownloader(AuthMD):
         return
 
 
-class RequestAPI:
-
     # Connect to the API and get the data
-    def requestData(md_model: MDownloader, **params) -> Response:
-        if md_model.download_type in ('title', 'manga', 'group', 'user'):
-            url = ImpVar.MANGADEX_API_URL.format(md_model.download_type, md_model.id)
-        elif md_model.download_type == 'rss':
-            url = md_model.id
+    def requestData(self, download_id: str, download_type: str, get_chapters: bool=0, **params) -> Response:
+        if download_type == 'rss':
+            url = self.id
         else:
-            url = ImpVar.MANGADEX_API_URL.format(md_model.download_type, md_model.id)
+            url = f'{ImpVar.MANGADEX_API_URL}/{download_type}/{download_id}'
 
-        response = md_model.session.get(url, params=params)
+        if get_chapters:
+            if download_type in ('group', 'user'):
+                url = f'{ImpVar.MANGADEX_API_URL}/chapter'
+            else:
+                url = f'{url}/feed'
+
+        response = self.session.get(url, params=params)
         return response
 
 
     # Convert response data into a parsable json
-    def getData(response: Response) -> dict:
-        return response.json()["data"]
+    def getData(self, response: Response) -> dict:
+        data = response.json()
 
-
-    def checkForError(download_id: Union[int, str], response: Response) -> bool:
         if response.status_code not in range(200, 300):
-            error_message = f'Something went wrong. Error Code: {response.status_code}'
-            if response.status_code in range(500, 600) or not download_id.isdigit():
-                pass
-            else:
-                error_message = f'{download_id} - Error Message: {response.json["message"]} - Error Code: {response.status_code}'
-                
+            error = [e["detail"] for e in data["errors"]]
+            error = ', '.join(error)
+            error_message = f'Error: {response.status_code}. Detail: {error}'
+
             raise MDownloaderError(error_message)
+
+        return data

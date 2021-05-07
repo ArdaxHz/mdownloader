@@ -1,8 +1,7 @@
 #!/usr/bin/python3
-from components.errors import MDownloaderError
+from .errors import MDownloaderError
 import os
 import re
-import shutil
 
 from .bulk_downloader import titleDownloader, groupUserDownloader, rssDownloader
 from .chapter_downloader import chapterDownloader
@@ -22,6 +21,13 @@ def checkForLinks(links, message):
         raise MDownloaderError(message)
 
 
+def checkUuid(series_id):
+    if re.match(ImpVar.UUID_REGEX, series_id):
+        return True
+    else:
+        return False
+
+
 # Call the different functions depending on the type of download
 def typeChecker(md_model):
 
@@ -34,7 +40,7 @@ def typeChecker(md_model):
     elif md_model.download_type == 'rss':
         rssDownloader(md_model)
     else:
-        raise MDownloaderError('Please enter a title/chapter/group/user download_id. For non-title downloads, you must add the argument "--type [chapter|user|group]".')
+        raise MDownloaderError('Please enter a title/chapter/group/user id. For non-title downloads, you must add the argument "--type [chapter|user|group]".')
 
 
 def fileDownloader(md_model):
@@ -50,7 +56,7 @@ def fileDownloader(md_model):
     print(ImpVar.API_MESSAGE)
     for download_id in links:
         try:
-            if not download_id.isdigit():
+            if not checkUuid(download_id):
                 md_model.getIdFromUrl(download_id)
             else:
                 md_model.id = download_id
@@ -67,10 +73,10 @@ def main(args):
     md_model = MDownloader()
     md_model.formatArgs(args)
     series_id = args.id
-    # md_model.login()  
+    # md_model.login()
 
     # Check the id is valid number
-    if not series_id.isdigit():
+    if not checkUuid(series_id):
         # If id is a valid file, use that to download
         if os.path.exists(series_id):
             fileDownloader(md_model)
@@ -78,6 +84,7 @@ def main(args):
         elif ImpVar.URL_RE.search(series_id):
             if urlMatch(series_id):
                 print(ImpVar.API_MESSAGE)
+                md_model.getIdFromUrl(series_id)
                 typeChecker(md_model)
             else:
                 raise MDownloaderError('Please use a MangaDex title/chapter/group/user link.')

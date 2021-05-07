@@ -12,7 +12,7 @@ import requests
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
-from .constants import ImpVar, RequestAPI
+from .constants import ImpVar
 from .exporter import ArchiveExporter, FolderExporter
 from .response_pb2 import Response
 
@@ -121,34 +121,38 @@ def chapterDownloader(md_model):
     chapter_id = md_model.id
 
     # Connect to API and get chapter info
-    response = RequestAPI.requestData(md_model, **{'saver': '0'})
-    RequestAPI.checkForError(chapter_id, response)
-    chapter_data = RequestAPI.getData(response)
-    md_model.chapter_data = chapter_data
+    response = md_model.requestData(chapter_id, 'chapter')
+    md_model.checkForError(chapter_id, response)
+    data = md_model.getData(response)
+    md_model.chapter_data = data
 
     # Make sure only downloadable chapters are downloaded
-    if chapter_data["status"] not in ('OK', 'external', 'delayed'):
+    if data["result"] not in ('ok', 'external', 'delayed'):
         return
     # Only MangaPlus external chapters supported
-    elif chapter_data["status"] == 'external' and 'https://mangaplus.shueisha.co.jp/viewer/' not in chapter_data["pages"]:
+    elif data["result"] == 'external':
         print('Chapter external to MangaDex, skipping...')
         return
     # Delayed chapters can't be downloaded
-    elif chapter_data["status"] == 'delayed':
+    elif data["result"] == 'delayed':
         print('Delayed chapter, skipping...')
         return
-
-    if chapter_data["status"] == 'external':
+    
+    if data["result"] == 'external':
         external = True
     else:
         external = False
 
+    chapter_data = data["data"]["attributes"]
+
     # chapter, group, user downloads
     if md_model.type_id == 0:
-        title = re_regrex.sub('_', html.unescape(chapter_data["mangaTitle"]))
-        title = title.rstrip(' .')
-        md_model.title = title
-        md_model.route = os.path.join(md_model.route, title)
+        manga_id = [c["id"] for c in data["relationships"] if c["type"] == 'manga'][0]
+        manga_response = requests.get(f'{domain}/manga/{manga_id}')
+        if manga_response.status_code in range(200, 300):
+            manga_data = manga_response.json()
+            title = manga_data["data"]["attributes"]["title"]["en"]
+            title = re_regrex.sub('_', html.unescape(title)).rstrip(' .')
 
     md_model.prefix = md_model.chapter_prefix_dict.get(chapter_data["volume"], 'c')
 
@@ -166,7 +170,7 @@ def chapterDownloader(md_model):
         if md_model.type_id == 2:
             md_model.account_json.chapters(chapter_data)
 
-    print(f'Downloading {title} | Volume: {chapter_data["volume"]} | Chapter: {chapter_data["chapter"]} | Title: {chapter_data["title"]}')
+    print(f'Downloading "" | Volume: {chapter_data["volume"]} | Chapter: {chapter_data["chapter"]} | Title: {chapter_data["title"]}')
 
     # External chapters
     if external:
@@ -175,9 +179,9 @@ def chapterDownloader(md_model):
         MangaPlus(md_model).plusImages()
         return
 
-    url = f'{chapter_data["server"]}{chapter_data["hash"]}/'
-    fallback_url = f'{chapter_data["serverFallback"]}{chapter_data["hash"]}/' if 'serverFallback' in chapter_data else ''
-    pages = chapter_data["pages"]
+    url_response = md_model.session.get(f"{ImpVar.MANGADEX_API_URL.format('at-home', 'server')}{chapter_id}")
+    url = f'{url_response.json()["baseUrl"]}/data/{chapter_data["hash"]}/'
+    pages = chapter_data["data"]
 
     # Check if the chapter has been downloaded already
     exists = md_model.checkExist(pages, exporter)
@@ -189,7 +193,7 @@ def chapterDownloader(md_model):
 
     # Download images
     for image in pages:
-        task = asyncio.ensure_future(imageDownloader(url, fallback_url, image, pages, exporter))
+        task = asyncio.ensure_future(imageDownloader(url, '', image, pages, exporter))
         tasks.append(task)
 
     runner = displayProgress(tasks)
