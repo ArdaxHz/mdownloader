@@ -7,7 +7,7 @@ import requests
 from tqdm import tqdm
 
 from .response_pb2 import Response
-from .constants import MDownloader
+from .model import MDownloader
 
 
 class MangaPlus:
@@ -27,7 +27,7 @@ class MangaPlus:
     # Get the MangaPlus id for the api
     def idChecker(self) -> str:
         mplus_url = re.compile(r'(?:https:\/\/mangaplus\.shueisha\.co\.jp\/viewer\/)([0-9]+)')
-        mplus_id = mplus_url.match(self.chapter_data["pages"]).group(1)
+        mplus_id = mplus_url.match(self.chapter_data["data"]["attributes"]["data"][0]).group(1)
         url = f'https://jumpg-webapi.tokyo-cdn.com/api/manga_viewer?chapter_id={mplus_id}&split=no&img_quality=super_high'
         return url
 

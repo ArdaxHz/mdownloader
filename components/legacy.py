@@ -1,0 +1,35 @@
+from .constants import ImpVar
+
+
+def legacyMap(md_model, download_type, ids_to_convert):
+    new_ids = []
+
+    data = {
+        "type": download_type,
+        "ids": ids_to_convert
+    }
+
+    response = md_model.session.post(f'{ImpVar.MANGADEX_API_URL}/legacy/mapping', json=data)
+    data = md_model.getData(response)
+
+    for legacy in data:
+        old_id = legacy["data"]["attributes"]["legacyId"]
+        new_id = legacy["data"]["attributes"]["newId"]
+        ids_dict = {"old_id": old_id, "new_id": new_id}
+        new_ids.append(ids_dict)
+
+    return new_ids
+
+
+def getIdType(md_model):
+    id_from_url, download_type_from_url = md_model.getIdFromUrl(md_model.id)
+    md_model.id = id_from_url
+    md_model.download_type = download_type_from_url
+
+    idFromLegacy(md_model, id_from_url)
+
+
+def idFromLegacy(md_model, id_from_url):
+    if id_from_url.isdigit():
+        new_id = legacyMap(md_model, md_model.download_type, [int(id_from_url)])
+        md_model.id = new_id[0]["new_id"]

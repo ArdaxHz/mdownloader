@@ -15,11 +15,12 @@ from .constants import ImpVar
 class JsonBase:
 
     def __init__(self, md_model):
+        self.md_model = md_model
         self.session = md_model.session
         self.type = md_model.download_type
-        self.data = md_model.data["data"]
+        self.id = md_model.data["data"]["id"]
+        self.data = md_model.data["data"]["attributes"]
         self.relationsips = md_model.data["relationships"]
-        self.id = self.data["id"]
         self.route = Path(md_model.route)
         self.route.mkdir(parents=True, exist_ok=True)
         self.domain = ImpVar.MANGADEX_URL
@@ -82,16 +83,16 @@ class TitleJson(JsonBase):
     def __init__(self, md_model):
         super().__init__(md_model)
         self.download_type = md_model.download_type
-        self.save_covers = md_model.save_covers
+        self.save_covers = md_model.covers
         self.regex = re.compile(ImpVar.REGEX)
 
-        # Make the covers folder in the manga folder
-        if self.save_covers:
-            self.cover_route = self.route.joinpath('!covers')
-            self.cover_route.mkdir(parents=True, exist_ok=True)
+        # # Make the covers folder in the manga folder
+        # if self.save_covers:
+        #     self.cover_route = self.route.joinpath('!covers')
+        #     self.cover_route.mkdir(parents=True, exist_ok=True)
 
-        self.cover_regex = re.compile(r'(?:https\:\/\/mangadex\.org\/images\/(?:manga|covers)\/)(.+)(?:(?:\?.+)|$)')
-        self.cover_url = re.sub(r'\?[0-9]+', '', self.data["mainCover"])
+        # self.cover_regex = re.compile(r'(?:https\:\/\/mangadex\.org\/images\/(?:manga|covers)\/)(.+)(?:(?:\?.+)|$)')
+        # self.cover_url = re.sub(r'\?[0-9]+', '', self.data["mainCover"])
         self.links = self.getLinks()
         # self.social = self.getSocials()
         # self.covers = self.getCovers()
@@ -203,14 +204,18 @@ class TitleJson(JsonBase):
 
     # General manga information
     def title(self) -> dict:
+        data_copy = self.data.copy()
+        data_copy.pop('links', None)
         json_title = {"id": self.id}
-        json_title["title"] = self.data["title"]
-        json_title["link"] = self.domain.format('manga', self.id)
-        json_title["language"] = self.data["publication"]["language"]
-        json_title["author"] = ', '.join(self.data["author"])
-        json_title["artist"] = ', '.join(self.data["artist"])
-        json_title["lastChapter"] = self.data["lastChapter"]
-        json_title["isHentai"] = "Yes" if self.data["isHentai"] == True else "No"
+        json_title["link"] = f'{self.domain}/manga/{self.id}'
+        json_title["attributes"] = data_copy
+        # json_title["title"] = self.data["title"]
+        # json_title["altTitles"] = self.data["altTitles"]
+        # json_title["language"] = self.data["publication"]["language"]
+        # json_title["author"] = ', '.join(self.data["author"])
+        # json_title["artist"] = ', '.join(self.data["artist"])
+        # json_title["lastChapter"] = self.data["lastChapter"]
+        # json_title["isHentai"] = "Yes" if self.data["isHentai"] == True else "No"
         # json_title["social"] = self.social
         return json_title
 
@@ -218,8 +223,8 @@ class TitleJson(JsonBase):
     # Format the json for exporting
     def core(self, save_type: int=0):
         self.new_data = self.title_json
-
         self.new_data["externalLinks"] = self.links
+        self.new_data["relationships"] = self.relationsips
         # self.new_data["covers"] = self.covers
         
         if save_type and self.save_covers:
@@ -241,8 +246,8 @@ class AccountJson(JsonBase):
     # Get the account name
     def accountData(self) -> dict:
         json_account = {"id": self.id}
-        json_account["name"] = self.data["name"] if self.type == 'group' else self.data["username"]
-        json_account["link"] = self.domain.format(self.type, self.id)
+        json_account["name"] = self.md_model.name
+        json_account["link"] = f'{self.domain}/{self.type}/{self.id}'
         return json_account
 
 

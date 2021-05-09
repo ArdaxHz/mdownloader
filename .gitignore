@@ -5,3 +5,4 @@ downloads
 *.py_temp
 .env
 *.json
+.mdauth

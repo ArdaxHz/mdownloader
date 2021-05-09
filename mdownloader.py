@@ -114,16 +114,16 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--language', '-l', default='en', help='Specify the language to download. NEEDED to download non-English chapters on title/group/user downloads.')
+    parser.add_argument('--language', '-l', default='en', help='Specify the language to download. NEEDED to download non-English chapters on manga downloads.')
     parser.add_argument('--directory', '-d', default='./downloads', help='The download location, can be an absolute or relative path.')
-    parser.add_argument('--type', '-t', default='manga', nargs='?', const='chapter', help='Type of id to download, title or chapter.')
+    parser.add_argument('--type', '-t', default='manga', nargs='?', const='chapter', help='Type of id to download, manga, chapter, group, user or list.')
     parser.add_argument('--save_format', '-s', default='cbz', nargs='?', const='zip', help='Choose to download as a zip archive or as a comic archive.')
     parser.add_argument('--folder', '-f', default='no', nargs='?', const='yes', choices=['yes', 'no'], help='Make chapter folder.')
-    parser.add_argument('--covers', '-c', default='skip', nargs='?', const='save', choices=['skip', 'save'], help='Download the covers of the manga. Works only with title downloads.')
+    parser.add_argument('--covers', '-c', default='skip', nargs='?', const='save', choices=['skip', 'save'], help='Download the covers of the manga. Works only with manga downloads.')
     parser.add_argument('--json', '-j', default='add', nargs='?', const='ignore', choices=['add', 'ignore'], help='Add the chapter data as a json in the chapter archive/folder.')
-    parser.add_argument('--range', '-r', default='all', nargs='?', const='range', choices=['all', 'range'], 
+    parser.add_argument('--range', '-r', default='range', nargs='?', const='all', choices=['all', 'range'], 
         help='Select custom chapters to download, add an "!" before a chapter number or range to exclude those chapters. Use "all" if you want to download all the chapters while excluding some.')
-    parser.add_argument('id', help='ID to download. Can be chapter, title, group, user, link/id or file.')
+    parser.add_argument('id', help='ID to download. Can be chapter, manga, group, user, list, link/id or file.')
 
     args = parser.parse_args()
 

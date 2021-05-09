@@ -9,7 +9,7 @@ import zipfile
 from pathlib import Path
 
 from .constants import ImpVar
-from .languages import languages_iso
+from .languages import languages
 
 re_regrex = re.compile(ImpVar.REGEX)
 
@@ -17,11 +17,13 @@ re_regrex = re.compile(ImpVar.REGEX)
 
 class ExporterBase:
 
-    def __init__(self, series_title: str, chapter_data: dict, chapter_prefix: str):
-        self.series_title = series_title
-        self.chapter_id = chapter_data["data"]["id"]
-        self.chapter_data = chapter_data["data"]["attributes"]
-        self.chapter_prefix = chapter_prefix
+    def __init__(self, md_model):
+        self.md_model = md_model
+        self.series_title = md_model.title
+        self.chapter_id = md_model.chapter_data["data"]["id"]
+        self.chapter_data = md_model.chapter_data["data"]["attributes"]
+        self.relationships = md_model.chapter_data["relationships"]
+        self.chapter_prefix = md_model.prefix
         self.oneshot = self.oneshotChecker()
         self.groups = self.groupNames()
         self.chapter_number = self.chapterNo()
@@ -76,12 +78,24 @@ class ExporterBase:
         if self.chapter_data["translatedLanguage"] == 'en':
             return ''
         else:
-            return f' [{languages_iso.get(self.chapter_data["translatedLanguage"], "N/A")}]'
+            language_iso = [l["alpha3-b"] for l in languages if self.chapter_data["translatedLanguage"] == l["alpha2"]]
+
+            if language_iso:
+                lang = language_iso[0]
+            else:
+                lang = "N/A"
+
+            return f' [{lang}]'
 
 
     # Get the volume number if applicable
     def volumeNo(self) -> str:
-        volume_number = str(self.chapter_data["volume"])
+        volume_number = self.chapter_data["volume"]
+        if volume_number is None:
+            volume_number = ''
+        else:
+            volume_number = str(volume_number)
+
 
         if volume_number == '' or self.oneshot in (1, 2):
             return ''
@@ -100,8 +114,17 @@ class ExporterBase:
 
     # The chapter's groups
     def groupNames(self) -> str:
-        # return re_regrex.sub('_', html.unescape(', '.join([g["name"] for g in self.chapter_data["groups"]])))
-        return ''
+        group_ids = [g["id"] for g in self.relationships if g["type"] == 'scanlation_group']
+        groups = []
+
+        for id in group_ids:
+            group_response = self.md_model.session.get(f'{ImpVar.MANGADEX_API_URL}/group/{id}')
+            if group_response.status_code == 200:
+                group_data = group_response.json()
+                name = group_data["data"]["attributes"]["name"]
+                groups.append(name)
+
+        return re_regrex.sub('_', html.unescape(', '.join(groups)))
 
 
     # Formatting the groups as the suffix
@@ -134,7 +157,7 @@ class ExporterBase:
 
 class ArchiveExporter(ExporterBase):
     def __init__(self, md_model):
-        super().__init__(md_model.title, md_model.chapter_data, md_model.prefix)
+        super().__init__(md_model)
         
         self.add_data = md_model.add_data
         self.destination = md_model.route
