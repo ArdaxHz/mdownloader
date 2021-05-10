@@ -16,9 +16,16 @@ class JsonBase:
         self.md_model = md_model
         self.session = md_model.session
         self.type = md_model.download_type
-        self.id = md_model.data["data"]["id"]
-        self.data = md_model.data["data"]["attributes"]
-        self.relationsips = md_model.data["relationships"]
+
+        if md_model.type_id == 2:
+            self.id = md_model.group_user_list_data["data"]["id"]
+            self.data = md_model.group_user_list_data["data"]["attributes"]
+            self.relationsips = md_model.group_user_list_data["relationships"]
+        else:
+            self.id = md_model.manga_data["data"]["id"]
+            self.data = md_model.manga_data["data"]["attributes"]
+            self.relationsips = md_model.manga_data["relationships"]
+
         self.route = Path(md_model.route)
         self.route.mkdir(parents=True, exist_ok=True)
         self.domain = ImpVar.MANGADEX_URL
@@ -239,8 +246,8 @@ class AccountJson(JsonBase):
     # Get the account name
     def accountData(self) -> dict:
         json_account = {"id": self.id}
-        json_account["name"] = self.md_model.name
         json_account["link"] = f'{self.domain}/{self.type}/{self.id}'
+        json_account["attributes"] = self.data
         return json_account
 
 

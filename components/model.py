@@ -125,15 +125,19 @@ class MDownloader(AuthMD):
 
     def __init__(self) -> None:
         super().__init__()
-        self.data = {}
+        self.group_user_list_data = {}
+        self.manga_data = {}
         self.chapters_data = []
         self.chapter_data = {}
         self.title_json = None
         self.account_json = None
         self.chapter_prefix_dict = {}
         self.exporter = None
+        self.title_json_data = []
+        self.account_json_data = []
 
         self.type_id = 0
+        self.manga_id = ''
         self.chapter_id = ''
         self.title = ''
         self.prefix = ''
@@ -219,6 +223,7 @@ class MDownloader(AuthMD):
                 url = f'{url}/feed'
 
         response = self.session.get(url, params=params)
+        print(response.url)
         return response
 
     def checkResponseError(self, download_id: str, download_type: str, response: Response, data: dict) -> None:

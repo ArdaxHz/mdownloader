@@ -138,7 +138,7 @@ def chapterDownloader(md_model: MDownloader) -> None:
     chapter_data = data["data"]["attributes"]
 
     # chapter, group, user downloads
-    if md_model.type_id in (0, 2):
+    if md_model.type_id == 0:
         manga_id = [c["id"] for c in data["relationships"] if c["type"] == 'manga'][0]
         manga_response = md_model.requestData(manga_id, 'manga')
         manga_data = md_model.convertJson(manga_id, 'chapter-manga', manga_response)
