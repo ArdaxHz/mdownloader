@@ -127,7 +127,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    for k, v in vars(args).items():
-        print(v)
-
     updateChecker(args)

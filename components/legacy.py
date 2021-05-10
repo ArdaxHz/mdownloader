@@ -9,8 +9,8 @@ def legacyMap(md_model, download_type, ids_to_convert):
         "ids": ids_to_convert
     }
 
-    response = md_model.session.post(f'{ImpVar.MANGADEX_API_URL}/legacy/mapping', json=data)
-    data = md_model.getData(response)
+    response = md_model.postData(f'{ImpVar.MANGADEX_API_URL}/legacy/mapping', data)
+    data = md_model.convertJson(md_model.id, f'{download_type}-legacy', response)
 
     for legacy in data:
         old_id = legacy["data"]["attributes"]["legacyId"]

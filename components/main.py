@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 from components.legacy import getIdType, idFromLegacy, legacyMap
-from .errors import MdDownloaderError
+from .errors import MDownloaderError
 import os
 import re
 
@@ -12,22 +12,16 @@ from .model import MDownloader
 
 # Check if the url given is a MangaDex one
 def urlMatch(url):
-    if ImpVar.MD_URL.match(url) or ImpVar.MD_IMAGE_URL.match(url) or ImpVar.MD_RSS_URL.match(url):
-        return True
-    else:
-        return False
+    return bool(ImpVar.MD_URL.match(url) or ImpVar.MD_IMAGE_URL.match(url) or ImpVar.MD_RSS_URL.match(url))
 
 
 def checkForLinks(links, message):
     if not links:
-        raise MdDownloaderError(message)
+        raise MDownloaderError(message)
 
 
 def checkUuid(series_id):
-    if re.match(ImpVar.UUID_REGEX, series_id):
-        return True
-    else:
-        return False
+    return bool(re.match(ImpVar.UUID_REGEX, series_id))
 
 
 # Call the different functions depending on the type of download
@@ -43,7 +37,7 @@ def typeChecker(md_model):
     elif md_model.download_type == 'rss':
         rssDownloader(md_model)
     else:
-        raise MdDownloaderError('Please enter a manga/chapter/group/user/list id. For non-manga downloads, you must add the argument "--type [chapter|user|group|list]".')
+        raise MDownloaderError('Please enter a manga/chapter/group/user/list id. For non-manga downloads, you must add the argument "--type [chapter|user|group|list]".')
 
 
 def fileDownloader(md_model):
@@ -57,12 +51,16 @@ def fileDownloader(md_model):
     checkForLinks(links, 'No MangaDex link or id found')
 
     legacy_ids = [int(legacy) for legacy in links if legacy.isdigit()]
-    new_ids = legacyMap(md_model, md_model.download_type, legacy_ids)
-    if new_ids:
-        for link in new_ids:
-            old_id = link["old_id"]
-            new_id = link["new_id"]
-            links[links.index(str(old_id))] = new_id
+
+    if len(legacy_ids) > 1400:
+        print("Too many legacy ids to convert, skipping the conversion.")
+    else:
+        new_ids = legacyMap(md_model, md_model.download_type, legacy_ids)
+        if new_ids:
+            for link in new_ids:
+                old_id = link["old_id"]
+                new_id = link["new_id"]
+                links[links.index(str(old_id))] = new_id
 
     print(ImpVar.API_MESSAGE)
     for download_id in links:
@@ -73,11 +71,10 @@ def fileDownloader(md_model):
                 getIdType(md_model)
 
             typeChecker(md_model)
-        except MdDownloaderError as e:
+        except MDownloaderError as e:
             if e: print(e)
 
     print(f'All the ids in {md_model.id} have been downloaded')
-    return
 
 
 def main(args):
@@ -102,13 +99,10 @@ def main(args):
                 getIdType(md_model)
                 typeChecker(md_model)
             else:
-                raise MdDownloaderError('Please use a MangaDex manga/chapter/group/user/list link.')
+                raise MDownloaderError('Please use a MangaDex manga/chapter/group/user/list link.')
         else:
-            raise MdDownloaderError('File not found!')
+            raise MDownloaderError('File not found!')
     # Use the id and download_type argument to download
     else:
         print(ImpVar.API_MESSAGE)
         typeChecker(md_model)
-    return
-
-

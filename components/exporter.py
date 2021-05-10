@@ -4,12 +4,12 @@ import json
 import os
 import re
 import shutil
-import sys
 import zipfile
 from pathlib import Path
 
 from .constants import ImpVar
-from .languages import languages
+from .errors import MDownloaderError
+from .languages import getLangIso
 
 re_regrex = re.compile(ImpVar.REGEX)
 
@@ -33,7 +33,6 @@ class ExporterBase:
         self.suffix = self.suffixName()
         self.folder_name = self.folderName()
 
-
     # If oneshot, add to file name
     def oneshotChecker(self) -> int:
         if self.chapter_data["title"].lower() == 'oneshot':
@@ -47,85 +46,65 @@ class ExporterBase:
         else:
             return 0
 
-
     # Format the chapter number
     def chapterNo(self) -> str:
-        chapter_number = self.chapter_data["chapter"]
+        chapter_number = str(self.chapter_data["chapter"])
 
         if self.oneshot in (1, 2, 3):
-            chapter_number = chapter_number.zfill(3)
+            return chapter_number.zfill(3)
+
+        if re.search(r'[\\\\/-:*?"<>|]', chapter_number):
+            decimal = chapter_number.split('.', 1)
+            parts = re.split(r'\D', decimal[0], 1)
+            c = int(parts[0])
+            parts = [i.zfill(3) for i in parts]
+            chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
+            chap_no = '-'.join(parts) + '.' + decimal[1] if len(decimal) > 1 else '-'.join(parts)
         else:
-            if re.search(r'[\\\\/-:*?"<>|]', chapter_number):
-                decimal = chapter_number.split('.', 1)
-                parts = re.split(r'\D', decimal[0], 1)
-                c = int(parts[0])
-                parts = [i.zfill(3) for i in parts]
-                chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
-                chap_no = '-'.join(parts) + '.' + decimal[1] if len(decimal) > 1 else '-'.join(parts)
-            else:
-                parts = chapter_number.split('.', 1)
-                c = int(parts[0])
-                chap_no = str(c).zfill(3)
-                chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
-                chap_no = chap_no + '.' + parts[1] if len(parts) > 1 else chap_no
-            chapter_number = chap_prefix + chap_no
+            parts = chapter_number.split('.', 1)
+            c = int(parts[0])
+            chap_no = str(c).zfill(3)
+            chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
+            chap_no = chap_no + '.' + parts[1] if len(parts) > 1 else chap_no
+        chapter_number = chap_prefix + chap_no
 
         return chapter_number
-
 
     # Ignore language code if in english
     def langCode(self) -> str:
         if self.chapter_data["translatedLanguage"] == 'en':
             return ''
-        else:
-            language_iso = [l["alpha3-b"] for l in languages if self.chapter_data["translatedLanguage"] == l["alpha2"]]
-
-            if language_iso:
-                lang = language_iso[0]
-            else:
-                lang = "N/A"
-
-            return f' [{lang}]'
-
+        return f' [{getLangIso(self.chapter_data["translatedLanguage"])}]'
 
     # Get the volume number if applicable
     def volumeNo(self) -> str:
         volume_number = self.chapter_data["volume"]
-        if volume_number is None:
-            volume_number = ''
-        else:
-            volume_number = str(volume_number)
-
-
-        if volume_number == '' or self.oneshot in (1, 2):
+        if volume_number is None or self.oneshot in (1, 2):
             return ''
-        else:
-            parts = volume_number.split('.', 1)
-            v = int(parts[0])
-            vol_no = str(v).zfill(2)
-            volume_number = vol_no + '.' + parts[1] if len(parts) > 1 else vol_no
-            return f' (v{volume_number})'
 
+        volume_number = str(volume_number)
+        parts = volume_number.split('.', 1)
+        v = int(parts[0])
+        vol_no = str(v).zfill(2)
+        volume_number = vol_no + '.' + parts[1] if len(parts) > 1 else vol_no
+        return f' (v{volume_number})'
 
     # The formatted prefix name
     def prefixName(self) -> str:
         return f'{self.series_title}{self.language} - {self.chapter_number}{self.volume}'
-
 
     # The chapter's groups
     def groupNames(self) -> str:
         group_ids = [g["id"] for g in self.relationships if g["type"] == 'scanlation_group']
         groups = []
 
-        for id in group_ids:
-            group_response = self.md_model.session.get(f'{ImpVar.MANGADEX_API_URL}/group/{id}')
-            if group_response.status_code == 200:
-                group_data = group_response.json()
-                name = group_data["data"]["attributes"]["name"]
-                groups.append(name)
+        for group_id in group_ids:
+            group_response = self.md_model.requestData(group_id, 'group')
+            group_data = self.md_model.convertJson(group_id, 'chapter-group', group_response)
+            name = group_data["data"]["attributes"]["name"]
+            groups.append(name)
 
         return re_regrex.sub('_', html.unescape(', '.join(groups)))
-
 
     # Formatting the groups as the suffix
     def suffixName(self) -> str:
@@ -140,14 +119,11 @@ class ExporterBase:
             return f'{oneshot_prefix}{title}{group_suffix}'
         elif self.oneshot == 3:
             return f'{title}{group_suffix}'
-        else:
-            return group_suffix
-
+        return group_suffix
 
     # The final folder name combining the prefix and suffix for the archive/folder name
     def folderName(self) -> str:
         return f'{self.prefix} {self.suffix}'
-
 
     # Each page name
     def pageName(self, page_no: int, ext: str) -> str:
@@ -167,16 +143,14 @@ class ArchiveExporter(ExporterBase):
         self.archive_path = os.path.join(self.destination, f'{self.folder_name}.{self.save_format}')
         self.archive = self.checkZip()
  
-
     # Make a zipfile, if it exists, open it instead
     def makeZip(self) -> zipfile.ZipFile:
         try:
             return zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED) 
         except zipfile.BadZipFile:
-            sys.exit('Error creating archive')
+            raise MDownloaderError('Error creating archive')
         except PermissionError:
-            raise PermissionError("The file is open by another process.")
-
+            raise MDownloaderError("The file is open by another process.")
 
     # Check the zipfile to see if it is a duplicate or not
     def checkZip(self) -> zipfile.ZipFile:
@@ -219,20 +193,15 @@ class ArchiveExporter(ExporterBase):
 
             self.archive.comment = to_add.encode()
             return self.archive
-    
 
     # Add images to the archive
     def imageCompress(self):
         self.archive.writestr(self.page_name, self.response)
-        return
-
 
     # Check if the image is in the archive, skip if it is
     def checkImages(self):
         if self.page_name not in self.archive.namelist():
             self.imageCompress()
-        return
-
 
     # Format the image name then add to archive
     def addImage(self, response: bytes, page_no: int, ext: str):
@@ -240,8 +209,6 @@ class ArchiveExporter(ExporterBase):
         self.response = response
 
         self.checkImages()
-        return
-
 
     # Close the archive
     def close(self, status: bool=0):
@@ -254,7 +221,6 @@ class ArchiveExporter(ExporterBase):
 
         if status:
             os.remove(self.archive_path)
-        return
 
 
 
@@ -267,7 +233,6 @@ class FolderExporter(ExporterBase):
         self.path.mkdir(parents=True, exist_ok=True)
         self.checkFolder()
 
-
     # Make the folder
     def makeFolder(self) -> bool:
         try:
@@ -277,8 +242,7 @@ class FolderExporter(ExporterBase):
                 self.folder_path.mkdir(parents=True, exist_ok=True)
                 return 0
         except OSError:
-            sys.exit('Error creating folder')
-
+            raise MDownloaderError('Error creating folder')
 
     # Check if the image is in the folder, skip if it is
     def checkFolder(self):
@@ -298,22 +262,16 @@ class FolderExporter(ExporterBase):
         #                     continue
         #             else:
         #                 break
-        return
-
 
     # Add images to the folder
     def folderAdd(self):
         with open(self.folder_path.joinpath(self.page_name), 'wb') as file:
             file.write(self.response)
-        return
-
 
     # Check if images are in the folder
     def checkImages(self):
         if self.page_name not in os.listdir(self.folder_path):
             self.folderAdd()
-        return
-
 
     # Format the image name then add to folder
     def addImage(self, response: bytes, page_no: int, ext: str):
@@ -321,8 +279,6 @@ class FolderExporter(ExporterBase):
         self.response = response
 
         self.checkImages()
-        return
-
 
     # Save chapter data to the folder
     def close(self, status: bool=0):
@@ -333,4 +289,3 @@ class FolderExporter(ExporterBase):
                     json.dump(self.chapter_data, json_file, indent=4, ensure_ascii=False)
         else:
             shutil.rmtree(self.folder_path)
-        return

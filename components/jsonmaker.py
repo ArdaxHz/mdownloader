@@ -6,10 +6,8 @@ import re
 from pathlib import Path
 from urllib.parse import quote
 
-import requests
-
 from .constants import ImpVar
-
+from .errors import MdRequestError
 
 
 class JsonBase:
@@ -34,7 +32,6 @@ class JsonBase:
 
         self.data_json = self.checkExist()
 
-
     # Check if the json already exists
     def checkExist(self) -> dict:
         try:
@@ -45,19 +42,15 @@ class JsonBase:
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
-
     # Format the chapter data
     def chapters(self, chapter_data: dict) -> dict:
         self.chapter_json = chapter_data
         return self.chapter_json
 
-
     # Save the json
     def saveJson(self):
         with open(self.json_path, 'w', encoding='utf8') as json_file:
             json.dump(self.new_data, json_file, indent=4, ensure_ascii=False)
-        return
-
     
     # Add the chapter data to the json
     def addChaptersJson(self):
@@ -74,7 +67,6 @@ class JsonBase:
                     self.new_data["chapters"].append(self.chapter_json)
             except AttributeError:
                 pass
-        return
 
 
 
@@ -102,60 +94,58 @@ class TitleJson(JsonBase):
     # All the manga page's external links
     def getLinks(self) -> dict:
         json_links = {}
-        try:
-            if 'al' in self.data["links"]:
-                json_links["anilist"] = f'https://anilist.co/manga/{self.data["links"]["al"]}'
-            if 'ap' in self.data["links"]:
-                json_links["anime_planet"] = f'https://www.anime-planet.com/manga/{quote(self.data["links"]["ap"])}'
-            if 'bw' in self.data["links"]:
-                if re.match(r'series/[0-9]+', self.data["links"]["bw"]):
-                    json_links["bookwalker"] = f'https://bookwalker.jp/{self.data["links"]["bw"]}/list'
+        formats = {
+            "al": {"name": "AniList", "url": "https://anilist.co/manga/{}"},
+            "ap": {"name": "Anime-Planet", "url": "https://www.anime-planet.com/manga/{}"},
+            "bw": {"name": "Bookwalker", "url": "https://bookwalker.jp/{}"},
+            "mu": {"name": "MangaUpdates", "url": "https://www.mangaupdates.com/series.html?id={}"},
+            "nu": {"name": "NovelUpdates", "url": "https://www.novelupdates.com/series/{}"},
+            "kt": {"name": "kitsu.io", "url": "https://kitsu.io/manga/{}"},
+            "amz": {"name": "Amazon", "url": "{}"},
+            "cdj": {"name": "CDJapan", "url": "{}"},
+            "ebj": {"name": "EBookJapan", "url": "https://ebookjapan.yahoo.co.jp/books/{}"},
+            "mal": {"name": "MyAnimeList", "url": "https://myanimelist.net/manga/{}"},
+            "raw": {"name": "Raw", "url": "{}"},
+            "engtl": {"name": "Official English Link", "url": "{}"},
+        }
+
+        for l in self.data["links"]:
+            if l == 'bw':
+                if re.match(r'series/[0-9]+', l):
+                    newl = f'{self.data["links"][l]}/list'
                 else:
-                    json_links["bookwalker"] = f'https://bookwalker.jp/{self.data["links"]["bw"]}'
-            if 'kt' in self.data["links"]:
-                json_links["kitsu"] = f'https://kitsu.io/manga/{self.data["links"]["kt"]}'
-            if 'mu' in self.data["links"]:
-                json_links["manga_updates"] = f'https://www.mangaupdates.com/series.html?id={self.data["links"]["mu"]}'
-            if 'nu' in self.data["links"]:
-                json_links["novel_updates"] = f'https://www.novelupdates.com/series/{quote(self.data["links"]["nu"])}'
-            if 'amz' in self.data["links"]:
-                json_links["amazon_jp"] = self.data["links"]["amz"]
-            if 'cdj' in self.data["links"]:
-                json_links["cd_japan"] = self.data["links"]["cdj"]
-            if 'ebj' in self.data["links"]:
-                ebj_link = self.data["links"]["ebj"]
-                if 'https://www.ebookjapan.jp/ebj/' in ebj_link:
-                    new_ebj_link = re.sub('https://www.ebookjapan.jp/ebj/', 'https://ebookjapan.yahoo.co.jp/books/', ebj_link)
-                    json_links["ebookjapan"] = new_ebj_link
-                else:
-                    json_links["ebookjapan"] = ebj_link
-            if 'mal' in self.data["links"]:
-                json_links["myanimelist"] = f'https://myanimelist.net/manga/{self.data["links"]["mal"]}'
-            if 'raw' in self.data["links"]:
-                json_links["raw"] = self.data["links"]["raw"]
-            if 'engtl' in self.data["links"]:
-                json_links["official_english"] = self.data["links"]["engtl"]
-        except TypeError:
-            pass
+                    newl = self.data["links"][l]
+            elif l == 'nu':
+                newl = quote(self.data["links"][l])
+            elif l == 'ebj':
+                newl = re.sub('https://www.ebookjapan.jp/ebj/', '', self.data["links"][l])
+            else:
+                newl = self.data["links"][l]
+
+            if l in formats:
+                formats[l]["url"] = formats[l]["url"].format(newl)
+                json_links.update({l: formats[l]})
+            else:
+                json_links.update({{l: {"name": l, "url": newl}}})
         return json_links
 
 
     # Download the cover
     def downloadCover(self, cover: str, cover_name: str):
-        cover_response = self.session.get(cover)
+        cover_response = self.md_model.requestData(cover, 'cover')
+
+        self.md_model.checkResponseError(cover_response)
 
         if cover_response.status_code != 200:
             print(f'Could not save {cover_name}...')
             return
-        else:
-            cover_response = cover_response.content
+
+        cover_response = cover_response.content
 
         if not os.path.exists(os.path.join(self.cover_route, cover_name)):
             print(f'Saving cover {cover_name}...')
             with open(os.path.join(self.cover_route, cover_name), 'wb') as file:
                 file.write(cover_response)
-        return
-
 
     # Get the covers to download
     def saveCovers(self):
@@ -174,13 +164,17 @@ class TitleJson(JsonBase):
                 cover_prefix = self.regex.sub('_', html.unescape(cover_prefix))
                 cover_name = f'alt_{self.id}v{cover_prefix}.{cover_ext}'
                 self.downloadCover(cover_url, cover_name)
-        return
-
 
     # Format the covers into the json
     def getCovers(self) -> dict:
-        response = self.session.get(f'{self.api_url}/manga/{self.id}/covers')
-        data = response.json()
+        cover_response = self.md_model.requestData(f'{self.id}/covers', 'manga')
+
+        try:
+            data = self.md_model.convertJson(self.id, 'manga-cover', cover_response)
+        except MdRequestError:
+            print("Couldn't get the covers data.")
+            return
+
         covers_data = data["data"]
 
         json_covers = {"mainCover": self.cover_url}
@@ -232,7 +226,6 @@ class TitleJson(JsonBase):
         
         self.addChaptersJson()
         self.saveJson()
-        return
 
 
 
@@ -256,4 +249,3 @@ class AccountJson(JsonBase):
         self.new_data = self.account_data
         self.addChaptersJson()
         self.saveJson()
-        return

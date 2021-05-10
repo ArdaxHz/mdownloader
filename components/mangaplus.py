@@ -44,7 +44,7 @@ class MangaPlus:
 
 
     # Get the images from the MangaPlus api
-    def plusImages(self):
+    def plusImages(self) -> None:
         response = requests.get(self.api_url)
         viewer = Response.FromString(response.content).success.manga_viewer
         pages = [p.manga_page for p in viewer.pages if p.manga_page.image_url]
@@ -60,4 +60,3 @@ class MangaPlus:
 
         downloaded_all = self.md_model.checkExist(pages)
         self.md_model.existsAfterDownload(downloaded_all)
-        return
