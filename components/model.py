@@ -1,5 +1,6 @@
 import os
 import json
+import time
 
 import requests
 from requests.models import Response
@@ -142,6 +143,7 @@ class MDownloader(AuthMD):
         self.title = ''
         self.prefix = ''
         self.name = ''
+        self.route = ''
 
     def formatArgs(self, args):
         """AI is creating summary for formatArgs
@@ -152,7 +154,7 @@ class MDownloader(AuthMD):
         self.id = args.id
         self.download_type = args.type
         self.language = getLangMD(args.language)
-        self.route = args.directory
+        self.directory = args.directory
         self.save_format = self.archiveExt(args.save_format)
         self.make_folder = self.formatFolder(args.folder)
         self.covers = self.formatCovers(args.covers)
@@ -164,7 +166,7 @@ class MDownloader(AuthMD):
             return save_format
 
     def formatRange(self, range_download: str) -> bool:
-        if range_download == 'range':
+        if range_download == 'range' and self.download_type in ('title', 'manga'):
             return True
         else:
             return False
@@ -207,7 +209,7 @@ class MDownloader(AuthMD):
     
 
     def formatRoute(self) -> None:
-        self.route = os.path.join(self.route, self.title)
+        self.route = os.path.join(self.directory, self.title)
 
     # Connect to the API and get the data
     def requestData(self, download_id: str, download_type: str, get_chapters: bool=0, **params: dict) -> Response:
@@ -223,7 +225,7 @@ class MDownloader(AuthMD):
                 url = f'{url}/feed'
 
         response = self.session.get(url, params=params)
-        print(response.url)
+        # print(response.url)
         return response
 
     def checkResponseError(self, download_id: str, download_type: str, response: Response, data: dict) -> None:
@@ -255,12 +257,12 @@ class MDownloader(AuthMD):
         return False
 
     def existSaveJson(self) -> None:
-        if self.type_id == 1:
+        if self.type_id in (1, 2, 3):
             self.title_json.chapters(self.chapter_data["data"])
             self.title_json.core()
-        elif self.type_id == 2:
-            self.account_json.chapters(self.chapter_data["data"])
-            self.account_json.core()
+            if self.type_id in (2, 3):
+                self.account_json.chapters(self.chapter_data["data"])
+                self.account_json.core()
 
     def existsBeforeDownload(self, exists: dict) -> None:
         if exists:
@@ -276,3 +278,16 @@ class MDownloader(AuthMD):
 
         # Close the archive
         self.exporter.close()
+    
+    def waitingTime(self, time_to_wait: int=ImpVar.GLOBAL_TIME_TO_WAIT, print_message: bool=True):
+        if time_to_wait == 0:
+            return
+        
+        if time_to_wait == 1:
+            sentence_ending = '.'
+        else:
+            sentence_ending = 's.'
+
+        if print_message:
+            print(f"Waiting {time_to_wait} second{sentence_ending}")
+        time.sleep(time_to_wait)

@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-from components.legacy import getIdType, idFromLegacy, legacyMap
 from .errors import MDownloaderError
 import os
 import re
@@ -7,6 +6,7 @@ import re
 from .bulk_downloader import titleDownloader, groupUserListDownloader, rssDownloader
 from .chapter_downloader import chapterDownloader
 from .constants import ImpVar
+from .legacy import getIdType, idFromLegacy, legacyMap
 from .model import MDownloader
 
 

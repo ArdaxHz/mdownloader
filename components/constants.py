@@ -7,6 +7,8 @@ class ImpVar:
     domain = 'mangadex'
     tld = 'org'
 
+    GLOBAL_TIME_TO_WAIT = 2
+
     MANGADEX_URL = '{}://{}.{}'.format(scheme, domain, tld)
     MANGADEX_API_URL = '{}://api.{}.{}'.format(scheme, domain, tld)
 

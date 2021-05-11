@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 import asyncio
 import html
-import random
 import re
 import time
 from datetime import datetime
@@ -11,7 +10,6 @@ from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
 from .constants import ImpVar
-from .errors import MdRequestError
 from .exporter import ArchiveExporter, FolderExporter
 from .mangaplus import MangaPlus
 from .model import MDownloader
@@ -38,6 +36,8 @@ def reportImage(
     }
 
     response = md_model.postData('https://api.mangadex.network/report', data)
+    # if not success:
+    #     print(f'Reporting image {str(success)}.')
     # data = md_model.convertJson(md_mode.chapter_id, 'image-report', response)
 
 
@@ -91,7 +91,7 @@ async def imageDownloader(
             except (ClientError, AssertionError, ConnectionResetError, asyncio.TimeoutError):
                 retry += 1
 
-                reportImage(md_model, True, image_link, 0, start_time)
+                reportImage(md_model, False, image_link, 0, start_time)
 
                 if retry == retry_max_times:
 

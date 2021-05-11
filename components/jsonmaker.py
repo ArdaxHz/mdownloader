@@ -14,27 +14,25 @@ class JsonBase:
 
     def __init__(self, md_model):
         self.md_model = md_model
-        self.session = md_model.session
         self.type = md_model.download_type
+        self.domain = ImpVar.MANGADEX_URL
+        self.api_url = ImpVar.MANGADEX_API_URL
 
-        if md_model.type_id == 2:
-            self.id = md_model.group_user_list_data["data"]["id"]
-            self.data = md_model.group_user_list_data["data"]["attributes"]
-            self.relationsips = md_model.group_user_list_data["relationships"]
-        else:
+        if self.md_model.type_id in (1, 3):
             self.id = md_model.manga_data["data"]["id"]
             self.data = md_model.manga_data["data"]["attributes"]
             self.relationsips = md_model.manga_data["relationships"]
 
-        self.route = Path(md_model.route)
-        self.route.mkdir(parents=True, exist_ok=True)
-        self.domain = ImpVar.MANGADEX_URL
-        self.api_url = ImpVar.MANGADEX_API_URL
-
-        # Format json name
-        if self.type == 'manga':
+            self.route = Path(md_model.route)
+            self.route.mkdir(parents=True, exist_ok=True)
             self.json_path = self.route.joinpath(f'{self.id}_data').with_suffix('.json')
         else:
+            self.id = md_model.group_user_list_data["data"]["id"]
+            self.data = md_model.group_user_list_data["data"]["attributes"]
+            self.relationsips = md_model.group_user_list_data["relationships"]
+
+            self.route = Path(md_model.directory)
+            self.route.mkdir(parents=True, exist_ok=True)
             self.json_path = self.route.joinpath(f'{self.type}_{self.id}_data').with_suffix('.json')
 
         self.data_json = self.checkExist()

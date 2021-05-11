@@ -2,8 +2,7 @@
 import html
 import re
 import math
-import time
-from typing import Match, Pattern, Type, Union, final
+from typing import Match, Pattern, Type, Union
 
 from .model import ImpVar, MDownloader
 from .chapter_downloader import chapterDownloader
@@ -20,9 +19,9 @@ def checkForChapters(data: dict, md_model: MDownloader) -> int:
     count = data["total"]
     download_id = md_model.id
 
-    if md_model.download_type == 'manga':
+    if md_model.type_id == 1:
         download_type = 'manga'
-        name = md_model.data["data"]["attributes"]["title"]["en"]
+        name = md_model.manga_data["data"]["attributes"]["title"]["en"]
     else:
         download_type = md_model.download_type
         name = md_model.name        
@@ -39,7 +38,6 @@ def getChapters(md_model: MDownloader, limit: int=500, **params: dict) -> list:
     offset = 0
     pages = 1
     iteration = 1
-    time_to_wait = 3
 
     if params:
         parameters = params
@@ -70,8 +68,7 @@ def getChapters(md_model: MDownloader, limit: int=500, **params: dict) -> list:
 
         # Wait every 5 pages
         if iteration % 5 == 0:
-            print(f'Waiting {time_to_wait} seconds.')
-            time.sleep(time_to_wait)
+            md_model.waitingTime(3, print_message=False)
 
         # End the loop when all the pages have been gone through
         if iteration == pages:
@@ -233,11 +230,10 @@ def rangeChapters(chapters: list) -> list:
 
 def loopChapters(md_model: MDownloader, chapters: list, chapters_data: list) -> None:
     """Loop chapters and call the chapterDownloader function."""
-    time_to_wait = 2
     for chapter in chapters:
         chapter_id = chapter["data"]["id"]
         md_model.chapter_id = chapter_id
-        if md_model.type_id == 2:
+        if md_model.type_id in (2, 3):
             md_model.chapter_data = chapter
 
         try:
@@ -246,20 +242,19 @@ def loopChapters(md_model: MDownloader, chapters: list, chapters_data: list) -> 
         except MDownloaderError as e:
             if e: print(e)
         finally:
-            print(f"Waiting {time_to_wait} seconds.")
-            time.sleep(time_to_wait)
+            md_model.waitingTime(1, print_message=False)
 
 
 def titleDownloader(md_model: MDownloader) -> None:
     """Download titles."""
     download_type = md_model.download_type
 
-    if md_model.type_id in ('title', 'manga'):
+    if md_model.download_type == 'manga':
         md_model.type_id = 1
         manga_response = md_model.requestData(md_model.id, download_type)
         manga_data = md_model.convertJson(md_model.id, download_type, manga_response)
-        title = manga_data["data"]["attributes"]["title"]["en"]
         md_model.manga_data = manga_data
+        md_model.manga_id = md_model.id
 
         # Call the api and filter out languages other than the selected
         chapters = getChapters(md_model, **{"locales[]": md_model.language, "order[chapter]": "desc"})
@@ -268,17 +263,21 @@ def titleDownloader(md_model: MDownloader) -> None:
         # chapters = filterChapters(data["results"], md_model.language)
         md_model.chapter_prefix_dict = getPrefixes(chapters)
 
-        # Remove illegal symbols from the series name
-        title = re_regrex.sub('_', html.unescape(title)).rstrip(' .')
-        md_model.title = title
-        md_model.formatRoute()
-
-        downloadMessage(0, download_type, title)
-
-        if md_model.range_download:
-            chapters = rangeChapters(chapters)
     else:
         chapters = md_model.chapters_data[md_model.manga_id]["chapters"]
+        manga_data = md_model.manga_data
+        download_type = 'manga'
+
+    # Remove illegal symbols from the series name
+    title = manga_data["data"]["attributes"]["title"]["en"]
+    title = re_regrex.sub('_', html.unescape(title)).rstrip(' .')
+    md_model.title = title
+    md_model.formatRoute()
+
+    downloadMessage(0, download_type, title)
+
+    if md_model.range_download:
+        chapters = rangeChapters(chapters)
 
     # Initalise json classes and make series folders
     title_json = TitleJson(md_model)
@@ -299,7 +298,6 @@ def groupUserListDownloader(md_model):
     download_type = md_model.download_type
     md_model.type_id = 2
     limit = 100
-    time_to_wait = 2
 
     response = md_model.requestData(md_model.id, download_type)
     data = md_model.convertJson(md_model.id, download_type, response)
@@ -340,23 +338,18 @@ def groupUserListDownloader(md_model):
             manga_response = md_model.requestData(manga_id, 'manga')
             manga_data = md_model.convertJson(manga_id, 'account-manga', manga_response)
 
-            title = manga_data["data"]["attributes"]["title"]["en"]
-            title = re_regrex.sub('_', html.unescape(title)).rstrip(' .')
+            titles[manga_id] = {"mangaId": manga_id, "mangaData": manga_data, "chapters": [chapter]}
 
-            md_model.title = title
-            md_model.manga_id = manga_id
-            md_model.formatRoute()
+            md_model.waitingTime(1)
 
-            titles[manga_id] = {"mangaId": manga_id, "mangaTitle": title, "chapters": []}
-            titles[manga_id]["chapters"].append(chapter)
-
-            print(f"Waiting {time_to_wait} seconds.")
-            time.sleep(time_to_wait)
-    
     md_model.chapters_data = titles
-    
+
     for title in titles:
+        md_model.type_id = 3
+        md_model.manga_id = titles[title]["mangaId"]
+        md_model.manga_data = titles[title]["mangaData"]
         titleDownloader(md_model)
+        md_model.type_id = 2
         # loopChapters(md_model, titles[title]["chapters"], chapters_data)
 
     downloadMessage(1, download_type, name)
