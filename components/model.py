@@ -138,6 +138,7 @@ class MDownloader(AuthMD):
         self.account_json_data = []
 
         self.type_id = 0
+        self.exporter_id = 1
         self.manga_id = ''
         self.chapter_id = ''
         self.title = ''
@@ -145,7 +146,7 @@ class MDownloader(AuthMD):
         self.name = ''
         self.route = ''
 
-    def formatArgs(self, args):
+    def formatArgs(self, args) -> None:
         self.id = args.id
         self.download_type = args.type
         self.language = getLangMD(args.language)
@@ -184,8 +185,10 @@ class MDownloader(AuthMD):
 
     def formatFolder(self, make_folder: str) -> bool:
         if make_folder == 'yes':
+            self.exporter_id = 0
             return True
         else:
+            self.exporter_id = 1
             return False
 
     # Get the id and download type from the url
@@ -276,7 +279,7 @@ class MDownloader(AuthMD):
         # Close the archive
         self.exporter.close()
     
-    def waitingTime(self, time_to_wait: int=ImpVar.GLOBAL_TIME_TO_WAIT, print_message: bool=True):
+    def waitingTime(self, time_to_wait: int=ImpVar.GLOBAL_TIME_TO_WAIT, print_message: bool=True) -> None:
         if time_to_wait == 0:
             return
         

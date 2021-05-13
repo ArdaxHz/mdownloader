@@ -14,7 +14,7 @@ except ModuleNotFoundError:
     pass
 
 
-def updateChecker(args):
+def updateChecker(args) -> None:
     # excluded = ['LICENSE', 'README.md', 'components']
     # components_path = Path('components')
 

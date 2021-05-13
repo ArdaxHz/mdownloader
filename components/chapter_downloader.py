@@ -19,11 +19,20 @@ re_regrex = re.compile(ImpVar.REGEX)
 
 
 def reportImage(
-        md_model,
-        success,
-        image_link,
-        img_size,
-        start_time):
+        md_model: MDownloader,
+        success: bool,
+        image_link: str,
+        img_size: int,
+        start_time: int) -> None:
+    """Report the success of the image.
+
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+        success (bool): If the image was downloaded or not.
+        image_link (str): The url of the image.
+        img_size (int): The size in bytes of the image.
+        start_time (int): When the request was started.
+    """
 
     end_time = time.time()
     elapsed_time = int((end_time - start_time) * 1000)
@@ -41,14 +50,23 @@ def reportImage(
     # data = md_model.convertJson(md_mode.chapter_id, 'image-report', response)
 
 
-def getServer(md_model):
+def getServer(md_model: MDownloader) -> None:
+    """Get the MD@H node to download images from.
+
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+    """
     server_response = md_model.requestData(md_model.chapter_id, 'at-home/server')
     server_data = md_model.convertJson(md_model.chapter_id, 'chapter-server', server_response)
     return server_data["baseUrl"]
 
 
 async def displayProgress(tasks: list) -> None:
-    """Display a progress bar of the downloaded images."""
+    """Display a progress bar of the downloaded images.
+
+    Args:
+        tasks (list): Asyncio tasks for downloading images.
+    """
     for f in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc=(str(datetime.now(tz=None))[:-7])):
         try: await f
         except ConnectionResetError: pass
@@ -62,7 +80,16 @@ async def imageDownloader(
         image: str,
         pages: list,
         exporter: Type[Union[ArchiveExporter, FolderExporter]]) -> None:
-    """Download the MangaDex chapter images."""
+    """Download the MangaDex chapter images.
+
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+        url (str): The server to download images from.
+        fallback_url (str): A backup server to download images from.
+        image (str): The image name.
+        pages (list): List of all the images.
+        exporter (Type[Union[ArchiveExporter, FolderExporter]]): Add images to the exporter.
+    """
     retry = 0
     fallback_retry = 0
     retry_max_times = 3
@@ -108,8 +135,12 @@ async def imageDownloader(
 
 def chapterDownloader(md_model: MDownloader) -> None:
     """download_type: 0 = chapter
-    download_type: 1 = title
+    download_type: 1 = manga
     download_type: 2 = group|user|list
+    download_type: 3 = manga title through group
+
+    Args:
+        md_model (MDownloader): [description]
     """
     manga_plus_id = '4f1de6a2-f0c5-4ac5-bce5-02c7dbb67deb'
     chapter_id = md_model.chapter_id

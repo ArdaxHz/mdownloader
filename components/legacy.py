@@ -1,7 +1,8 @@
+from components.model import MDownloader
 from .constants import ImpVar
 
 
-def legacyMap(md_model, download_type, ids_to_convert):
+def legacyMap(md_model: MDownloader, download_type: str, ids_to_convert: list) -> None:
     new_ids = []
 
     data = {
@@ -21,7 +22,7 @@ def legacyMap(md_model, download_type, ids_to_convert):
     return new_ids
 
 
-def getIdType(md_model):
+def getIdType(md_model: MDownloader) -> None:
     id_from_url, download_type_from_url = md_model.getIdFromUrl(md_model.id)
     md_model.id = id_from_url
     md_model.download_type = download_type_from_url
@@ -29,7 +30,7 @@ def getIdType(md_model):
     idFromLegacy(md_model, id_from_url)
 
 
-def idFromLegacy(md_model, id_from_url):
+def idFromLegacy(md_model: MDownloader, id_from_url: str) -> None:
     if id_from_url.isdigit():
         new_id = legacyMap(md_model, md_model.download_type, [int(id_from_url)])
         md_model.id = new_id[0]["new_id"]

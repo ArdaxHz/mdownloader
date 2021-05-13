@@ -248,10 +248,10 @@ def rangeChapters(chapters: list) -> list:
     """Check which chapters you want to download.
 
     Args:
-        chapters (list): numbers.The chapters to get the chapter 
+        chapters (list): The chapters to get the chapter numbers.
 
     Returns:
-        list: [description]
+        list: The list of chapters to download.
     """
     chapters_list = [c["data"]["attributes"]["chapter"] for c in chapters]
     chapters_list = list(set(chapters_list))
@@ -283,7 +283,13 @@ def rangeChapters(chapters: list) -> list:
 
 
 def loopChapters(md_model: MDownloader, chapters: list, chapters_data: list) -> None:
-    """Loop chapters and call the chapterDownloader function."""
+    """Loop chapters and call the chapterDownloader function.
+
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+        chapters (list): The chapters to download.
+        chapters_data (list): The ids of the downloaded chapters from the data json.
+    """
     for chapter in chapters:
         chapter_id = chapter["data"]["id"]
         md_model.chapter_id = chapter_id
@@ -300,7 +306,11 @@ def loopChapters(md_model: MDownloader, chapters: list, chapters_data: list) -> 
 
 
 def titleDownloader(md_model: MDownloader) -> None:
-    """Download titles."""
+    """Download titles.
+
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+    """
     download_type = md_model.download_type
 
     if md_model.download_type == 'manga':
@@ -347,8 +357,12 @@ def titleDownloader(md_model: MDownloader) -> None:
     title_json.core(1)
 
 
-def groupUserListDownloader(md_model):
-    """Download group, user and list chapters."""
+def groupUserListDownloader(md_model: MDownloader) -> None:
+    """Download group, user and list chapters.
+
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+    """
     download_type = md_model.download_type
     md_model.type_id = 2
     limit = 100
@@ -413,8 +427,12 @@ def groupUserListDownloader(md_model):
     account_json.core(1)
 
 
-def rssDownloader(md_model):
-    """Download rss feeds."""
+def rssDownloader(md_model: MDownloader) -> None:
+    """Download rss feeds.
+
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+    """
 
     print("RSS isn't supported by MangaDex at this time.")
     return

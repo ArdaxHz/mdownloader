@@ -11,21 +11,21 @@ from .model import MDownloader
 
 
 # Check if the url given is a MangaDex one
-def urlMatch(url):
+def urlMatch(url: str) -> None:
     return bool(ImpVar.MD_URL.match(url) or ImpVar.MD_IMAGE_URL.match(url) or ImpVar.MD_RSS_URL.match(url))
 
 
-def checkForLinks(links, message):
+def checkForLinks(links: list, message: str) -> None:
     if not links:
         raise MDownloaderError(message)
 
 
-def checkUuid(series_id):
+def checkUuid(series_id: str) -> None:
     return bool(re.match(ImpVar.UUID_REGEX, series_id))
 
 
 # Call the different functions depending on the type of download
-def typeChecker(md_model):
+def typeChecker(md_model: MDownloader) -> None:
 
     if md_model.download_type in ('title', 'manga'):
         md_model.download_type == 'manga'
@@ -40,7 +40,7 @@ def typeChecker(md_model):
         raise MDownloaderError('Please enter a manga/chapter/group/user/list id. For non-manga downloads, you must add the argument "--type [chapter|user|group|list]".')
 
 
-def fileDownloader(md_model):
+def fileDownloader(md_model: MDownloader) -> None:
 
     # Open file and read lines
     with open(md_model.id, 'r') as bulk_file:
@@ -77,7 +77,7 @@ def fileDownloader(md_model):
     print(f'All the ids in {md_model.id} have been downloaded')
 
 
-def main(args):
+def main(args) -> None:
     md_model = MDownloader()
     md_model.formatArgs(args)
     series_id = md_model.id
