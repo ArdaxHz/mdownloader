@@ -15,7 +15,18 @@ re_regrex = re.compile(ImpVar.REGEX)
 
 
 def checkForChapters(data: dict, md_model: MDownloader) -> int:
-    """Check if there are any chapters."""    
+    """Check if there are any chapters.
+
+    Args:
+        data (dict): Manga or group or user or list data.
+        md_model (MDownloader): The base class this program runs on.
+
+    Raises:
+        NoChaptersError: No chapters were found.
+
+    Returns:
+        int: The amount of chapters found.
+    """
     count = data["total"]
     download_id = md_model.id
 
@@ -32,7 +43,15 @@ def checkForChapters(data: dict, md_model: MDownloader) -> int:
 
 
 def getChapters(md_model: MDownloader, limit: int=500, **params: dict) -> list:
-    """Go through each page in the api to get all the chapters."""
+    """Go through each page in the api to get all the chapters.
+
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+        limit (int, optional): How many chapters to view on one page. Defaults to 500.
+
+    Returns:
+        list: A list of all the chapters by the chosen method of download.
+    """
     chapters = []
     limit = limit
     offset = 0
@@ -79,26 +98,39 @@ def getChapters(md_model: MDownloader, limit: int=500, **params: dict) -> list:
     return chapters
 
 
-def downloadMessage(status: bool, form: str, name: str) -> None:
-    """Print the download message."""
+def downloadMessage(status: bool, download_type: str, name: str) -> None:
+    """Print the download message.
+
+    Args:
+        status (bool): If the download has started or ended.
+        download_type (str): What type of data is being downloaded, manga, group, user, or list.
+        name (str): Name of the chosen download.
+    """
     message = 'Downloading'
     if status:
         message = f'Finished {message}'
 
-    print(f'{"-"*69}\n{message} {form.title()}: {name}\n{"-"*69}')
+    print(f'{"-"*69}\n{message} {download_type.title()}: {name}\n{"-"*69}')
 
 
-def getJsonData(title_json: Type[TitleJson]) -> list:
-    """Check if a data json exists and return the ids saved."""
-    if title_json.data_json:
-        chapters_data = title_json.data_json["chapters"]
+def getJsonData(json_data: Type[Union[TitleJson, AccountJson]]) -> list:
+    """Check if a data json exists and return the ids saved.
+
+    Args:
+        json_data (Type[Union[TitleJson, AccountJson]]): If the json to look through is a title one or account one.
+
+    Returns:
+        list: A list containing all the ids stored if possible, otherwise return empty.
+    """
+    if json_data.data_json:
+        chapters_data = json_data.data_json["chapters"]
         return [c["id"] for c in chapters_data]
     else:
         return []
 
 
 def natsort(x) -> Union[int, float]:
-    """Sort the chapter numbers naturally"""
+    """Sort the chapter numbers naturally."""
     try:
         return float(x)
     except ValueError:
@@ -123,7 +155,14 @@ def filterChapters(chapters: list, language: str) -> list:
 
 
 def getPrefixes(chapters: list) -> dict:
-    """Assign each volume a prefix, default: c."""
+    """Assign each volume a prefix, default: c.
+
+    Args:
+        chapters (list): List of chapters to find the prefixes of.
+
+    Returns:
+        dict: A mapping of the volume number and the prefix to use.
+    """
     volume_dict = {}
     chapter_prefix_dict = {}
 
@@ -167,7 +206,15 @@ def getPrefixes(chapters: list) -> dict:
 
 
 def getChapterRange(chapters_list: list, chap_list: list) -> list:
-    """Loop through the lists and get the chapters between the upper and lower bounds."""
+    """Loop through the lists and get the chapters between the upper and lower bounds.
+
+    Args:
+        chapters_list (list): All the chapters in the manga.
+        chap_list (list): A list of chapter numberss to download.
+
+    Returns:
+        list: The chapter number's to download's data.
+    """
     chapters_range = []
 
     for c in chap_list:
@@ -198,7 +245,14 @@ def getChapterRange(chapters_list: list, chap_list: list) -> list:
 
 
 def rangeChapters(chapters: list) -> list:
-    """Check which chapters you want to download."""
+    """Check which chapters you want to download.
+
+    Args:
+        chapters (list): numbers.The chapters to get the chapter 
+
+    Returns:
+        list: [description]
+    """
     chapters_list = [c["data"]["attributes"]["chapter"] for c in chapters]
     chapters_list = list(set(chapters_list))
     chapters_list.sort(key=natsort)
@@ -310,6 +364,7 @@ def groupUserListDownloader(md_model):
     elif download_type == 'list':
         owner = data["data"]["attributes"]["owner"]["attributes"]["username"]
         name = f"{owner}'s Custom List"
+        params = {}
         limit = 500
     else:
         name = data["data"]["attributes"]["username"]

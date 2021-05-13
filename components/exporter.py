@@ -37,9 +37,9 @@ class ExporterBase:
     def oneshotChecker(self) -> int:
         if self.chapter_data["title"].lower() == 'oneshot':
             return 1
-        elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] == '' and self.chapter_data["title"] == '':
+        elif self.chapter_data["chapter"] == '' and (self.chapter_data["volume"] == '' or self.chapter_data["volume"] == '0') and self.chapter_data["title"] == '':
             return 1
-        elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] == '':
+        elif self.chapter_data["chapter"] == '' and (self.chapter_data["volume"] == '' or self.chapter_data["volume"] == '0'):
             return 2
         elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] != '' and (self.chapter_data["title"] != '' or self.chapter_data["title"] == ''):
             return 3
@@ -79,7 +79,7 @@ class ExporterBase:
     # Get the volume number if applicable
     def volumeNo(self) -> str:
         volume_number = self.chapter_data["volume"]
-        if volume_number is None or self.oneshot in (1, 2):
+        if volume_number is None or self.oneshot in (1, 2) or volume_number != '0':
             return ''
 
         volume_number = str(volume_number)

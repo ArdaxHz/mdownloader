@@ -146,11 +146,6 @@ class MDownloader(AuthMD):
         self.route = ''
 
     def formatArgs(self, args):
-        """AI is creating summary for formatArgs
-
-        Args:
-            args (argparse.ArgumentParser.argument_parser): Assign argparse args instance properties.
-        """
         self.id = args.id
         self.download_type = args.type
         self.language = getLangMD(args.language)
@@ -164,9 +159,11 @@ class MDownloader(AuthMD):
     def archiveExt(self, save_format: str) -> str:
         if save_format in ('zip', 'cbz'):
             return save_format
+        else:
+            raise MDownloaderError("This archive save format is not allowed.")
 
     def formatRange(self, range_download: str) -> bool:
-        if range_download == 'range' and self.download_type in ('title', 'manga'):
+        if range_download == 'range' and self.download_type == 'manga':
             return True
         else:
             return False
@@ -178,7 +175,7 @@ class MDownloader(AuthMD):
             return False
 
     def formatCovers(self, covers: str) -> bool:
-        if covers == 'save':
+        if covers == 'save' and self.download_type == 'manga':
             print('Covers are yet to be supported by the MangaDex api.')
             return False
             return True

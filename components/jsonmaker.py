@@ -98,6 +98,9 @@ class TitleJson(JsonBase):
 
     # All the manga page's external links
     def getLinks(self) -> dict:
+        if self.data["links"] is None:
+            return {}
+
         json_links = {}
         formats = {
             "al": {"name": "AniList", "url": "https://anilist.co/manga/{}"},
