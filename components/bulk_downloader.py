@@ -300,7 +300,7 @@ def loopChapters(md_model, chapters: list, chapters_data: list) -> None:
         except MDownloaderError as e:
             if e: print(e)
         finally:
-            md_model.waitingTime(1, print_message=False)
+            md_model.waitingTime(1)
 
 
 def titleDownloader(md_model) -> None:
@@ -392,6 +392,8 @@ def groupUserListDownloader(md_model) -> None:
     account_json = AccountJson(md_model)
     md_model.account_json = account_json
     md_model.account_json_data = getJsonData(account_json)
+
+    print(f"Getting each manga's data from the {download_type} chosen.")
 
     titles = {}
     for chapter in chapters:
