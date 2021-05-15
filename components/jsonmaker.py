@@ -91,7 +91,6 @@ class JsonBase:
         Args:
             save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
         """
-
         if self.md_model.type_id == 1:
             self.new_data = self.title_json
             self.new_data["externalLinks"] = self.links

@@ -13,7 +13,7 @@ class MangaPlus:
 
     def __init__(
             self,
-            md_model: MDownloader):
+            md_model: MDownloader) -> None:
 
         self.md_model = md_model
         self.chapter_data = md_model.chapter_data
@@ -22,17 +22,27 @@ class MangaPlus:
         self.api_url = self.idChecker()
         self.extension = 'jpg'
 
-
-    # Get the MangaPlus id for the api
     def idChecker(self) -> str:
+        """Get the MangaPlus id for the api.
+
+        Returns:
+            str: The MangaPlus url to request.
+        """
         mplus_url = re.compile(r'(?:https:\/\/mangaplus\.shueisha\.co\.jp\/viewer\/)([0-9]+)')
         mplus_id = mplus_url.match(self.chapter_data["data"]["attributes"]["data"][0]).group(1)
         url = f'https://jumpg-webapi.tokyo-cdn.com/api/manga_viewer?chapter_id={mplus_id}&split=no&img_quality=super_high'
         return url
 
-
-    # Decrypt the image so it can be saved
     def decryptImage(self, url: str, encryption_hex: str) -> bytearray:
+        """Decrypt the image so it can be saved.
+
+        Args:
+            url (str): The image link.
+            encryption_hex (str): The key to decrypt the image.
+
+        Returns:
+            bytearray: The image data.
+        """
         resp = requests.get(url)
         data = bytearray(resp.content)
         key = bytes.fromhex(encryption_hex)
@@ -41,9 +51,8 @@ class MangaPlus:
             data[s] ^= key[s % a]
         return data
 
-
-    # Get the images from the MangaPlus api
     def plusImages(self) -> None:
+        """Get the images from the MangaPlus api."""
         response = requests.get(self.api_url)
         viewer = Response.FromString(response.content).success.manga_viewer
         pages = [p.manga_page for p in viewer.pages if p.manga_page.image_url]

@@ -1,7 +1,5 @@
 #!/usr/bin/python3
 import asyncio
-import html
-import re
 import time
 from datetime import datetime
 from typing import Type, Union
@@ -15,7 +13,6 @@ from .mangaplus import MangaPlus
 from .model import MDownloader
 
 domain = ImpVar.MANGADEX_API_URL
-re_regrex = re.compile(ImpVar.REGEX)
 
 
 def reportImage(
@@ -50,11 +47,14 @@ def reportImage(
     # data = md_model.convertJson(md_mode.chapter_id, 'image-report', response)
 
 
-def getServer(md_model: MDownloader) -> None:
+def getServer(md_model: MDownloader) -> str:
     """Get the MD@H node to download images from.
 
     Args:
         md_model (MDownloader): The base class this program runs on.
+
+    Returns:
+        str: The MD@H node to download images from.
     """
     server_response = md_model.requestData(md_model.chapter_id, 'at-home/server')
     server_data = md_model.convertJson(md_model.chapter_id, 'chapter-server', server_response)
@@ -174,10 +174,7 @@ def chapterDownloader(md_model: MDownloader) -> None:
         manga_response = md_model.requestData(manga_id, 'manga')
         manga_data = md_model.convertJson(manga_id, 'chapter-manga', manga_response)
 
-        title = manga_data["data"]["attributes"]["title"]["en"]
-        title = re_regrex.sub('_', html.unescape(title)).rstrip(' .')
-        md_model.title = title
-        md_model.formatRoute()
+        title = md_model.formatTitle(manga_data)
     else:
         title = md_model.title
 

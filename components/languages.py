@@ -10,6 +10,14 @@ languages = [{"English":"English","md":"en","iso":"eng"},{"English":"Japanese","
 
 
 def getLangIso(language: str) -> str:
+    """Get the ISO 639-3 code of the language of the chapter.
+
+    Args:
+        language (str): ISO 639-2 code used by md.
+
+    Returns:
+        str: ISO 639-3 code.
+    """
     language_iso = [l["iso"] for l in languages if language == l["md"]]
 
     if language_iso:

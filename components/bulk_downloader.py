@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-import html
 import re
 import math
 from typing import Match, Pattern, Type, Union
@@ -11,7 +10,6 @@ from .jsonmaker import AccountJson, TitleJson
 from .languages import getLangMD
 
 domain = ImpVar.MANGADEX_API_URL
-re_regrex = re.compile(ImpVar.REGEX)
 
 
 def checkForChapters(data: dict, md_model: MDownloader) -> int:
@@ -333,10 +331,7 @@ def titleDownloader(md_model: MDownloader) -> None:
         download_type = 'manga'
 
     # Remove illegal symbols from the series name
-    title = manga_data["data"]["attributes"]["title"]["en"]
-    title = re_regrex.sub('_', html.unescape(title)).rstrip(' .')
-    md_model.title = title
-    md_model.formatRoute()
+    title = md_model.formatTitle(manga_data)
 
     downloadMessage(0, download_type, title)
 
@@ -470,4 +465,3 @@ def rssDownloader(md_model: MDownloader) -> None:
             if e: print(e)
     
     downloadMessage(1, 'rss', 'MangaDex')
-    return

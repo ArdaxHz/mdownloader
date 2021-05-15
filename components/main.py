@@ -1,5 +1,7 @@
 #!/usr/bin/python3
-from .errors import MDownloaderError
+import argparse
+from typing import Type
+from .errors import MDownloaderError, NoChaptersError
 import os
 import re
 
@@ -10,23 +12,53 @@ from .legacy import getIdType, idFromLegacy, legacyMap
 from .model import MDownloader
 
 
-# Check if the url given is a MangaDex one
-def urlMatch(url: str) -> None:
+def urlMatch(url: str) -> bool:
+    """Check if the url given is a MangaDex one.
+
+    Args:
+        url (str): The url to check.
+
+    Returns:
+        bool: True if the url is a MangaDex one, False if not.
+    """
     return bool(ImpVar.MD_URL.match(url) or ImpVar.MD_IMAGE_URL.match(url) or ImpVar.MD_RSS_URL.match(url))
 
 
 def checkForLinks(links: list, message: str) -> None:
+    """See if the file has any MangaDex urls or ids. 
+
+    Args:
+        links (list): Array of urls and ids.
+        message (str): The error message.
+
+    Raises:
+        NoChaptersError: End the program with the error message.
+    """
     if not links:
-        raise MDownloaderError(message)
+        raise NoChaptersError(message)
 
 
-def checkUuid(series_id: str) -> None:
+def checkUuid(series_id: str) -> bool:
+    """Check if the id is a UUID.
+
+    Args:
+        series_id (str): Id to check.
+
+    Returns:
+        bool: True if the id is a UUID, False if not.
+    """
     return bool(re.match(ImpVar.UUID_REGEX, series_id))
 
 
-# Call the different functions depending on the type of download
 def typeChecker(md_model: MDownloader) -> None:
+    """Call the different functions depending on the type of download.
 
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+
+    Raises:
+        MDownloaderError: The selected download type is not recognised.
+    """
     if md_model.download_type in ('title', 'manga'):
         md_model.download_type == 'manga'
         titleDownloader(md_model)
@@ -41,7 +73,11 @@ def typeChecker(md_model: MDownloader) -> None:
 
 
 def fileDownloader(md_model: MDownloader) -> None:
+    """Download from file.
 
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+    """
     # Open file and read lines
     with open(md_model.id, 'r') as bulk_file:
         links = [line.rstrip('\n') for line in bulk_file]
@@ -77,7 +113,16 @@ def fileDownloader(md_model: MDownloader) -> None:
     print(f'All the ids in {md_model.id} have been downloaded')
 
 
-def main(args) -> None:
+def main(args: Type[argparse.ArgumentParser.parse_args]) -> None:
+    """Initialise the MDownloader class and call the respective functions.
+
+    Args:
+        args (argparse.ArgumentParser.parse_args): Command line arguments to parse.
+
+    Raises:
+        MDownloaderError: No MangaDex link or id found.
+        MDownloaderError: Couldn't find the file to download from.
+    """
     md_model = MDownloader()
     md_model.formatArgs(args)
     series_id = md_model.id

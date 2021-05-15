@@ -1,6 +1,9 @@
+import html
 import os
 import json
+import re
 import time
+from typing import Tuple
 
 import requests
 from requests.models import Response
@@ -43,7 +46,6 @@ class AuthMD:
         """
         refresh_token = {"token": token["refresh"]}
         refresh_response = self.postData(f'{self.auth_url}/refresh', refresh_token)
-
 
         if refresh_response.status_code == 200:
             refresh_data = refresh_response.json()["token"]
@@ -147,6 +149,11 @@ class MDownloader(AuthMD):
         self.route = ''
 
     def formatArgs(self, args) -> None:
+        """Format the arguments into readable data.
+
+        Args:
+            args (argparse.ArgumentParser.parse_args): Command line arguments to parse.
+        """
         self.id = args.id
         self.download_type = args.type
         self.language = getLangMD(args.language)
@@ -158,24 +165,59 @@ class MDownloader(AuthMD):
         self.range_download = self.formatRange(args.range)
 
     def archiveExt(self, save_format: str) -> str:
+        """Check if the file extension is accepted. Default: cbz.
+
+        Args:
+            save_format (str): The file extension.
+
+        Raises:
+            MDownloaderError: The extension chosen isn't allowed.
+
+        Returns:
+            str: The file extension.
+        """
         if save_format in ('zip', 'cbz'):
             return save_format
         else:
             raise MDownloaderError("This archive save format is not allowed.")
 
     def formatRange(self, range_download: str) -> bool:
+        """Select the chapters to download. Works only on manga downloads. Default: range.
+
+        Args:
+            range_download (str): The command line argument.
+
+        Returns:
+            bool: True if to download in range, False if not.
+        """
         if range_download == 'range' and self.download_type == 'manga':
             return True
         else:
             return False
 
     def formatAdd(self, add_data: str) -> bool:
+        """Add the chapter data to the save file/folder. Default: add.
+
+        Args:
+            add_data (str): The command line argument.
+
+        Returns:
+            bool: True if to save the data, False if not.
+        """
         if add_data == 'add':
             return True
         else:
             return False
 
     def formatCovers(self, covers: str) -> bool:
+        """Download manga covers. Works only on manga downloads. Default: skip.
+
+        Args:
+            covers (str): The command line argument.
+
+        Returns:
+            bool: True if to download the covers, False if not.
+        """
         if covers == 'save' and self.download_type == 'manga':
             print('Covers are yet to be supported by the MangaDex api.')
             return False
@@ -184,6 +226,14 @@ class MDownloader(AuthMD):
             return False
 
     def formatFolder(self, make_folder: str) -> bool:
+        """Download chapters to a folder or file. Default: file.
+
+        Args:
+            make_folder (str): The command line argument.
+
+        Returns:
+            bool: True if save to file, False if not.
+        """
         if make_folder == 'yes':
             self.exporter_id = 0
             return True
@@ -191,8 +241,15 @@ class MDownloader(AuthMD):
             self.exporter_id = 1
             return False
 
-    # Get the id and download type from the url
-    def getIdFromUrl(self, url: str) -> str:
+    def getIdFromUrl(self, url: str) -> Tuple[str, str]:
+        """Get the download type and if from the url.
+
+        Args:
+            url (str): The url to parse.
+
+        Returns:
+            Tuple[str, str]: The id and type from the url.
+        """
         if ImpVar.MD_URL.match(url):
             input_url = ImpVar.MD_URL.match(url)
             download_type_from_url = input_url.group(1)
@@ -206,13 +263,37 @@ class MDownloader(AuthMD):
             download_type_from_url = 'chapter'
 
         return id_from_url, download_type_from_url
-    
 
     def formatRoute(self) -> None:
+        """The route files will be saved to."""
         self.route = os.path.join(self.directory, self.title)
 
-    # Connect to the API and get the data
+    def formatTitle(self, data: dict) -> str:
+        """Remove illegal characters from the manga title.
+
+        Args:
+            data (dict): The manga data returned from the api.
+
+        Returns:
+            str: The formatted title.
+        """
+        title = data["data"]["attributes"]["title"]["en"]
+        title = re.sub(ImpVar.REGEX, '_', html.unescape(title)).rstrip(' .')
+        self.title = title
+        self.formatRoute()
+        return title
+
     def requestData(self, download_id: str, download_type: str, get_chapters: bool=0, **params: dict) -> Response:
+        """Connect to the API and get the response.
+
+        Args:
+            download_id (str): The id to download.
+            download_type (str): Type of download.
+            get_chapters (bool, optional): If the download is to get the chapters. Defaults to 0.
+
+        Returns:
+            Response: The response of the resquest.
+        """
         if download_type in ('rss', 'cover'):
             url = download_id
         else:
@@ -229,11 +310,34 @@ class MDownloader(AuthMD):
         return response
 
     def checkResponseError(self, download_id: str, download_type: str, response: Response, data: dict) -> None:
+        """Check if the response status code is 200 or not.
+
+        Args:
+            download_id (str): The id of the download.
+            download_type (str): The type of download.
+            response (Response): Response data returned by the api.
+            data (dict): Response data as a dict.
+
+        Raises:
+            MdRequestError: The server didn't return a 200.
+        """
         if response.status_code != 200:
             raise MdRequestError(download_id, download_type, response, data)
 
-    # Convert response data into a parsable json
     def convertJson(self, download_id: str, download_type: str, response: Response) -> dict:
+        """Convert response data into a parsable json.
+
+        Args:
+            download_id (str): The id of the download.
+            download_type (str): The type of download.
+            response (Response): Response data returned by the api.
+
+        Raises:
+            MdRequestError: The response is not JSON serialisable.
+
+        Returns:
+            dict: The response as a dict object.
+        """
         try:
             data = response.json()
         except json.JSONDecodeError:
@@ -243,8 +347,15 @@ class MDownloader(AuthMD):
 
         return data
 
-    # Check if all the images are downloaded
     def checkExist(self, pages: list) -> bool:
+        """Check if all the images are downloaded.
+
+        Args:
+            pages (list): Array of images from the api.
+
+        Returns:
+            bool: True if the amount of pages downloaded match the amount on the api, False if not.
+        """
         # Only image files are counted
         if isinstance(self.exporter, ArchiveExporter):
             zip_count = [i for i in self.exporter.archive.namelist() if i.endswith(('.png', '.jpg', '.jpeg', '.gif'))]
@@ -257,6 +368,7 @@ class MDownloader(AuthMD):
         return False
 
     def existSaveJson(self) -> None:
+        """Save the chapter data to the data json and save the json."""
         if self.type_id in (1, 2, 3):
             self.title_json.chapters(self.chapter_data["data"])
             self.title_json.core()
@@ -264,14 +376,27 @@ class MDownloader(AuthMD):
                 self.account_json.chapters(self.chapter_data["data"])
                 self.account_json.core()
 
-    def existsBeforeDownload(self, exists: dict) -> None:
+    def existsBeforeDownload(self, exists: bool) -> None:
+        """Check if the chapter exists before downloading the images.
+
+        Args:
+            exists (bool): If the chapter exists or not.
+
+        Raises:
+            MDownloaderError: The chapter has already been downloaded.
+        """
         if exists:
             # Add chapter data to the json for title, group or user downloads
             self.existSaveJson()
             self.exporter.close()
             raise MDownloaderError('File already downloaded.')
 
-    def existsAfterDownload(self, downloaded_all: dict) -> None:
+    def existsAfterDownload(self, downloaded_all: bool) -> None:
+        """Check if all the images have been downloaded.
+
+        Args:
+            downloaded_all (bool): If all the images have been downloaded or not.
+        """
         # If all the images are downloaded, save the json file with the latest downloaded chapter      
         if downloaded_all:
             self.existSaveJson()
@@ -280,6 +405,12 @@ class MDownloader(AuthMD):
         self.exporter.close()
     
     def waitingTime(self, time_to_wait: int=ImpVar.GLOBAL_TIME_TO_WAIT, print_message: bool=True) -> None:
+        """Wait a certain amount of time before continuing.
+
+        Args:
+            time_to_wait (int, optional): The time to wait. Defaults to ImpVar.GLOBAL_TIME_TO_WAIT.
+            print_message (bool, optional): If to print the waiting message. Defaults to True.
+        """
         if time_to_wait == 0:
             return
         
