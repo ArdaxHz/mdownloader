@@ -1,8 +1,7 @@
 from .constants import ImpVar
-from .model import MDownloader
 
 
-def legacyMap(md_model: MDownloader, download_type: str, ids_to_convert: list) -> list:
+def legacyMap(md_model, download_type: str, ids_to_convert: list) -> list:
     """Convert the old MangaDex ids into the new ones.
 
     Args:
@@ -32,7 +31,7 @@ def legacyMap(md_model: MDownloader, download_type: str, ids_to_convert: list) -
     return new_ids
 
 
-def getIdType(md_model: MDownloader) -> None:
+def getIdType(md_model) -> None:
     """Get the id and download type from the url.
 
     Args:
@@ -45,7 +44,7 @@ def getIdType(md_model: MDownloader) -> None:
     idFromLegacy(md_model, id_from_url)
 
 
-def idFromLegacy(md_model: MDownloader, old_id: str) -> None:
+def idFromLegacy(md_model, old_id: str) -> None:
     """Check if the id is only digits and use the default download type to try convert the ids.
 
     Args:

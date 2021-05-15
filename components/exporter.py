@@ -10,7 +10,6 @@ from pathlib import Path
 from .constants import ImpVar
 from .errors import MDownloaderError
 from .languages import getLangIso
-from .model import MDownloader
 
 re_regrex = re.compile(ImpVar.REGEX)
 
@@ -18,7 +17,7 @@ re_regrex = re.compile(ImpVar.REGEX)
 
 class ExporterBase:
 
-    def __init__(self, md_model: MDownloader) -> None:
+    def __init__(self, md_model) -> None:
         self.md_model = md_model
         self.series_title = md_model.title
         self.chapter_id = md_model.chapter_data["data"]["id"]
@@ -165,7 +164,7 @@ class ExporterBase:
 
 
 class ArchiveExporter(ExporterBase):
-    def __init__(self, md_model: MDownloader) -> None:
+    def __init__(self, md_model) -> None:
         super().__init__(md_model)
         
         self.add_data = md_model.add_data
@@ -280,7 +279,7 @@ class ArchiveExporter(ExporterBase):
 
 
 class FolderExporter(ExporterBase):
-    def __init__(self, md_model: MDownloader) -> None:
+    def __init__(self, md_model) -> None:
         super().__init__(md_model.title, md_model.chapter_data, md_model.chapter_prefix)
 
         self.add_data = md_model.add_data

@@ -6,14 +6,13 @@ import requests
 from tqdm import tqdm
 
 from .response_pb2 import Response
-from .model import MDownloader
 
 
 class MangaPlus:
 
     def __init__(
             self,
-            md_model: MDownloader) -> None:
+            md_model) -> None:
 
         self.md_model = md_model
         self.chapter_data = md_model.chapter_data

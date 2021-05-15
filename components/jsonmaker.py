@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-from components.model import MDownloader
 import html
 import json
 import os
@@ -109,7 +108,7 @@ class JsonBase:
 
 class TitleJson(JsonBase):
 
-    def __init__(self, md_model: MDownloader) -> None:
+    def __init__(self, md_model) -> None:
         super().__init__(md_model)
         self.download_type = md_model.download_type
         self.save_covers = md_model.covers
@@ -275,7 +274,7 @@ class TitleJson(JsonBase):
 
 class AccountJson(JsonBase):
 
-    def __init__(self, md_model: MDownloader) -> None:
+    def __init__(self, md_model) -> None:
         super().__init__(md_model)
         self.account_data = self.accountData()
 

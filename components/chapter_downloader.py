@@ -10,13 +10,12 @@ from tqdm import tqdm
 from .constants import ImpVar
 from .exporter import ArchiveExporter, FolderExporter
 from .mangaplus import MangaPlus
-from .model import MDownloader
 
 domain = ImpVar.MANGADEX_API_URL
 
 
 def reportImage(
-        md_model: MDownloader,
+        md_model,
         success: bool,
         image_link: str,
         img_size: int,
@@ -47,7 +46,7 @@ def reportImage(
     # data = md_model.convertJson(md_mode.chapter_id, 'image-report', response)
 
 
-def getServer(md_model: MDownloader) -> str:
+def getServer(md_model) -> str:
     """Get the MD@H node to download images from.
 
     Args:
@@ -74,7 +73,7 @@ async def displayProgress(tasks: list) -> None:
 
 
 async def imageDownloader(
-        md_model: MDownloader,
+        md_model,
         url: str,
         fallback_url: str,
         image: str,
@@ -133,7 +132,7 @@ async def imageDownloader(
                 await asyncio.sleep(3)
 
 
-def chapterDownloader(md_model: MDownloader) -> None:
+def chapterDownloader(md_model) -> None:
     """download_type: 0 = chapter
     download_type: 1 = manga
     download_type: 2 = group|user|list

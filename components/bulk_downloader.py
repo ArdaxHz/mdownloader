@@ -3,7 +3,7 @@ import re
 import math
 from typing import Match, Pattern, Type, Union
 
-from .model import ImpVar, MDownloader
+from .model import ImpVar
 from .chapter_downloader import chapterDownloader
 from .errors import MDownloaderError, NoChaptersError
 from .jsonmaker import AccountJson, TitleJson
@@ -12,7 +12,7 @@ from .languages import getLangMD
 domain = ImpVar.MANGADEX_API_URL
 
 
-def checkForChapters(data: dict, md_model: MDownloader) -> int:
+def checkForChapters(data: dict, md_model) -> int:
     """Check if there are any chapters.
 
     Args:
@@ -40,7 +40,7 @@ def checkForChapters(data: dict, md_model: MDownloader) -> int:
     return count
 
 
-def getChapters(md_model: MDownloader, limit: int=500, **params: dict) -> list:
+def getChapters(md_model, limit: int=500, **params: dict) -> list:
     """Go through each page in the api to get all the chapters.
 
     Args:
@@ -280,7 +280,7 @@ def rangeChapters(chapters: list) -> list:
     return chapters
 
 
-def loopChapters(md_model: MDownloader, chapters: list, chapters_data: list) -> None:
+def loopChapters(md_model, chapters: list, chapters_data: list) -> None:
     """Loop chapters and call the chapterDownloader function.
 
     Args:
@@ -303,7 +303,7 @@ def loopChapters(md_model: MDownloader, chapters: list, chapters_data: list) -> 
             md_model.waitingTime(1, print_message=False)
 
 
-def titleDownloader(md_model: MDownloader) -> None:
+def titleDownloader(md_model) -> None:
     """Download titles.
 
     Args:
@@ -352,7 +352,7 @@ def titleDownloader(md_model: MDownloader) -> None:
     title_json.core(1)
 
 
-def groupUserListDownloader(md_model: MDownloader) -> None:
+def groupUserListDownloader(md_model) -> None:
     """Download group, user and list chapters.
 
     Args:
@@ -422,7 +422,7 @@ def groupUserListDownloader(md_model: MDownloader) -> None:
     account_json.core(1)
 
 
-def rssDownloader(md_model: MDownloader) -> None:
+def rssDownloader(md_model) -> None:
     """Download rss feeds.
 
     Args:

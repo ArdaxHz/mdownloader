@@ -50,7 +50,7 @@ def checkUuid(series_id: str) -> bool:
     return bool(re.match(ImpVar.UUID_REGEX, series_id))
 
 
-def typeChecker(md_model: MDownloader) -> None:
+def typeChecker(md_model) -> None:
     """Call the different functions depending on the type of download.
 
     Args:
@@ -72,7 +72,7 @@ def typeChecker(md_model: MDownloader) -> None:
         raise MDownloaderError('Please enter a manga/chapter/group/user/list id. For non-manga downloads, you must add the argument "--type [chapter|user|group|list]".')
 
 
-def fileDownloader(md_model: MDownloader) -> None:
+def fileDownloader(md_model) -> None:
     """Download from file.
 
     Args:
