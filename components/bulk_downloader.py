@@ -431,8 +431,7 @@ def rssDownloader(md_model) -> None:
         md_model (MDownloader): The base class this program runs on.
     """
 
-    print("RSS isn't supported by MangaDex at this time.")
-    return
+    raise MDownloaderError("RSS isn't supported by MangaDex at this time.")
 
     response = md_model.requestData(md_model, **{})
     md_model.checkForError(md_model.id, response)
