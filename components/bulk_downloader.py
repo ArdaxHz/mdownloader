@@ -382,11 +382,11 @@ def groupUserListDownloader(md_model) -> None:
     # Order the chapters descending by the order they're released to read
     params.update({"order[createdAt]": "desc"})
 
+    downloadMessage(0, download_type, name)
+
     md_model.name = name
     chapters = getChapters(md_model, limit, **params)
     md_model.chapters_data = chapters
-
-    downloadMessage(0, download_type, name)
 
     # Initalise json classes and make series folders
     account_json = AccountJson(md_model)
