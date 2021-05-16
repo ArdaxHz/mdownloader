@@ -142,15 +142,18 @@ def chapterDownloader(md_model) -> None:
         md_model (MDownloader): [description]
     """
     manga_plus_id = '4f1de6a2-f0c5-4ac5-bce5-02c7dbb67deb'
-    chapter_id = md_model.chapter_id
     external = False
 
     if md_model.type_id in (0, 1):
         # Connect to API and get chapter info
+        chapter_id = md_model.id
         response = md_model.requestData(chapter_id, 'chapter')
         data = md_model.convertJson(chapter_id, 'chapter', response)
+
+        md_model.chapter_id = chapter_id
         md_model.chapter_data = data
     else:
+        chapter_id = md_model.chapter_id
         data = md_model.chapter_data
 
     # Make sure only downloadable chapters are downloaded

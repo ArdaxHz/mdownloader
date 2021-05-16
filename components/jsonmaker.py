@@ -84,26 +84,6 @@ class JsonBase:
             except AttributeError:
                 pass
 
-    def core(self, save_type: int=0) -> None:
-        """Format the json for exporting.
-
-        Args:
-            save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
-        """
-        if self.md_model.type_id in (1, 3):
-            self.new_data = self.title_json
-            self.new_data["externalLinks"] = self.links
-            self.new_data["relationships"] = self.relationsips
-            # self.new_data["covers"] = self.covers
-            
-            if save_type and self.save_covers:
-                self.saveCovers()
-        else:
-            self.new_data = self.account_data
-        
-        self.addChaptersJson()
-        self.saveJson()
-
 
 
 class TitleJson(JsonBase):
@@ -270,6 +250,23 @@ class TitleJson(JsonBase):
         # json_title["social"] = self.social
         return json_title
 
+    def core(self, save_type: int=0) -> None:
+        """Format the json for exporting.
+
+        Args:
+            save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
+        """
+        self.new_data = self.title_json
+        self.new_data["externalLinks"] = self.links
+        self.new_data["relationships"] = self.relationsips
+        # self.new_data["covers"] = self.covers
+        
+        if save_type and self.save_covers:
+            self.saveCovers()
+        
+        self.addChaptersJson()
+        self.saveJson()
+
 
 
 class AccountJson(JsonBase):
@@ -288,3 +285,14 @@ class AccountJson(JsonBase):
         json_account["link"] = f'{self.domain}/{self.type}/{self.id}'
         json_account["attributes"] = self.data
         return json_account
+
+    def core(self, save_type: int=0) -> None:
+        """Format the json for exporting.
+
+        Args:
+            save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
+        """
+        self.new_data = self.account_data
+        
+        self.addChaptersJson()
+        self.saveJson()
