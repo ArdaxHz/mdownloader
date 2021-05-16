@@ -36,7 +36,7 @@ def checkForChapters(data: dict, md_model) -> int:
         name = md_model.name        
 
     if count == 0:
-        raise NoChaptersError(f'{download_type.title()}: {download_id} - {name} has no chapters. Possibly because of the language chosen.')
+        raise NoChaptersError(f'{download_type.title()}: {download_id} - {name} has no chapters. Possibly because of the language chosen or because there are no uploads.')
     return count
 
 
