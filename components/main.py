@@ -1,13 +1,13 @@
 #!/usr/bin/python3
 import argparse
 from typing import Type
-from .errors import MDownloaderError, NoChaptersError
 import os
 import re
 
 from .bulk_downloader import titleDownloader, groupUserListDownloader, rssDownloader
 from .chapter_downloader import chapterDownloader
 from .constants import ImpVar
+from .errors import MDownloaderError, NoChaptersError
 from .legacy import getIdType, idFromLegacy, legacyMap
 from .model import MDownloader
 
