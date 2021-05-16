@@ -92,7 +92,9 @@ def getChapters(md_model, limit: int=500, **params: dict) -> list:
             break
 
         iteration += 1
-    
+
+    print('Finished going through the pages.')
+
     return chapters
 
 
@@ -299,8 +301,6 @@ def loopChapters(md_model, chapters: list, chapters_data: list) -> None:
                 chapterDownloader(md_model)
         except MDownloaderError as e:
             if e: print(e)
-        finally:
-            md_model.waitingTime(1)
 
 
 def titleDownloader(md_model) -> None:
@@ -406,9 +406,11 @@ def groupUserListDownloader(md_model) -> None:
 
             titles[manga_id] = {"mangaId": manga_id, "mangaData": manga_data, "chapters": [chapter]}
 
-            md_model.waitingTime(1)
+        md_model.waitingTime(1)
 
     md_model.chapters_data = titles
+
+    print("Finished getting each manga's data, downloading the chapters.")
 
     for title in titles:
         md_model.type_id = 3
@@ -416,6 +418,7 @@ def groupUserListDownloader(md_model) -> None:
         md_model.manga_data = titles[title]["mangaData"]
         titleDownloader(md_model)
         md_model.type_id = 2
+        account_json.core()
         # loopChapters(md_model, titles[title]["chapters"], chapters_data)
 
     downloadMessage(1, download_type, name)

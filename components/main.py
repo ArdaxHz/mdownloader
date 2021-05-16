@@ -98,6 +98,8 @@ def fileDownloader(md_model) -> None:
                 new_id = link["new_id"]
                 links[links.index(str(old_id))] = new_id
 
+    md_model.waitingTime(print_message=False)
+
     print(ImpVar.API_MESSAGE)
     for download_id in links:
         try:

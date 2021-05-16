@@ -84,13 +84,15 @@ class JsonBase:
             except AttributeError:
                 pass
 
-    def core(self, save_type: int = 0) -> None:
+    def core(self, save_type: int=0) -> None:
         """Format the json for exporting.
 
         Args:
             save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
         """
-        if self.md_model.type_id == 1:
+        print(self.md_model.type_id)
+        print(self)
+        if self.md_model.type_id in (1, 3):
             self.new_data = self.title_json
             self.new_data["externalLinks"] = self.links
             self.new_data["relationships"] = self.relationsips
