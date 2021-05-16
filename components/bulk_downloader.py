@@ -1,121 +1,174 @@
 #!/usr/bin/python3
-import html
-import os
 import re
-from typing import Match, Optional, Pattern, Type, Union
+import math
+from typing import Match, Pattern, Type, Union
 
-import requests
-from requests.models import Response
-
-from . import constants
-from .__version__ import __version__
+from .model import ImpVar
 from .chapter_downloader import chapterDownloader
+from .errors import MDownloaderError, NoChaptersError
 from .jsonmaker import AccountJson, TitleJson
 from .languages import getLangMD
 
-headers = constants.HEADERS
-domain = constants.MANGADEX_API_URL
-re_regrex = re.compile(constants.REGEX)
+domain = ImpVar.MANGADEX_API_URL
 
 
-# Connect to the API and get the data
-def requestAPI(form: str, download_id: str) -> Optional[Response]:
-    if form == 'rss':
-        params = {}
-        url = download_id
-    else:    
-        params = {'include': 'chapters'}
-        url = domain.format(form, download_id)
+def checkForChapters(data: dict, md_model) -> int:
+    """Check if there are any chapters.
 
-    response = requests.get(url, headers=headers, params=params)
+    Args:
+        data (dict): Manga or group or user or list data.
+        md_model (MDownloader): The base class this program runs on.
 
-    if response.status_code not in range(200, 300):
-        print(f"Something went wrong. Error: {response.status_code}.")
-        return
-    return response
+    Raises:
+        NoChaptersError: No chapters were found.
 
+    Returns:
+        int: The amount of chapters found.
+    """
+    count = data["total"]
+    download_id = md_model.id
 
-# Convert response data into a parsable json
-def getData(response: Response) -> dict:
-    data = response.json()
-    data = data["data"]
-    return data
-
-
-# Get the amount of chapters
-def getChapterCount(form: str, data: dict):
-    if form in ('title', 'manga'):
-        chapter_count = len(data["chapters"])
+    if md_model.type_id == 1:
+        download_type = 'manga'
+        name = md_model.manga_data["data"]["attributes"]["title"]["en"]
     else:
-        chapter_count = data["group"]["chapters"] if form == 'group' else data["user"]["uploads"]
+        download_type = md_model.download_type
+        name = md_model.name        
 
-    # API displays a maximum of 6000 chapters
-    if chapter_count > 6000:
-        print(f'Due to API limits, a maximum of 6000 chapters can be downloaded for this {form}.')
-    return
+    if count == 0:
+        raise NoChaptersError(f'{download_type.title()}: {download_id} - {name} has no chapters. Possibly because of the language chosen or because there are no uploads.')
+    return count
 
 
-# Check if there are any chapters
-def checkForChapters(chapters: list, form: str, download_id: str, name: str):
-    if not chapters:
-        print(f'{form.title()}: {download_id} - {name} has no chapters.')
-        return False
+def getChapters(md_model, limit: int=500, **params: dict) -> list:
+    """Go through each page in the api to get all the chapters.
+
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+        limit (int, optional): How many chapters to view on one page. Defaults to 500.
+
+    Returns:
+        list: A list of all the chapters by the chosen method of download.
+    """
+    chapters = []
+    limit = limit
+    offset = 0
+    pages = 1
+    iteration = 1
+
+    if params:
+        parameters = params
     else:
-        return True
+        parameters = {}
+
+    while True:
+        # Update the parameters with the new offset
+        parameters.update({
+            "limit": limit,
+            "offset": offset,
+        })
+
+        # Call the api and get the json data
+        chapters_response = md_model.requestData(md_model.id, md_model.download_type, 1, **parameters)
+        data = md_model.convertJson(md_model.id, f'{md_model.download_type}-chapters', chapters_response)
+
+        # Finds how many pages needed to be called
+        if pages == 1:
+            chapters_count = checkForChapters(data, md_model)
+            if chapters_count > limit:
+                pages = math.ceil(chapters_count / limit)
+
+            print(f"{pages} pages to go through.")
+
+        chapters.extend(data["results"])
+        offset += limit
+
+        # Wait every 5 pages
+        if iteration % 5 == 0:
+            md_model.waitingTime(3, print_message=False)
+
+        # End the loop when all the pages have been gone through
+        if iteration == pages:
+            break
+
+        iteration += 1
+
+    print('Finished going through the pages.')
+
+    return chapters
 
 
-# Print the download messages
-def downloadMessage(status: bool, form: str, name: str):
+def downloadMessage(status: bool, download_type: str, name: str) -> None:
+    """Print the download message.
+
+    Args:
+        status (bool): If the download has started or ended.
+        download_type (str): What type of data is being downloaded, manga, group, user, or list.
+        name (str): Name of the chosen download.
+    """
     message = 'Downloading'
     if status:
         message = f'Finished {message}'
 
-    print(f'{"-"*69}\n{message} {form.title()}: {name}\n{"-"*69}')
-    return
+    print(f'{"-"*69}\n{message} {download_type.title()}: {name}\n{"-"*69}')
 
 
-# Check if a json exists
-def getJsonData(title_json: Type[TitleJson]) -> list:
-    if title_json.data_json:
-        chapters_data = title_json.data_json["chapters"]
+def getJsonData(json_data: Type[Union[TitleJson, AccountJson]]) -> list:
+    """Check if a data json exists and return the ids saved.
+
+    Args:
+        json_data (Type[Union[TitleJson, AccountJson]]): If the json to look through is a title one or account one.
+
+    Returns:
+        list: A list containing all the ids stored if possible, otherwise return empty.
+    """
+    if json_data.data_json:
+        chapters_data = json_data.data_json["chapters"]
         return [c["id"] for c in chapters_data]
     else:
         return []
 
 
-# Sort the chapter numbers naturally
 def natsort(x) -> Union[int, float]:
-	try:
-		x = float(x)
-	except ValueError:
-		x = 0
-	return x
+    """Sort the chapter numbers naturally."""
+    try:
+        return float(x)
+    except ValueError:
+        return 0
 
 
-# Get the chapter id and language from the rss feed
 def rssItemFetcher(t: str, tag: str, regex: Pattern) -> Match:
+    """Get the chapter id and language from the rss feed."""
     link = re.findall(f'<{tag}>.+<\/{tag}>', t)[0]
     link = link.replace(f'<{tag}>', '').replace(f'</{tag}>', '')
     match = re.match(regex, link).group(1)
     return match
 
 
-# Filter out the unwanted chapters
-def filterChapters(chapters: list, language: str) -> Optional[list]:
-    chapters = [c for c in chapters if c["language"] == language]
+def filterChapters(chapters: list, language: str) -> list:
+    """Filter out chapters not from the chosen language."""
+    chapters = [c for c in chapters if c["data"]["attributes"]["translatedLanguage"] == language]
 
     if not chapters:
-        print(f'No chapters found in the selected language, {language}.')
-        return
+        raise NoChaptersError(f'No chapters found in the selected language, {language}.')
     return chapters
 
 
-# Assign each volume a prefix, default: c
 def getPrefixes(chapters: list) -> dict:
+    """Assign each volume a prefix, default: c.
+
+    Args:
+        chapters (list): List of chapters to find the prefixes of.
+
+    Returns:
+        dict: A mapping of the volume number and the prefix to use.
+    """
     volume_dict = {}
     chapter_prefix_dict = {}
-    
+
+    # Loop over the chapters and add the chapter numbers to the volume number dict
     for c in chapters:
+        c = c["data"]["attributes"]
         volume_no = c["volume"]
         try:
             volume_dict[volume_no].append(c["chapter"])
@@ -125,6 +178,8 @@ def getPrefixes(chapters: list) -> dict:
     list_volume_dict = list(reversed(list(volume_dict)))
     prefix = 'b'
 
+    # Loop over the volume dict list and
+    # check if the current iteration has the same chapter numbers as the volume before and after
     for volume in list_volume_dict:
         next_volume_index = list_volume_dict.index(volume) + 1
         previous_volume_index = list_volume_dict.index(volume) - 1
@@ -150,8 +205,16 @@ def getPrefixes(chapters: list) -> dict:
     return chapter_prefix_dict
 
 
-# Loop through the lists and get the chapters between the upper and lower bounds
 def getChapterRange(chapters_list: list, chap_list: list) -> list:
+    """Loop through the lists and get the chapters between the upper and lower bounds.
+
+    Args:
+        chapters_list (list): All the chapters in the manga.
+        chap_list (list): A list of chapter numberss to download.
+
+    Returns:
+        list: The chapter number's to download's data.
+    """
     chapters_range = []
 
     for c in chap_list:
@@ -181,9 +244,17 @@ def getChapterRange(chapters_list: list, chap_list: list) -> list:
     return chapters_range
 
 
-# Check which chapters you want to download
 def rangeChapters(chapters: list) -> list:
-    chapters_list = list(set([c["chapter"] for c in chapters]))
+    """Check which chapters you want to download.
+
+    Args:
+        chapters (list): The chapters to get the chapter numbers.
+
+    Returns:
+        list: The list of chapters to download.
+    """
+    chapters_list = [c["data"]["attributes"]["chapter"] for c in chapters]
+    chapters_list = list(set(chapters_list))
     chapters_list.sort(key=natsort)
 
     print(f'Available chapters:\n{", ".join(chapters_list)}')
@@ -206,132 +277,167 @@ def rangeChapters(chapters: list) -> list:
     remove_chapters = getChapterRange(chapters_list, chapters_to_remove)
 
     [chapters_to_download.remove(i) for i in remove_chapters]
-    chapters = [c for c in chapters if c["chapter"] in chapters_to_download]
+    chapters = [c for c in chapters if c["data"]["attributes"]["chapter"] in chapters_to_download]
 
     return chapters
 
 
-# Download titles
-def titleDownloader(
-        download_id: Union[int, str],
-        language: str,
-        route: str,
-        form: str,
-        save_format: str,
-        make_folder: bool,
-        add_data: bool,
-        covers: bool,
-        range_download: bool,
-        data: dict={},
-        account_json: Type[AccountJson]=None):
+def loopChapters(md_model, chapters: list, chapters_data: list) -> None:
+    """Loop chapters and call the chapterDownloader function.
 
-    if form in ('title', 'manga'):
-        download_type = 1
-        response = requestAPI(form, download_id)
-        if response is None:
-            return
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+        chapters (list): The chapters to download.
+        chapters_data (list): The ids of the downloaded chapters from the data json.
+    """
+    for chapter in chapters:
+        chapter_id = chapter["data"]["id"]
+        md_model.chapter_id = chapter_id
+        if md_model.type_id in (2, 3):
+            md_model.chapter_data = chapter
 
-        data = getData(response)
-        check = checkForChapters(data["chapters"], form, download_id, data["manga"]["title"])
-        if not check:
-            return
+        try:
+            if chapter_id not in chapters_data:
+                chapterDownloader(md_model)
+        except MDownloaderError as e:
+            if e: print(e)
 
-        getChapterCount(form, data)
+
+def titleDownloader(md_model) -> None:
+    """Download titles.
+
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+    """
+    download_type = md_model.download_type
+
+    if md_model.download_type == 'manga':
+        md_model.type_id = 1
+        manga_response = md_model.requestData(md_model.id, download_type)
+        manga_data = md_model.convertJson(md_model.id, download_type, manga_response)
+        md_model.manga_data = manga_data
+        md_model.manga_id = md_model.id
+
+        # Call the api and filter out languages other than the selected
+        chapters = getChapters(md_model, **{"locales[]": md_model.language, "order[chapter]": "desc"})
+
+        md_model.chapters_data = chapters
+        # chapters = filterChapters(data["results"], md_model.language)
+        md_model.chapter_prefix_dict = getPrefixes(chapters)
+
     else:
-        download_type = 2
+        chapters = md_model.chapters_data[md_model.manga_id]["chapters"]
+        manga_data = md_model.manga_data
+        download_type = 'manga'
 
-    chapters = filterChapters(data["chapters"], language)
-    if chapters is None:
-        return
+    # Remove illegal symbols from the series name
+    title = md_model.formatTitle(manga_data)
 
-    chapter_prefix_dict = getPrefixes(chapters)
+    downloadMessage(0, download_type, title)
 
-    title = re_regrex.sub('_', html.unescape(data["manga"]["title"])).rstrip(' .')
-    series_route = os.path.join(route, title)
-
-    downloadMessage(0, form, title)
-
-    if range_download:
+    if md_model.range_download:
         chapters = rangeChapters(chapters)
 
     # Initalise json classes and make series folders
-    title_json = TitleJson(data, series_route, covers, download_type)
-
+    title_json = TitleJson(md_model)
+    md_model.title_json = title_json
     chapters_data = getJsonData(title_json)
+    md_model.title_json_data = chapters_data
 
-    # Loop chapters
-    for chapter in chapters:
-        chapter_id = chapter["id"]
+    loopChapters(md_model, chapters, chapters_data)
 
-        if chapter_id not in chapters_data:
-            chapterDownloader(chapter_id, route, save_format, make_folder, add_data, chapter_prefix_dict, download_type, title, title_json, account_json)
-
-    downloadMessage(1, form, title)
+    downloadMessage(1, download_type, title)
 
     # Save the json and covers if selected
     title_json.core(1)
-    if download_type == 2:
-        account_json.core(1)
-    del title_json
-    return
 
 
-# Download group and user chapters
-def groupUserDownloader(
-        download_id: str,
-        language: str,
-        route: str,
-        form: str,
-        save_format: str,
-        make_folder: bool,
-        add_data: bool):
+def groupUserListDownloader(md_model) -> None:
+    """Download group, user and list chapters.
 
-    response = requestAPI(form, download_id)
-    if response is None:
-        return
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+    """
+    download_type = md_model.download_type
+    md_model.type_id = 2
+    limit = 100
 
-    data = getData(response)
-    name = data["group"]["name"] if form == 'group' else data["user"]["username"]
-    check = checkForChapters(data["chapters"], form, download_id, name)
-    if not check:
-        return
+    response = md_model.requestData(md_model.id, download_type)
+    data = md_model.convertJson(md_model.id, download_type, response)
+    md_model.group_user_list_data = data
 
-    getChapterCount(form, data)
-    downloadMessage(0, form, name)
+    # Get the name of the group, user or the custom list's owner
+    if download_type == 'group':
+        name = data["data"]["attributes"]["name"]
+        params = {"groups[]": md_model.id}
+    elif download_type == 'list':
+        owner = data["data"]["attributes"]["owner"]["attributes"]["username"]
+        name = f"{owner}'s Custom List"
+        params = {}
+        limit = 500
+    else:
+        name = data["data"]["attributes"]["username"]
+        params = {"uploader": md_model.id}
+
+    # Order the chapters descending by the order they're released to read
+    params.update({"order[createdAt]": "desc"})
+
+    downloadMessage(0, download_type, name)
+
+    md_model.name = name
+    chapters = getChapters(md_model, limit, **params)
+    md_model.chapters_data = chapters
 
     # Initalise json classes and make series folders
-    account_json = AccountJson(data, route, form)
+    account_json = AccountJson(md_model)
+    md_model.account_json = account_json
+    md_model.account_json_data = getJsonData(account_json)
 
-    # Group the downloads by title
+    print(f"Getting each manga's data from the {download_type} chosen.")
+
     titles = {}
-    for chapter in data["chapters"]:
-        if chapter["mangaId"]in titles:
-            titles[chapter["mangaId"]]["chapters"].append(chapter)
+    for chapter in chapters:
+        manga_id = [c["id"] for c in chapter["relationships"] if c["type"] == 'manga'][0]
+        if manga_id in titles:
+            titles[manga_id]["chapters"].append(chapter)
         else:
-            titles[chapter["mangaId"]] = {"manga": {"id": chapter["mangaId"], "title": chapter["mangaTitle"]}, "chapters": []}
-            titles[chapter["mangaId"]]["chapters"].append(chapter)
+            manga_response = md_model.requestData(manga_id, 'manga')
+            manga_data = md_model.convertJson(manga_id, 'account-manga', manga_response)
+
+            titles[manga_id] = {"mangaId": manga_id, "mangaData": manga_data, "chapters": [chapter]}
+
+        md_model.waitingTime(1)
+
+    md_model.chapters_data = titles
+
+    print("Finished getting each manga's data, downloading the chapters.")
 
     for title in titles:
-        titleDownloader(title, language, route, form, save_format, make_folder, add_data, False, False, titles[title], account_json)
+        md_model.type_id = 3
+        md_model.manga_id = titles[title]["mangaId"]
+        md_model.manga_data = titles[title]["mangaData"]
+        titleDownloader(md_model)
+        md_model.type_id = 2
+        account_json.core()
+        # loopChapters(md_model, titles[title]["chapters"], chapters_data)
 
-    downloadMessage(1, form, name)
+    downloadMessage(1, download_type, name)
 
     # Save the json
     account_json.core(1)
-    del account_json
-    return
 
 
-# Download rss feeds
-def rssDownloader(
-        url: str,
-        language: str,
-        route: str,
-        save_format: str,
-        make_folder: bool,
-        add_data: bool):
+def rssDownloader(md_model) -> None:
+    """Download rss feeds.
 
-    response = requestAPI('rss', url)
+    Args:
+        md_model (MDownloader): The base class this program runs on.
+    """
+
+    raise MDownloaderError("RSS isn't supported by MangaDex at this time.")
+
+    response = md_model.requestData(md_model, **{})
+    md_model.checkForError(md_model.id, response)
     data = response.content.decode()
     chapters = []
 
@@ -351,15 +457,15 @@ def rssDownloader(
 
                 chapters.append(temp_dict)
 
-    chapters = filterChapters(chapters, language)
-    if chapters is None:
-        return
-
+    md_model.data = {"chapters": chapters}
+    chapters = filterChapters(chapters, md_model.language)
     downloadMessage(0, 'rss', 'This will only download chapters of the language selected, default: English.')
 
     for chapter in chapters:
-        chapter = chapter["id"]
-        chapterDownloader(chapter, route, save_format, make_folder, add_data)
+        md_model.id = chapter["id"]
+        try:
+            chapterDownloader(md_model)
+        except MDownloaderError as e:
+            if e: print(e)
     
     downloadMessage(1, 'rss', 'MangaDex')
-    return

@@ -4,24 +4,26 @@ import json
 import os
 import re
 import shutil
-import sys
 import zipfile
 from pathlib import Path
 
-from .constants import REGEX
-from .languages import languages_iso
+from .constants import ImpVar
+from .errors import MDownloaderError
+from .languages import getLangIso
 
-re_regrex = re.compile(REGEX)
+re_regrex = re.compile(ImpVar.REGEX)
 
 
 
 class ExporterBase:
 
-    def __init__(self, series_title: str, chapter_data: dict, chapter_prefix: str):
-        self.series_title = series_title
-        self.chapter_data = chapter_data
-        self.chapter_id = chapter_data["id"]
-        self.chapter_prefix = chapter_prefix
+    def __init__(self, md_model) -> None:
+        self.md_model = md_model
+        self.series_title = md_model.title
+        self.chapter_id = md_model.chapter_data["data"]["id"]
+        self.chapter_data = md_model.chapter_data["data"]["attributes"]
+        self.relationships = md_model.chapter_data["relationships"]
+        self.chapter_prefix = md_model.prefix
         self.oneshot = self.oneshotChecker()
         self.groups = self.groupNames()
         self.chapter_number = self.chapterNo()
@@ -31,80 +33,101 @@ class ExporterBase:
         self.suffix = self.suffixName()
         self.folder_name = self.folderName()
 
-
-    # If oneshot, add to file name
     def oneshotChecker(self) -> int:
+        """If the chapter is a oneshot.
+
+        Returns:
+            int: If the chapter is a oneshot or not.
+        """
         if self.chapter_data["title"].lower() == 'oneshot':
             return 1
-        elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] == '' and self.chapter_data["title"] == '':
+        elif self.chapter_data["chapter"] == '' and (self.chapter_data["volume"] == '' or self.chapter_data["volume"] == '0') and self.chapter_data["title"] == '':
             return 1
-        elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] == '':
+        elif self.chapter_data["chapter"] == '' and (self.chapter_data["volume"] == '' or self.chapter_data["volume"] == '0'):
             return 2
         elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] != '' and (self.chapter_data["title"] != '' or self.chapter_data["title"] == ''):
             return 3
         else:
             return 0
 
-
-    # Format the chapter number
     def chapterNo(self) -> str:
-        chapter_number = self.chapter_data["chapter"]
+        """Format the chapter number into 3 digits long.
+
+        Returns:
+            str: The formatted chapter number.
+        """
+        chapter_number = str(self.chapter_data["chapter"])
 
         if self.oneshot in (1, 2, 3):
-            chapter_number = chapter_number.zfill(3)
+            return chapter_number.zfill(3)
+
+        if re.search(r'[\\\\/-:*?"<>|]', chapter_number):
+            decimal = chapter_number.split('.', 1)
+            parts = re.split(r'\D', decimal[0], 1)
+            c = int(parts[0])
+            parts = [i.zfill(3) for i in parts]
+            chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
+            chap_no = '-'.join(parts) + '.' + decimal[1] if len(decimal) > 1 else '-'.join(parts)
         else:
-            if re.search(r'[\\\\/-:*?"<>|]', chapter_number):
-                decimal = chapter_number.split('.', 1)
-                parts = re.split(r'\D', decimal[0], 1)
-                c = int(parts[0])
-                parts = [i.zfill(3) for i in parts]
-                chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
-                chap_no = '-'.join(parts) + '.' + decimal[1] if len(decimal) > 1 else '-'.join(parts)
-            else:
-                parts = chapter_number.split('.', 1)
-                c = int(parts[0])
-                chap_no = str(c).zfill(3)
-                chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
-                chap_no = chap_no + '.' + parts[1] if len(parts) > 1 else chap_no
-            chapter_number = chap_prefix + chap_no
+            parts = chapter_number.split('.', 1)
+            c = int(parts[0])
+            chap_no = str(c).zfill(3)
+            chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
+            chap_no = chap_no + '.' + parts[1] if len(parts) > 1 else chap_no
+        chapter_number = chap_prefix + chap_no
 
         return chapter_number
 
-
-    # Ignore language code if in english
     def langCode(self) -> str:
-        if self.chapter_data["language"] == 'gb':
+        """Ignore language code if in english.
+
+        Returns:
+            str: The formatted language.
+        """
+        if self.chapter_data["translatedLanguage"] == 'en':
             return ''
-        else:
-            return f' [{languages_iso.get(self.chapter_data["language"], "N/A")}]'
+        return f' [{getLangIso(self.chapter_data["translatedLanguage"])}]'
 
-
-    # Get the volume number if applicable
     def volumeNo(self) -> str:
+        """Get the volume number if applicable.
+
+        Returns:
+            str: The formatted volume number.
+        """
         volume_number = self.chapter_data["volume"]
-
-        if volume_number == '' or self.oneshot in (1, 2):
+        if volume_number is None or self.oneshot in (1, 2) or volume_number != '0':
             return ''
-        else:
-            parts = volume_number.split('.', 1)
-            v = int(parts[0])
-            vol_no = str(v).zfill(2)
-            volume_number = vol_no + '.' + parts[1] if len(parts) > 1 else vol_no
-            return f' (v{volume_number})'
 
+        volume_number = str(volume_number)
+        parts = volume_number.split('.', 1)
+        v = int(parts[0])
+        vol_no = str(v).zfill(2)
+        volume_number = vol_no + '.' + parts[1] if len(parts) > 1 else vol_no
+        return f' (v{volume_number})'
 
     # The formatted prefix name
     def prefixName(self) -> str:
         return f'{self.series_title}{self.language} - {self.chapter_number}{self.volume}'
 
-
     # The chapter's groups
     def groupNames(self) -> str:
-        return re_regrex.sub('_', html.unescape(', '.join([g["name"] for g in self.chapter_data["groups"]])))
+        group_ids = [g["id"] for g in self.relationships if g["type"] == 'scanlation_group']
+        groups = []
 
+        for group_id in group_ids:
+            group_response = self.md_model.requestData(group_id, 'group')
+            group_data = self.md_model.convertJson(group_id, 'chapter-group', group_response)
+            name = group_data["data"]["attributes"]["name"]
+            groups.append(name)
 
-    # Formatting the groups as the suffix
+        return re_regrex.sub('_', html.unescape(', '.join(groups)))
+
     def suffixName(self) -> str:
+        """Formatting the groups as the suffix.
+
+        Returns:
+            str: The suffix of the file name.
+        """
         chapter_title = f'{self.chapter_data["title"][:31]}...' if len(self.chapter_data["title"]) > 30 else self.chapter_data["title"]
         title = f'[{re_regrex.sub("_", html.unescape(chapter_title))}] ' if len(chapter_title) > 0 else ''
         oneshot_prefix = '[Oneshot] '
@@ -116,57 +139,69 @@ class ExporterBase:
             return f'{oneshot_prefix}{title}{group_suffix}'
         elif self.oneshot == 3:
             return f'{title}{group_suffix}'
-        else:
-            return group_suffix
+        return group_suffix
 
-
-    # The final folder name combining the prefix and suffix for the archive/folder name
     def folderName(self) -> str:
+        """The final folder name combining the prefix and suffix for the archive/folder name
+
+        Returns:
+            str: The file name images to be saved to.
+        """
         return f'{self.prefix} {self.suffix}'
 
-
-    # Each page name
     def pageName(self, page_no: int, ext: str) -> str:
+        """Each page name.
+
+        Args:
+            page_no (int): The image number.
+            ext (str): The image extension.
+
+        Returns:
+            str: The page name downloaded.
+        """
         return f'{self.prefix} - p{page_no:0>3} {self.suffix}.{ext}'
 
 
 
 class ArchiveExporter(ExporterBase):
-    def __init__(
-            self,
-            series_title: str,
-            chapter_data: dict,
-            destination: str,
-            chapter_prefix: str,
-            add_data: bool,
-            save_format: bool):
-        super().__init__(series_title, chapter_data, chapter_prefix)
+    def __init__(self, md_model) -> None:
+        super().__init__(md_model)
         
-        self.add_data = add_data
-        self.destination = destination
-        self.save_format = save_format
-        self.path = Path(destination)
+        self.add_data = md_model.add_data
+        self.destination = md_model.route
+        self.save_format = md_model.save_format
+        self.path = Path(md_model.route)
         self.path.mkdir(parents=True, exist_ok=True)
-        self.archive_path = os.path.join(destination, f'{self.folder_name}.{save_format}')
+        self.archive_path = os.path.join(self.destination, f'{self.folder_name}.{self.save_format}')
         self.archive = self.checkZip()
  
-
-    # Make a zipfile, if it exists, open it instead
     def makeZip(self) -> zipfile.ZipFile:
+        """Make a zipfile, if it exists, open it instead.
+
+        Raises:
+            MDownloaderError: Archive was unable to be made.
+            MDownloaderError: The archive was opened by an external program.
+
+        Returns:
+            zipfile.ZipFile: A ZipFile object of the open archive.
+        """
         try:
             return zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED) 
         except zipfile.BadZipFile:
-            sys.exit('Error creating archive')
+            raise MDownloaderError('Error creating archive')
         except PermissionError:
-            raise PermissionError("The file is open by another process.")
+            raise MDownloaderError("The file is open by another process.")
 
-
-    # Check the zipfile to see if it is a duplicate or not
     def checkZip(self) -> zipfile.ZipFile:
+        """Check the zipfile to see if it is a duplicate or not.
+
+        Returns:
+            zipfile.ZipFile: A ZipFile object of the open archive. 
+        """
         version_no = 1
         self.archive = self.makeZip()
         chapter_hash = self.archive.comment.decode().split('\n')[-1]
-        to_add = f'{self.chapter_data["id"]}\n{self.chapter_data["title"]}\n{self.chapter_data["hash"]}'
+        to_add = f'{self.chapter_id}\n{self.chapter_data["title"]}\n{self.chapter_data["hash"]}'
 
         if chapter_hash == '' or chapter_hash == self.chapter_data["hash"]:
             if self.archive.comment.decode() == to_add:
@@ -202,32 +237,35 @@ class ArchiveExporter(ExporterBase):
 
             self.archive.comment = to_add.encode()
             return self.archive
-    
 
-    # Add images to the archive
-    def imageCompress(self):
+    def imageCompress(self) -> None:
+        """Add image to archive through the memory."""
         self.archive.writestr(self.page_name, self.response)
-        return
 
-
-    # Check if the image is in the archive, skip if it is
-    def checkImages(self):
+    def checkImages(self) -> None:
+        """Check if the image is in the archive, skip if it is."""
         if self.page_name not in self.archive.namelist():
             self.imageCompress()
-        return
 
+    def addImage(self, response: bytes, page_no: int, ext: str) -> None:
+        """Format the image name then add to archive.
 
-    # Format the image name then add to archive
-    def addImage(self, response: bytes, page_no: int, ext: str):
+        Args:
+            response (bytes): The image data.
+            page_no (int): The image number.
+            ext (str): The image extension.
+        """
         self.page_name = self.pageName(page_no, ext)
         self.response = response
 
         self.checkImages()
-        return
 
+    def close(self, status: bool=0) -> None:
+        """Close the archive and save the chapter data.
 
-    # Close the archive
-    def close(self, status: bool=0):
+        Args:
+            status (bool, optional): The type of archive closing. Defaults to 0.
+        """
         if not status:
             # Add the chapter data json to the archive
             if self.add_data and f'{self.chapter_id}.json' not in self.archive.namelist():
@@ -237,28 +275,27 @@ class ArchiveExporter(ExporterBase):
 
         if status:
             os.remove(self.archive_path)
-        return
 
 
 
 class FolderExporter(ExporterBase):
-    def __init__(
-            self,
-            series_title: str,
-            chapter_data: dict,
-            destination: str,
-            chapter_prefix: str,
-            add_data: bool):
-        super().__init__(series_title, chapter_data, chapter_prefix)
+    def __init__(self, md_model) -> None:
+        super().__init__(md_model.title, md_model.chapter_data, md_model.chapter_prefix)
 
-        self.add_data = add_data
-        self.path = Path(destination)
+        self.add_data = md_model.add_data
+        self.path = Path(md_model.route)
         self.path.mkdir(parents=True, exist_ok=True)
         self.checkFolder()
 
-
-    # Make the folder
     def makeFolder(self) -> bool:
+        """Make the folder.
+
+        Raises:
+            MDownloaderError: Folder was unable to be made.
+
+        Returns:
+            bool: If the folder existed before or not.
+        """
         try:
             if os.path.exists(self.folder_path):
                 return 1
@@ -266,11 +303,10 @@ class FolderExporter(ExporterBase):
                 self.folder_path.mkdir(parents=True, exist_ok=True)
                 return 0
         except OSError:
-            sys.exit('Error creating folder')
+            raise MDownloaderError('Error creating folder')
 
-
-    # Check if the image is in the folder, skip if it is
-    def checkFolder(self):
+    def checkFolder(self) -> None:
+        """Check if the image is in the folder, skip if it is"""
         self.folder_path = self.path.joinpath(self.folder_name)
         self.makeFolder()
         # version_no = 1
@@ -287,34 +323,36 @@ class FolderExporter(ExporterBase):
         #                     continue
         #             else:
         #                 break
-        return
 
-
-    # Add images to the folder
-    def folderAdd(self):
+    def folderAdd(self) -> None:
+        """Add images to the folder."""
         with open(self.folder_path.joinpath(self.page_name), 'wb') as file:
             file.write(self.response)
-        return
 
-
-    # Check if images are in the folder
-    def checkImages(self):
+    def checkImages(self) -> None:
+        """Check if images are in the folder."""
         if self.page_name not in os.listdir(self.folder_path):
             self.folderAdd()
-        return
 
+    def addImage(self, response: bytes, page_no: int, ext: str) -> None:
+        """Format the image name then add to archive.
 
-    # Format the image name then add to folder
-    def addImage(self, response: bytes, page_no: int, ext: str):
+        Args:
+            response (bytes): The image data.
+            page_no (int): The image number.
+            ext (str): The image extension.
+        """
         self.page_name = self.pageName(page_no, ext)
         self.response = response
 
         self.checkImages()
-        return
 
+    def close(self, status: bool=0) -> None:
+        """Close the archive and save the chapter data.
 
-    # Save chapter data to the folder
-    def close(self, status: bool=0):
+        Args:
+            status (bool, optional): The type of archive closing. Defaults to 0.
+        """
         if not status:
             # Add the chapter data json to the folder
             if self.add_data and f'{self.chapter_id}.json' not in os.listdir(self.folder_path):
@@ -322,4 +360,3 @@ class FolderExporter(ExporterBase):
                     json.dump(self.chapter_data, json_file, indent=4, ensure_ascii=False)
         else:
             shutil.rmtree(self.folder_path)
-        return

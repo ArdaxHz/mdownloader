@@ -6,137 +6,70 @@ import re
 from pathlib import Path
 from urllib.parse import quote
 
-import requests
-
-from . import constants
-from .languages import languages_names
-
+from .constants import ImpVar
+from .errors import MdRequestError
 
 
 class JsonBase:
 
-    def __init__(self, data: dict, route: str, form: str):
-        self.type = form
-        self.data = data[self.type]
-        self.id = self.data["id"]
-        self.route = Path(route)
-        self.route.mkdir(parents=True, exist_ok=True)
-        self.domain = constants.MANGADEX_URL
-        self.api_url = constants.MANGADEX_API_URL
+    def __init__(self, md_model) -> None:
+        self.md_model = md_model
+        self.type = md_model.download_type
+        self.domain = ImpVar.MANGADEX_URL
+        self.api_url = ImpVar.MANGADEX_API_URL
 
-        # Format json name
-        if self.type == 'manga':
+        if self.md_model.type_id in (1, 3):
+            self.id = md_model.manga_data["data"]["id"]
+            self.data = md_model.manga_data["data"]["attributes"]
+            self.relationsips = md_model.manga_data["relationships"]
+
+            self.route = Path(md_model.route)
+            self.route.mkdir(parents=True, exist_ok=True)
             self.json_path = self.route.joinpath(f'{self.id}_data').with_suffix('.json')
         else:
+            self.id = md_model.group_user_list_data["data"]["id"]
+            self.data = md_model.group_user_list_data["data"]["attributes"]
+            self.relationsips = md_model.group_user_list_data["relationships"]
+
+            self.route = Path(md_model.directory)
+            self.route.mkdir(parents=True, exist_ok=True)
             self.json_path = self.route.joinpath(f'{self.type}_{self.id}_data').with_suffix('.json')
 
         self.data_json = self.checkExist()
 
-
-    # Check if the json already exists
     def checkExist(self) -> dict:
+        """Check if the json already exists.
+
+        Returns:
+            dict: The loaded json.
+        """
         try:
             with open(self.json_path, 'r', encoding='utf8') as file:
                 series_json = json.load(file)
-
-            if isinstance(series_json["chapters"], dict):
-                chapters_json_to_list = []
-
-                for chapter_id in series_json["chapters"]:
-                    chapter_data = series_json["chapters"][chapter_id]
-
-                    temp_json = {
-                        "id": int(chapter_id)
-                        }
-
-                    if 'lang_name' in series_json["chapters"][chapter_id]:
-                        temp_json["volume"] = chapter_data["volume"]
-                        temp_json["chapter"] = chapter_data["chapter"]
-                        temp_json["title"] = chapter_data["title"]
-                        temp_json["langName"] = chapter_data["lang_name"]
-                        temp_json["langCode"] = chapter_data["lang_code"]
-                        temp_json["groups"] = chapter_data["group(s)"]
-                        temp_json["timestamp"] = chapter_data["timestamp"]
-                        temp_json["link"] = self.domain.format('chapter', chapter_id)
-                        temp_json["images"] = {
-                            "url": chapter_data["images"]["url"],
-                            "pages": chapter_data["images"]["pages"]
-                        }
-
-                        try:
-                            temp_json["mangaData"] = {
-                                "mangaId": chapter_data["manga_id"],
-                                "mangaTitle": chapter_data["manga_title"],
-                                "mangaLink": self.domain.format('manga', chapter_data["manga_id"])
-                            }
-                        except KeyError:
-                            if self.type == 'manga':
-                                temp_json["mangaData"] = {
-                                    "mangaId": self.id,
-                                    "mangaTitle": self.data["title"],
-                                    "mangaLink": self.domain.format('manga', self.id)
-                                }
-                    else:
-                        temp_json.update(chapter_data)
-
-                    chapters_json_to_list.append(temp_json)
-
-                series_json["chapters"] = chapters_json_to_list
 
             return series_json
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
-
-    # Format the chapter data
     def chapters(self, chapter_data: dict) -> dict:
+        """Format the chapter data.
 
-        json_chapter = {
-            "id": chapter_data["id"],
-            "chapter": chapter_data["chapter"],
-            "volume": chapter_data["volume"],
-            "title": chapter_data["title"],
-            "langName": languages_names.get(chapter_data["language"], "Other"),
-            "langCode": chapter_data["language"],
-            "groups": chapter_data["groups"],
-            "timestamp": chapter_data["timestamp"],
-            "hash": chapter_data["hash"],
-            "link": self.domain.format('chapter', chapter_data["id"])
-        }
+        Args:
+            chapter_data (dict): The chapter data returned from the api.
 
-        if chapter_data["status"] == "external":
-            json_chapter["images"] = 'This chapter is external to MangaDex so an image list is not available.'
-        else:
-            json_chapter["images"] = {
-                "url": f'{chapter_data["server"]}{chapter_data["hash"]}/'}
-            if 'serverFallback' in chapter_data:
-                json_chapter["images"]["urlFallback"] = f'{chapter_data["serverFallback"]}{chapter_data["hash"]}/'
-            json_chapter["images"]["pages"] = chapter_data["pages"]
-
-        if self.type != 'manga':
-            json_chapter["mangaData"] = {
-                "mangaId": chapter_data["mangaId"],
-                "mangaTitle": chapter_data["mangaTitle"],
-                "mangaLink": self.domain.format('manga', chapter_data["mangaId"])
-            }
-
-        self.chapter_json = json_chapter
+        Returns:
+            dict: The chapter data as an instance property.
+        """
+        self.chapter_json = chapter_data
         return self.chapter_json
 
-
-    # Save the json
-    def saveJson(self):
-        # Disable all the no-member violations in this function
-        # pylint: disable=no-member
+    def saveJson(self) -> None:
+        """Save the json."""
         with open(self.json_path, 'w', encoding='utf8') as json_file:
             json.dump(self.new_data, json_file, indent=4, ensure_ascii=False)
-        return
 
-    
-    # Add the chapter data to the json
-    def addChaptersJson(self):
-        # Disable all the no-member violations in this function
-        # pylint: disable=no-member
+    def addChaptersJson(self) -> None:
+        """Add the chapter data to the json."""
         if not self.data_json:
             try:
                 if self.chapter_json not in self.new_data["chapters"]:
@@ -150,94 +83,99 @@ class JsonBase:
                     self.new_data["chapters"].append(self.chapter_json)
             except AttributeError:
                 pass
-        return
 
 
 
 class TitleJson(JsonBase):
 
-    def __init__(self, data: dict, route: str, save_covers: bool, download_type: int):
-        super().__init__(data, route, 'manga')
-        self.download_type = download_type
+    def __init__(self, md_model) -> None:
+        super().__init__(md_model)
+        self.download_type = md_model.download_type
+        self.save_covers = md_model.covers
+        self.regex = re.compile(ImpVar.REGEX)
 
-        if self.download_type == 1:
-            self.save_covers = save_covers
-            self.regex = re.compile(constants.REGEX)
+        ### Cover download is disabled due to not being in the api.
+        # # Make the covers folder in the manga folder
+        # if self.save_covers:
+        #     self.cover_route = self.route.joinpath('!covers')
+        #     self.cover_route.mkdir(parents=True, exist_ok=True)
 
-            # Make the covers folder in the manga folder
-            if self.save_covers:
-                self.cover_route = self.route.joinpath('!covers')
-                self.cover_route.mkdir(parents=True, exist_ok=True)
-
-            self.cover_regex = re.compile(r'(?:https\:\/\/mangadex\.org\/images\/(?:manga|covers)\/)(.+)(?:(?:\?.+)|$)')
-            self.cover_url = re.sub(r'\?[0-9]+', '', self.data["mainCover"])
-            self.links = self.getLinks()
-            self.social = self.getSocials()
-            self.covers = self.getCovers()
-
+        # self.cover_regex = re.compile(r'(?:https\:\/\/mangadex\.org\/images\/(?:manga|covers)\/)(.+)(?:(?:\?.+)|$)')
+        # self.cover_url = re.sub(r'\?[0-9]+', '', self.data["mainCover"])
+        self.links = self.getLinks()
+        # self.social = self.getSocials()
+        # self.covers = self.getCovers()
         self.title_json = self.title()
 
-
-    # All the manga page's external links
     def getLinks(self) -> dict:
+        """All the manga page's external links.
+
+        Returns:
+            dict: The links formatted by name and url.
+        """
+        if self.data["links"] is None:
+            return {}
+
         json_links = {}
-        try:
-            if 'al' in self.data["links"]:
-                json_links["anilist"] = f'https://anilist.co/manga/{self.data["links"]["al"]}'
-            if 'ap' in self.data["links"]:
-                json_links["anime_planet"] = f'https://www.anime-planet.com/manga/{quote(self.data["links"]["ap"])}'
-            if 'bw' in self.data["links"]:
-                if re.match(r'series/[0-9]+', self.data["links"]["bw"]):
-                    json_links["bookwalker"] = f'https://bookwalker.jp/{self.data["links"]["bw"]}/list'
+        formats = {
+            "al": {"name": "AniList", "url": "https://anilist.co/manga/{}"},
+            "ap": {"name": "Anime-Planet", "url": "https://www.anime-planet.com/manga/{}"},
+            "bw": {"name": "Bookwalker", "url": "https://bookwalker.jp/{}"},
+            "mu": {"name": "MangaUpdates", "url": "https://www.mangaupdates.com/series.html?id={}"},
+            "nu": {"name": "NovelUpdates", "url": "https://www.novelupdates.com/series/{}"},
+            "kt": {"name": "kitsu.io", "url": "https://kitsu.io/manga/{}"},
+            "amz": {"name": "Amazon", "url": "{}"},
+            "cdj": {"name": "CDJapan", "url": "{}"},
+            "ebj": {"name": "EBookJapan", "url": "https://ebookjapan.yahoo.co.jp/books/{}"},
+            "mal": {"name": "MyAnimeList", "url": "https://myanimelist.net/manga/{}"},
+            "raw": {"name": "Raw", "url": "{}"},
+            "engtl": {"name": "Official English Link", "url": "{}"},
+        }
+
+        for l in self.data["links"]:
+            if l == 'bw':
+                if re.match(r'series/[0-9]+', l):
+                    newl = f'{self.data["links"][l]}/list'
                 else:
-                    json_links["bookwalker"] = f'https://bookwalker.jp/{self.data["links"]["bw"]}'
-            if 'kt' in self.data["links"]:
-                json_links["kitsu"] = f'https://kitsu.io/manga/{self.data["links"]["kt"]}'
-            if 'mu' in self.data["links"]:
-                json_links["manga_updates"] = f'https://www.mangaupdates.com/series.html?id={self.data["links"]["mu"]}'
-            if 'nu' in self.data["links"]:
-                json_links["novel_updates"] = f'https://www.novelupdates.com/series/{quote(self.data["links"]["nu"])}'
-            if 'amz' in self.data["links"]:
-                json_links["amazon_jp"] = self.data["links"]["amz"]
-            if 'cdj' in self.data["links"]:
-                json_links["cd_japan"] = self.data["links"]["cdj"]
-            if 'ebj' in self.data["links"]:
-                ebj_link = self.data["links"]["ebj"]
-                if 'https://www.ebookjapan.jp/ebj/' in ebj_link:
-                    new_ebj_link = re.sub('https://www.ebookjapan.jp/ebj/', 'https://ebookjapan.yahoo.co.jp/books/', ebj_link)
-                    json_links["ebookjapan"] = new_ebj_link
-                else:
-                    json_links["ebookjapan"] = ebj_link
-            if 'mal' in self.data["links"]:
-                json_links["myanimelist"] = f'https://myanimelist.net/manga/{self.data["links"]["mal"]}'
-            if 'raw' in self.data["links"]:
-                json_links["raw"] = self.data["links"]["raw"]
-            if 'engtl' in self.data["links"]:
-                json_links["official_english"] = self.data["links"]["engtl"]
-        except TypeError:
-            pass
+                    newl = self.data["links"][l]
+            elif l == 'nu':
+                newl = quote(self.data["links"][l])
+            elif l == 'ebj':
+                newl = re.sub('https://www.ebookjapan.jp/ebj/', '', self.data["links"][l])
+            else:
+                newl = self.data["links"][l]
+
+            if l in formats:
+                formats[l]["url"] = formats[l]["url"].format(newl)
+                json_links.update({l: formats[l]})
+            else:
+                json_links.update({{l: {"name": l, "url": newl}}})
         return json_links
 
+    def downloadCover(self, cover: str, cover_name: str) -> None:
+        """Download the cover.
 
-    # Download the cover
-    def downloadCover(self, cover: str, cover_name: str):
-        cover_response = requests.get(cover)
+        Args:
+            cover (str): Cover url to download.
+            cover_name (str): The cover's name for the save file.
+        """
+        cover_response = self.md_model.requestData(cover, 'cover')
+
+        self.md_model.checkResponseError(cover_response)
 
         if cover_response.status_code != 200:
             print(f'Could not save {cover_name}...')
             return
-        else:
-            cover_response = cover_response.content
+
+        cover_response = cover_response.content
 
         if not os.path.exists(os.path.join(self.cover_route, cover_name)):
             print(f'Saving cover {cover_name}...')
             with open(os.path.join(self.cover_route, cover_name), 'wb') as file:
                 file.write(cover_response)
-        return
 
-
-    # Get the covers to download
-    def saveCovers(self):
+    def saveCovers(self) -> None:
+        """Get the covers to download."""
         json_covers = self.covers
         cover = json_covers["mainCover"]
         cover_name = self.cover_regex.match(cover).group(1)
@@ -253,13 +191,21 @@ class TitleJson(JsonBase):
                 cover_prefix = self.regex.sub('_', html.unescape(cover_prefix))
                 cover_name = f'alt_{self.id}v{cover_prefix}.{cover_ext}'
                 self.downloadCover(cover_url, cover_name)
-        return
 
-
-    # Format the covers into the json
     def getCovers(self) -> dict:
-        response = requests.get(f'{self.api_url.format("manga", self.id)}/covers')
-        data = response.json()
+        """Format the covers into the json.
+
+        Returns:
+            dict: A dict of all the covers a manga has.
+        """
+        cover_response = self.md_model.requestData(f'{self.id}/covers', 'manga')
+
+        try:
+            data = self.md_model.convertJson(self.id, 'manga-cover', cover_response)
+        except MdRequestError:
+            print("Couldn't get the covers data.")
+            return
+
         covers_data = data["data"]
 
         json_covers = {"mainCover": self.cover_url}
@@ -271,67 +217,82 @@ class TitleJson(JsonBase):
         
         return json_covers
 
-
-    # The social data of the manga
     def getSocials(self) -> dict:
+        """The social data of the manga.
+
+        Returns:
+            dict: The social data of the manga.
+        """
         json_social = {"views": self.data["views"]}
         json_social["follows"] = self.data["follows"]
         json_social["comments"] = self.data["comments"]
         json_social["rating"] = self.data["rating"]
         return json_social
 
-
-    # General manga information
     def title(self) -> dict:
-        json_title = {"id": self.id}
-        json_title["title"] = self.data["title"]
-        json_title["link"] = self.domain.format('manga', self.id)
+        """General manga information.
 
-        if self.download_type == 1:
-            json_title["language"] = self.data["publication"]["language"]
-            json_title["author"] = ', '.join(self.data["author"])
-            json_title["artist"] = ', '.join(self.data["artist"])
-            json_title["lastChapter"] = self.data["lastChapter"]
-            json_title["isHentai"] = "Yes" if self.data["isHentai"] == True else "No"
-            json_title["social"] = self.social
+        Returns:
+            dict: The extra information of the manga.
+        """
+        data_copy = self.data.copy()
+        data_copy.pop('links', None)
+        json_title = {"id": self.id}
+        json_title["link"] = f'{self.domain}/manga/{self.id}'
+        json_title["attributes"] = data_copy
+        # json_title["title"] = self.data["title"]
+        # json_title["altTitles"] = self.data["altTitles"]
+        # json_title["language"] = self.data["publication"]["language"]
+        # json_title["author"] = ', '.join(self.data["author"])
+        # json_title["artist"] = ', '.join(self.data["artist"])
+        # json_title["lastChapter"] = self.data["lastChapter"]
+        # json_title["isHentai"] = "Yes" if self.data["isHentai"] == True else "No"
+        # json_title["social"] = self.social
         return json_title
 
+    def core(self, save_type: int=0) -> None:
+        """Format the json for exporting.
 
-    # Format the json for exporting
-    def core(self, save_type: int=0):
+        Args:
+            save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
+        """
         self.new_data = self.title_json
+        self.new_data["externalLinks"] = self.links
+        self.new_data["relationships"] = self.relationsips
+        # self.new_data["covers"] = self.covers
         
-        if self.download_type == 1:
-            self.new_data["externalLinks"] = self.links
-            self.new_data["covers"] = self.covers
-            
-            if save_type and self.save_covers:
-                self.saveCovers()
+        if save_type and self.save_covers:
+            self.saveCovers()
         
         self.addChaptersJson()
         self.saveJson()
-        return
 
 
 
 class AccountJson(JsonBase):
 
-    def __init__(self, data: dict, route: str, form: str):
-        super().__init__(data, route, form)
+    def __init__(self, md_model) -> None:
+        super().__init__(md_model)
         self.account_data = self.accountData()
 
-
-    # Get the account name
     def accountData(self) -> dict:
+        """Get the account's data and name.
+
+        Returns:
+            dict: The extra information provided by the api.
+        """
         json_account = {"id": self.id}
-        json_account["name"] = self.data["name"] if self.type == 'group' else self.data["username"]
-        json_account["link"] = self.domain.format(self.type, self.id)
+        json_account["link"] = f'{self.domain}/{self.type}/{self.id}'
+        json_account["attributes"] = self.data
         return json_account
 
+    def core(self, save_type: int=0) -> None:
+        """Format the json for exporting.
 
-    # Format the json for exporting
-    def core(self, save_type: int=0):
+        Args:
+            save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
+        """
         self.new_data = self.account_data
+        
         self.addChaptersJson()
         self.saveJson()
-        return
