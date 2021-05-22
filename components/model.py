@@ -10,7 +10,6 @@ from requests.models import Response
 
 from .constants import ImpVar
 from .errors import MDownloaderError, MdRequestError
-from .exporter import ArchiveExporter
 from .languages import getLangMD
 
 
@@ -20,7 +19,8 @@ class AuthMD:
         self.session = requests.Session()
         self.successful_login = False
         self.token_file = '.mdauth'
-        self.auth_url = f'{ImpVar.MANGADEX_API_URL}/auth'
+        self.api_url = ImpVar.MANGADEX_API_URL
+        self.auth_url = f'{self.api_url}/auth'
 
     def postData(self, url: str, post_data: dict) -> Response:
         response = self.session.post(url, json=post_data)
@@ -148,6 +148,17 @@ class MDownloader(AuthMD):
         self.name = ''
         self.route = ''
 
+        self.mdh_url = f'{self.api_url}/at-home/server'
+        self.chapter_api_url = f'{self.api_url}/chapter'
+        self.manga_api_url = f'{self.api_url}/manga'
+        self.group_api_url = f'{self.api_url}/group'
+        self.user_api_url = f'{self.api_url}/user'
+        self.list_api_url = f'{self.api_url}/list'
+        self.cover_api_url = f'{self.api_url}/cover'
+        self.legacy_url = f'{self.api_url}/legacy/mapping'
+        self.report_url = 'https://api.mangadex.network/report'
+        self.cdn_url = 'https://uploads.mangadex.org/covers'
+
     def formatArgs(self, args) -> None:
         """Format the arguments into readable data.
 
@@ -219,8 +230,6 @@ class MDownloader(AuthMD):
             bool: True if to download the covers, False if not.
         """
         if covers == 'save' and self.download_type == 'manga':
-            print('Covers are yet to be supported by the MangaDex api.')
-            return False
             return True
         else:
             return False
@@ -232,13 +241,11 @@ class MDownloader(AuthMD):
             make_folder (str): The command line argument.
 
         Returns:
-            bool: True if save to file, False if not.
+            bool: True if save to folder, False if not.
         """
         if make_folder == 'yes':
-            self.exporter_id = 0
             return True
         else:
-            self.exporter_id = 1
             return False
 
     def getIdFromUrl(self, url: str) -> Tuple[str, str]:
@@ -283,25 +290,19 @@ class MDownloader(AuthMD):
         self.formatRoute()
         return title
 
-    def requestData(self, download_id: str, download_type: str, get_chapters: bool=0, **params: dict) -> Response:
+    def requestData(self, url: str, get_chapters: bool=0, **params: dict) -> Response:
         """Connect to the API and get the response.
 
         Args:
-            download_id (str): The id to download.
-            download_type (str): Type of download.
+            url (str): Download url.
             get_chapters (bool, optional): If the download is to get the chapters. Defaults to 0.
 
         Returns:
             Response: The response of the resquest.
         """
-        if download_type in ('rss', 'cover'):
-            url = download_id
-        else:
-            url = f'{ImpVar.MANGADEX_API_URL}/{download_type}/{download_id}'
-
         if get_chapters:
-            if download_type in ('group', 'user'):
-                url = f'{ImpVar.MANGADEX_API_URL}/chapter'
+            if self.type_id in ('group', 'user'):
+                url = self.chapter_api_url
             else:
                 url = f'{url}/feed'
 
@@ -357,10 +358,12 @@ class MDownloader(AuthMD):
             bool: True if the amount of pages downloaded match the amount on the api, False if not.
         """
         # Only image files are counted
-        if isinstance(self.exporter, ArchiveExporter):
-            zip_count = [i for i in self.exporter.archive.namelist() if i.endswith(('.png', '.jpg', '.jpeg', '.gif'))]
+        if self.make_folder:
+            files_path = os.listdir(self.exporter.folder_path)
         else:
-            zip_count = [i for i in os.listdir(self.exporter.folder_path) if i.endswith(('.png', '.jpg', '.jpeg', '.gif'))]
+            files_path = self.exporter.archive.namelist()
+
+        zip_count = [i for i in files_path if i.endswith(('.png', '.jpg', '.jpeg', '.gif'))]
 
         if len(pages) == len(zip_count):
             return True
@@ -413,7 +416,7 @@ class MDownloader(AuthMD):
         """
         if time_to_wait == 0:
             return
-        
+
         if time_to_wait == 1:
             sentence_ending = '.'
         else:

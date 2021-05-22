@@ -11,8 +11,6 @@ from .constants import ImpVar
 from .exporter import ArchiveExporter, FolderExporter
 from .mangaplus import MangaPlus
 
-domain = ImpVar.MANGADEX_API_URL
-
 
 def reportImage(
         md_model,
@@ -29,7 +27,6 @@ def reportImage(
         img_size (int): The size in bytes of the image.
         start_time (int): When the request was started.
     """
-
     end_time = time.time()
     elapsed_time = int((end_time - start_time) * 1000)
 
@@ -40,7 +37,7 @@ def reportImage(
         "duration": elapsed_time
     }
 
-    response = md_model.postData('https://api.mangadex.network/report', data)
+    response = md_model.postData(md_model.report_url, data)
     # if not success:
     #     print(f'Reporting image {str(success)}.')
     # data = md_model.convertJson(md_mode.chapter_id, 'image-report', response)
@@ -55,7 +52,7 @@ def getServer(md_model) -> str:
     Returns:
         str: The MD@H node to download images from.
     """
-    server_response = md_model.requestData(md_model.chapter_id, 'at-home/server')
+    server_response = md_model.requestData(f'{md_model.mdh_url}/{md_model.chapter_id}')
     server_data = md_model.convertJson(md_model.chapter_id, 'chapter-server', server_response)
     return server_data["baseUrl"]
 
@@ -136,50 +133,43 @@ def chapterDownloader(md_model) -> None:
     """download_type: 0 = chapter
     download_type: 1 = manga
     download_type: 2 = group|user|list
-    download_type: 3 = manga title through group
+    download_type: 3 = manga through group
 
     Args:
-        md_model (MDownloader): [description]
+        md_model (MDownloader): The base class this program runs on.
     """
-    manga_plus_id = '4f1de6a2-f0c5-4ac5-bce5-02c7dbb67deb'
     external = False
 
-    if md_model.type_id in (0, 1):
+    if md_model.type_id == 0:
         # Connect to API and get chapter info
         chapter_id = md_model.id
-        response = md_model.requestData(chapter_id, 'chapter')
+        response = md_model.requestData(f'{md_model.chapter_api_url}/{chapter_id}')
         data = md_model.convertJson(chapter_id, 'chapter', response)
+
+        # Make sure only downloadable chapters are downloaded
+        if data["result"] not in ('ok'):
+            return
+
+        manga_id = [c["id"] for c in data["relationships"] if c["type"] == 'manga'][0]
+        manga_response = md_model.requestData(f'{md_model.manga_api_url}/{manga_id}')
+        manga_data = md_model.convertJson(manga_id, 'chapter-manga', manga_response)
+
+        title = md_model.formatTitle(manga_data)
 
         md_model.chapter_id = chapter_id
         md_model.chapter_data = data
     else:
         chapter_id = md_model.chapter_id
         data = md_model.chapter_data
-
-    # Make sure only downloadable chapters are downloaded
-    if data["result"] not in ('ok'):
-        return
+        title = md_model.title
 
     if r'https://mangaplus.shueisha.co.jp/viewer/' in data["data"]["attributes"]["data"][0]:
         external = True
 
-    # group_ids = [g["id"] for g in data["relationships"] if g["type"] == 'scanlation_group']
-
-    # if manga_plus_id in group_ids:
+    # if ImpVar.MANGAPLUS_GROUP_ID in [g["id"] for g in data["relationships"] if g["type"] == 'scanlation_group']:
     #     external = True
 
     chapter_data = data["data"]["attributes"]
-
-    # chapter, group, user downloads
-    if md_model.type_id == 0:
-        manga_id = [c["id"] for c in data["relationships"] if c["type"] == 'manga'][0]
-        manga_response = md_model.requestData(manga_id, 'manga')
-        manga_data = md_model.convertJson(manga_id, 'chapter-manga', manga_response)
-
-        title = md_model.formatTitle(manga_data)
-    else:
-        title = md_model.title
-
     md_model.prefix = md_model.chapter_prefix_dict.get(chapter_data["volume"], 'c')
 
     # Make the files

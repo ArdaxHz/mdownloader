@@ -19,7 +19,7 @@ def legacyMap(md_model, download_type: str, ids_to_convert: list) -> list:
         "ids": ids_to_convert
     }
 
-    response = md_model.postData(f'{ImpVar.MANGADEX_API_URL}/legacy/mapping', data)
+    response = md_model.postData(md_model.report_url, data)
     data = md_model.convertJson(md_model.id, f'{download_type}-legacy', response)
 
     for legacy in data:
