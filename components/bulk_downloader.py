@@ -3,13 +3,10 @@ import re
 import math
 from typing import Match, Pattern, Type, Union
 
-from .model import ImpVar
 from .chapter_downloader import chapterDownloader
 from .errors import MDownloaderError, NoChaptersError
 from .jsonmaker import AccountJson, TitleJson
 from .languages import getLangMD
-
-domain = ImpVar.MANGADEX_API_URL
 
 
 def checkForChapters(data: dict, md_model) -> int:
@@ -69,7 +66,7 @@ def getChapters(md_model, limit: int=500, **params: dict) -> list:
         })
 
         # Call the api and get the json data
-        chapters_response = md_model.requestData(md_model.id, md_model.download_type, 1, **parameters)
+        chapters_response = md_model.requestData(f'{md_model.api_url}/{md_model.download_type}/{md_model.id}', 1, **parameters)
         data = md_model.convertJson(md_model.id, f'{md_model.download_type}-chapters', chapters_response)
 
         # Finds how many pages needed to be called
@@ -134,7 +131,7 @@ def natsort(x) -> Union[int, float]:
     try:
         return float(x)
     except ValueError:
-        return 0
+        return x
 
 
 def rssItemFetcher(t: str, tag: str, regex: Pattern) -> Match:
@@ -293,14 +290,15 @@ def loopChapters(md_model, chapters: list, chapters_data: list) -> None:
     for chapter in chapters:
         chapter_id = chapter["data"]["id"]
         md_model.chapter_id = chapter_id
-        if md_model.type_id in (2, 3):
-            md_model.chapter_data = chapter
+        md_model.chapter_data = chapter
 
         try:
             if chapter_id not in chapters_data:
                 chapterDownloader(md_model)
         except MDownloaderError as e:
             if e: print(e)
+
+        md_model.waitingTime(1, print_message=False)
 
 
 def titleDownloader(md_model) -> None:
@@ -313,13 +311,13 @@ def titleDownloader(md_model) -> None:
 
     if md_model.download_type == 'manga':
         md_model.type_id = 1
-        manga_response = md_model.requestData(md_model.id, download_type)
+        manga_response = md_model.requestData(f'{md_model.manga_api_url}/{md_model.id}')
         manga_data = md_model.convertJson(md_model.id, download_type, manga_response)
         md_model.manga_data = manga_data
         md_model.manga_id = md_model.id
 
         # Call the api and filter out languages other than the selected
-        chapters = getChapters(md_model, **{"locales[]": md_model.language, "order[chapter]": "desc"})
+        chapters = getChapters(md_model, **{"translatedLanguage[]": md_model.language, "order[chapter]": "desc", "order[volume]": "desc"})
 
         md_model.chapters_data = chapters
         # chapters = filterChapters(data["results"], md_model.language)
@@ -362,7 +360,7 @@ def groupUserListDownloader(md_model) -> None:
     md_model.type_id = 2
     limit = 100
 
-    response = md_model.requestData(md_model.id, download_type)
+    response = md_model.requestData(f'{md_model.api_url}/{download_type}/{md_model.id}')
     data = md_model.convertJson(md_model.id, download_type, response)
     md_model.group_user_list_data = data
 
@@ -401,7 +399,7 @@ def groupUserListDownloader(md_model) -> None:
         if manga_id in titles:
             titles[manga_id]["chapters"].append(chapter)
         else:
-            manga_response = md_model.requestData(manga_id, 'manga')
+            manga_response = md_model.requestData(f'{md_model.manga_api_url}/{manga_id}')
             manga_data = md_model.convertJson(manga_id, 'account-manga', manga_response)
 
             titles[manga_id] = {"mangaId": manga_id, "mangaData": manga_data, "chapters": [chapter]}
@@ -419,7 +417,6 @@ def groupUserListDownloader(md_model) -> None:
         titleDownloader(md_model)
         md_model.type_id = 2
         account_json.core()
-        # loopChapters(md_model, titles[title]["chapters"], chapters_data)
 
     downloadMessage(1, download_type, name)
 
@@ -436,7 +433,7 @@ def rssDownloader(md_model) -> None:
 
     raise MDownloaderError("RSS isn't supported by MangaDex at this time.")
 
-    response = md_model.requestData(md_model, **{})
+    response = md_model.requestData(md_model.id)
     md_model.checkForError(md_model.id, response)
     data = response.content.decode()
     chapters = []

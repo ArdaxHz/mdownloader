@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-import html
 import json
 import os
 import re
@@ -94,17 +93,14 @@ class TitleJson(JsonBase):
         self.save_covers = md_model.covers
         self.regex = re.compile(ImpVar.REGEX)
 
-        ### Cover download is disabled due to not being in the api.
-        # # Make the covers folder in the manga folder
-        # if self.save_covers:
-        #     self.cover_route = self.route.joinpath('!covers')
-        #     self.cover_route.mkdir(parents=True, exist_ok=True)
+        # Make the covers folder in the manga folder
+        if self.save_covers:
+            self.cover_route = self.route.joinpath('!covers')
+            self.cover_route.mkdir(parents=True, exist_ok=True)
 
-        # self.cover_regex = re.compile(r'(?:https\:\/\/mangadex\.org\/images\/(?:manga|covers)\/)(.+)(?:(?:\?.+)|$)')
-        # self.cover_url = re.sub(r'\?[0-9]+', '', self.data["mainCover"])
         self.links = self.getLinks()
         # self.social = self.getSocials()
-        # self.covers = self.getCovers()
+        self.covers = self.getCovers()
         self.title_json = self.title()
 
     def getLinks(self) -> dict:
@@ -149,17 +145,18 @@ class TitleJson(JsonBase):
                 formats[l]["url"] = formats[l]["url"].format(newl)
                 json_links.update({l: formats[l]})
             else:
-                json_links.update({{l: {"name": l, "url": newl}}})
+                json_links.update({
+                    {l: {"name": l, "url": newl}}
+                    })
         return json_links
 
-    def downloadCover(self, cover: str, cover_name: str) -> None:
+    def downloadCover(self, cover_name: str) -> None:
         """Download the cover.
 
         Args:
-            cover (str): Cover url to download.
             cover_name (str): The cover's name for the save file.
         """
-        cover_response = self.md_model.requestData(cover, 'cover')
+        cover_response = self.md_model.requestData(f'{self.md_model.cdn_url}/{self.id}/{cover_name}')
 
         self.md_model.checkResponseError(cover_response)
 
@@ -177,20 +174,12 @@ class TitleJson(JsonBase):
     def saveCovers(self) -> None:
         """Get the covers to download."""
         json_covers = self.covers
-        cover = json_covers["mainCover"]
-        cover_name = self.cover_regex.match(cover).group(1)
-        cover_name = self.regex.sub('_', html.unescape(cover_name))
+        covers = json_covers["covers"]
 
-        self.downloadCover(cover, cover_name)
-
-        if not isinstance(json_covers["altCovers"], str):
-            for c in json_covers["altCovers"]:
-                cover_url = c["url"]
-                cover_ext = self.cover_regex.match(cover_url).group(1).rsplit('?', 1)[0].rsplit('.', 1)[-1]
-                cover_prefix = c["volume"].replace('.', '-')
-                cover_prefix = self.regex.sub('_', html.unescape(cover_prefix))
-                cover_name = f'alt_{self.id}v{cover_prefix}.{cover_ext}'
-                self.downloadCover(cover_url, cover_name)
+        if covers:
+            for cover in covers:
+                cover_name = cover["data"]["attributes"]["fileName"]
+                self.downloadCover(cover_name)
 
     def getCovers(self) -> dict:
         """Format the covers into the json.
@@ -198,7 +187,7 @@ class TitleJson(JsonBase):
         Returns:
             dict: A dict of all the covers a manga has.
         """
-        cover_response = self.md_model.requestData(f'{self.id}/covers', 'manga')
+        cover_response = self.md_model.requestData(f'{self.md_model.cover_api_url}', **{"manga[]": self.id, "limit": 100})
 
         try:
             data = self.md_model.convertJson(self.id, 'manga-cover', cover_response)
@@ -206,16 +195,7 @@ class TitleJson(JsonBase):
             print("Couldn't get the covers data.")
             return
 
-        covers_data = data["data"]
-
-        json_covers = {"mainCover": self.cover_url}
-        
-        if covers_data:
-            json_covers["altCovers"] = covers_data
-        else:
-            json_covers["altCovers"] = 'This title has no other covers.'
-        
-        return json_covers
+        return {"covers": data["results"]}
 
     def getSocials(self) -> dict:
         """The social data of the manga.
@@ -240,13 +220,6 @@ class TitleJson(JsonBase):
         json_title = {"id": self.id}
         json_title["link"] = f'{self.domain}/manga/{self.id}'
         json_title["attributes"] = data_copy
-        # json_title["title"] = self.data["title"]
-        # json_title["altTitles"] = self.data["altTitles"]
-        # json_title["language"] = self.data["publication"]["language"]
-        # json_title["author"] = ', '.join(self.data["author"])
-        # json_title["artist"] = ', '.join(self.data["artist"])
-        # json_title["lastChapter"] = self.data["lastChapter"]
-        # json_title["isHentai"] = "Yes" if self.data["isHentai"] == True else "No"
         # json_title["social"] = self.social
         return json_title
 
@@ -259,11 +232,11 @@ class TitleJson(JsonBase):
         self.new_data = self.title_json
         self.new_data["externalLinks"] = self.links
         self.new_data["relationships"] = self.relationsips
-        # self.new_data["covers"] = self.covers
-        
+        self.new_data["covers"] = self.covers
+
         if save_type and self.save_covers:
             self.saveCovers()
-        
+
         self.addChaptersJson()
         self.saveJson()
 

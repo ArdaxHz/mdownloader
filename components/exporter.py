@@ -11,8 +11,6 @@ from .constants import ImpVar
 from .errors import MDownloaderError
 from .languages import getLangIso
 
-re_regrex = re.compile(ImpVar.REGEX)
-
 
 
 class ExporterBase:
@@ -24,6 +22,7 @@ class ExporterBase:
         self.chapter_data = md_model.chapter_data["data"]["attributes"]
         self.relationships = md_model.chapter_data["relationships"]
         self.chapter_prefix = md_model.prefix
+        self.regex = re.compile(ImpVar.REGEX)
         self.oneshot = self.oneshotChecker()
         self.groups = self.groupNames()
         self.chapter_number = self.chapterNo()
@@ -95,7 +94,7 @@ class ExporterBase:
             str: The formatted volume number.
         """
         volume_number = self.chapter_data["volume"]
-        if volume_number is None or self.oneshot in (1, 2) or volume_number != '0':
+        if volume_number is None or self.oneshot in (1, 2) or volume_number == '0':
             return ''
 
         volume_number = str(volume_number)
@@ -105,22 +104,30 @@ class ExporterBase:
         volume_number = vol_no + '.' + parts[1] if len(parts) > 1 else vol_no
         return f' (v{volume_number})'
 
-    # The formatted prefix name
     def prefixName(self) -> str:
+        """The formatted prefix name.
+
+        Returns:
+            str: The name prefix.
+        """
         return f'{self.series_title}{self.language} - {self.chapter_number}{self.volume}'
 
-    # The chapter's groups
     def groupNames(self) -> str:
+        """The chapter's groups.
+
+        Returns:
+            str: The names of the scanlation groups.
+        """
         group_ids = [g["id"] for g in self.relationships if g["type"] == 'scanlation_group']
         groups = []
 
         for group_id in group_ids:
-            group_response = self.md_model.requestData(group_id, 'group')
+            group_response = self.md_model.requestData(f'{self.md_model.group_api_url}/{group_id}')
             group_data = self.md_model.convertJson(group_id, 'chapter-group', group_response)
             name = group_data["data"]["attributes"]["name"]
             groups.append(name)
 
-        return re_regrex.sub('_', html.unescape(', '.join(groups)))
+        return self.regex.sub('_', html.unescape(', '.join(groups)))
 
     def suffixName(self) -> str:
         """Formatting the groups as the suffix.
@@ -129,7 +136,7 @@ class ExporterBase:
             str: The suffix of the file name.
         """
         chapter_title = f'{self.chapter_data["title"][:31]}...' if len(self.chapter_data["title"]) > 30 else self.chapter_data["title"]
-        title = f'[{re_regrex.sub("_", html.unescape(chapter_title))}] ' if len(chapter_title) > 0 else ''
+        title = f'[{self.regex.sub("_", html.unescape(chapter_title))}] ' if len(chapter_title) > 0 else ''
         oneshot_prefix = '[Oneshot] '
         group_suffix = f'[{self.groups}]'
 
