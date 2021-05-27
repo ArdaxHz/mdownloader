@@ -1,7 +1,7 @@
-from .constants import ImpVar
+from .model import MDownloader
 
 
-def legacyMap(md_model, download_type: str, ids_to_convert: list) -> list:
+def legacyMap(md_model: MDownloader, download_type: str, ids_to_convert: list) -> list:
     """Convert the old MangaDex ids into the new ones.
 
     Args:
@@ -19,8 +19,8 @@ def legacyMap(md_model, download_type: str, ids_to_convert: list) -> list:
         "ids": ids_to_convert
     }
 
-    response = md_model.postData(md_model.report_url, data)
-    data = md_model.convertJson(md_model.id, f'{download_type}-legacy', response)
+    response = md_model.api.postData(md_model.report_url, data)
+    data = md_model.api.convertJson(md_model.id, f'{download_type}-legacy', response)
 
     for legacy in data:
         old_id = legacy["data"]["attributes"]["legacyId"]
@@ -31,20 +31,20 @@ def legacyMap(md_model, download_type: str, ids_to_convert: list) -> list:
     return new_ids
 
 
-def getIdType(md_model) -> None:
+def getIdType(md_model: MDownloader) -> None:
     """Get the id and download type from the url.
 
     Args:
         md_model (MDownloader): The base class this program runs on.
     """
-    id_from_url, download_type_from_url = md_model.getIdFromUrl(md_model.id)
+    id_from_url, download_type_from_url = md_model.formatter.getIdFromUrl(md_model.id)
     md_model.id = id_from_url
     md_model.download_type = download_type_from_url
 
     idFromLegacy(md_model, id_from_url)
 
 
-def idFromLegacy(md_model, old_id: str) -> None:
+def idFromLegacy(md_model: MDownloader, old_id: str) -> None:
     """Check if the id is only digits and use the default download type to try convert the ids.
 
     Args:

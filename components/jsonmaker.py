@@ -6,35 +6,37 @@ from pathlib import Path
 from urllib.parse import quote
 
 from .constants import ImpVar
-from .errors import MdRequestError
+from .errors import MDRequestError
+from .model import MDownloader
 
 
 class JsonBase:
 
-    def __init__(self, md_model) -> None:
+    def __init__(self, md_model: MDownloader) -> None:
         self.md_model = md_model
         self.type = md_model.download_type
         self.domain = ImpVar.MANGADEX_URL
         self.api_url = ImpVar.MANGADEX_API_URL
 
-        if self.md_model.type_id in (1, 3):
-            self.id = md_model.manga_data["data"]["id"]
-            self.data = md_model.manga_data["data"]["attributes"]
-            self.relationsips = md_model.manga_data["relationships"]
-
+        if self.md_model.type_id == 1 or self.md_model.manga_download:
+            data = md_model.manga_data
+            file_prefix = ''
             self.route = Path(md_model.route)
-            self.route.mkdir(parents=True, exist_ok=True)
-            self.json_path = self.route.joinpath(f'{self.id}_data').with_suffix('.json')
         else:
-            self.id = md_model.group_user_list_data["data"]["id"]
-            self.data = md_model.group_user_list_data["data"]["attributes"]
-            self.relationsips = md_model.group_user_list_data["relationships"]
+            data = md_model.data
+            file_prefix = f'{self.type}_'
+            self.route = Path(md_model.args.directory)
 
-            self.route = Path(md_model.directory)
-            self.route.mkdir(parents=True, exist_ok=True)
-            self.json_path = self.route.joinpath(f'{self.type}_{self.id}_data').with_suffix('.json')
+        self.id = data["data"]["id"]
+        self.data = data["data"]["attributes"]
+        self.relationsips = data["relationships"]
+
+        self.route.mkdir(parents=True, exist_ok=True)
+        self.json_path = self.route.joinpath(f'{file_prefix}{self.id}_data').with_suffix('.json')
 
         self.data_json = self.checkExist()
+        self.new_data = {}
+        self.chapter_data = self.data_json.get('chapters', [])
 
     def checkExist(self) -> dict:
         """Check if the json already exists.
@@ -45,52 +47,67 @@ class JsonBase:
         try:
             with open(self.json_path, 'r', encoding='utf8') as file:
                 series_json = json.load(file)
-
             return series_json
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
-    def chapters(self, chapter_data: dict) -> dict:
-        """Format the chapter data.
+    def chapters(self, chapter_data: dict) -> None:
+        """Add the chapter data to the json.
 
         Args:
             chapter_data (dict): The chapter data returned from the api.
-
-        Returns:
-            dict: The chapter data as an instance property.
         """
-        self.chapter_json = chapter_data
-        return self.chapter_json
+        if not self.data_json:
+            try:
+                if chapter_data not in self.chapter_data:
+                    self.chapter_data.append(chapter_data)
+            except KeyError:
+                self.chapter_data = [chapter_data]
+        else:
+            try:
+                self.chapter_data = self.data_json["chapters"]
+            except KeyError:
+                self.chapter_data = []
+            try:
+                if chapter_data not in self.chapter_data:
+                    self.chapter_data.append(chapter_data)
+            except AttributeError:
+                pass
 
     def saveJson(self) -> None:
         """Save the json."""
         with open(self.json_path, 'w', encoding='utf8') as json_file:
             json.dump(self.new_data, json_file, indent=4, ensure_ascii=False)
 
-    def addChaptersJson(self) -> None:
-        """Add the chapter data to the json."""
-        if not self.data_json:
-            try:
-                if self.chapter_json not in self.new_data["chapters"]:
-                    self.new_data["chapters"].append(self.chapter_json)
-            except KeyError:
-                self.new_data["chapters"] = [self.chapter_json]
+    def core(self, save_type: int=0) -> None:
+        """Format the json for exporting.
+
+        Args:
+            save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
+        """
+        if self.md_model.type_id == 1 or self.md_model.manga_download:
+            self.new_data = self.title_json
+            self.new_data["externalLinks"] = self.links
+            self.new_data["relationships"] = self.relationsips
+            self.new_data["covers"] = self.covers
+
+            if save_type and self.save_covers:
+                self.saveCovers()
         else:
-            self.new_data["chapters"] = self.data_json["chapters"]
-            try:
-                if self.chapter_json not in self.new_data["chapters"]:
-                    self.new_data["chapters"].append(self.chapter_json)
-            except AttributeError:
-                pass
+            self.new_data = self.account_data
+
+        self.new_data["chapters"] = self.chapter_data
+        # self.addChaptersJson()
+        self.saveJson()
 
 
 
 class TitleJson(JsonBase):
 
-    def __init__(self, md_model) -> None:
+    def __init__(self, md_model: MDownloader) -> None:
         super().__init__(md_model)
         self.download_type = md_model.download_type
-        self.save_covers = md_model.covers
+        self.save_covers = md_model.args.covers
         self.regex = re.compile(ImpVar.REGEX)
 
         # Make the covers folder in the manga folder
@@ -145,9 +162,8 @@ class TitleJson(JsonBase):
                 formats[l]["url"] = formats[l]["url"].format(newl)
                 json_links.update({l: formats[l]})
             else:
-                json_links.update({
-                    {l: {"name": l, "url": newl}}
-                    })
+                json_links.update(
+                    {l: {"name": l, "url": newl}})
         return json_links
 
     def downloadCover(self, cover_name: str) -> None:
@@ -156,9 +172,9 @@ class TitleJson(JsonBase):
         Args:
             cover_name (str): The cover's name for the save file.
         """
-        cover_response = self.md_model.requestData(f'{self.md_model.cdn_url}/{self.id}/{cover_name}')
+        cover_response = self.md_model.api.requestData(f'{self.md_model.cdn_url}/{self.id}/{cover_name}')
 
-        self.md_model.checkResponseError(cover_response)
+        self.md_model.api.checkResponseError(cover_response)
 
         if cover_response.status_code != 200:
             print(f'Could not save {cover_name}...')
@@ -187,13 +203,20 @@ class TitleJson(JsonBase):
         Returns:
             dict: A dict of all the covers a manga has.
         """
-        cover_response = self.md_model.requestData(f'{self.md_model.cover_api_url}', **{"manga[]": self.id, "limit": 100})
+        cache_json = self.md_model.cache.loadCacheData(self.id)
+        refresh_cache = self.md_model.cache.checkCacheTime(cache_json)
+        data = cache_json.get('covers', [])
 
-        try:
-            data = self.md_model.convertJson(self.id, 'manga-cover', cover_response)
-        except MdRequestError:
-            print("Couldn't get the covers data.")
-            return
+        if refresh_cache or not data:
+            cover_response = self.md_model.api.requestData(f'{self.md_model.cover_api_url}', **{"manga[]": self.id, "limit": 100})
+
+            try:
+                data = self.md_model.api.convertJson(self.id, 'manga-cover', cover_response)
+            except MDRequestError:
+                print("Couldn't get the covers data.")
+                return
+
+            self.md_model.cache.saveCacheData(cache_json["cache_date"], self.id, cache_json["data"], cache_json["chapters"], data)
 
         return {"covers": data["results"]}
 
@@ -223,28 +246,11 @@ class TitleJson(JsonBase):
         # json_title["social"] = self.social
         return json_title
 
-    def core(self, save_type: int=0) -> None:
-        """Format the json for exporting.
-
-        Args:
-            save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
-        """
-        self.new_data = self.title_json
-        self.new_data["externalLinks"] = self.links
-        self.new_data["relationships"] = self.relationsips
-        self.new_data["covers"] = self.covers
-
-        if save_type and self.save_covers:
-            self.saveCovers()
-
-        self.addChaptersJson()
-        self.saveJson()
-
 
 
 class AccountJson(JsonBase):
 
-    def __init__(self, md_model) -> None:
+    def __init__(self, md_model: MDownloader) -> None:
         super().__init__(md_model)
         self.account_data = self.accountData()
 
@@ -258,14 +264,3 @@ class AccountJson(JsonBase):
         json_account["link"] = f'{self.domain}/{self.type}/{self.id}'
         json_account["attributes"] = self.data
         return json_account
-
-    def core(self, save_type: int=0) -> None:
-        """Format the json for exporting.
-
-        Args:
-            save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
-        """
-        self.new_data = self.account_data
-        
-        self.addChaptersJson()
-        self.saveJson()

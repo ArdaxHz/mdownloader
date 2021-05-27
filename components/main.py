@@ -4,8 +4,7 @@ from typing import Type
 import os
 import re
 
-from .bulk_downloader import titleDownloader, groupUserListDownloader, rssDownloader
-from .chapter_downloader import chapterDownloader
+from .downloader import bulkDownloader, titleDownloader, followsDownloader, chapterDownloader
 from .constants import ImpVar
 from .errors import MDownloaderError, NoChaptersError
 from .legacy import getIdType, idFromLegacy, legacyMap
@@ -21,7 +20,7 @@ def urlMatch(url: str) -> bool:
     Returns:
         bool: True if the url is a MangaDex one, False if not.
     """
-    return bool(ImpVar.MD_URL.match(url) or ImpVar.MD_IMAGE_URL.match(url) or ImpVar.MD_RSS_URL.match(url))
+    return bool(ImpVar.MD_URL.match(url) or ImpVar.MD_IMAGE_URL.match(url) or ImpVar.MD_FOLLOWS_URL.match(url))
 
 
 def checkForLinks(links: list, message: str) -> None:
@@ -50,7 +49,7 @@ def checkUuid(series_id: str) -> bool:
     return bool(re.match(ImpVar.UUID_REGEX, series_id))
 
 
-def typeChecker(md_model) -> None:
+def typeChecker(md_model: MDownloader) -> None:
     """Call the different functions depending on the type of download.
 
     Args:
@@ -59,20 +58,26 @@ def typeChecker(md_model) -> None:
     Raises:
         MDownloaderError: The selected download type is not recognised.
     """
-    if md_model.download_type in ('title', 'manga'):
+    if md_model.download_type == 'chapter':
+        md_model.type_id = 0
+        md_model.chapter_id = md_model.id
+        chapterDownloader(md_model)
+    elif md_model.download_type in ('title', 'manga'):
+        md_model.type_id = 1
+        md_model.manga_id = md_model.id
         md_model.download_type == 'manga'
         titleDownloader(md_model)
     elif md_model.download_type in ('group', 'user', 'list'):
-        groupUserListDownloader(md_model)
-    elif md_model.download_type == 'chapter':
-        chapterDownloader(md_model)
-    elif md_model.download_type == 'rss':
-        rssDownloader(md_model)
+        md_model.type_id = 2
+        bulkDownloader(md_model)
+    elif md_model.download_type == 'follows':
+        md_model.type_id = 3
+        followsDownloader(md_model)
     else:
         raise MDownloaderError('Please enter a manga/chapter/group/user/list id. For non-manga downloads, you must add the argument "--type [chapter|user|group|list]".')
 
 
-def fileDownloader(md_model) -> None:
+def fileDownloader(md_model: MDownloader) -> None:
     """Download from file.
 
     Args:
@@ -80,7 +85,7 @@ def fileDownloader(md_model) -> None:
     """
     # Open file and read lines
     with open(md_model.id, 'r') as bulk_file:
-        links = [line.rstrip('\n') for line in bulk_file]
+        links = [line.rstrip('\n') for line in bulk_file.readlines()]
 
     checkForLinks(links, 'Empty file!')
     links = [line for line in links if len(line) > 0 and (urlMatch(line) or checkUuid(line) or line.isdigit())]
@@ -98,7 +103,7 @@ def fileDownloader(md_model) -> None:
                 new_id = link["new_id"]
                 links[links.index(str(old_id))] = new_id
 
-    md_model.waitingTime(print_message=False)
+    md_model.wait(2)
 
     print(ImpVar.API_MESSAGE)
     for download_id in links:
@@ -126,7 +131,8 @@ def main(args: Type[argparse.ArgumentParser.parse_args]) -> None:
         MDownloaderError: Couldn't find the file to download from.
     """
     md_model = MDownloader()
-    md_model.formatArgs(args)
+    md_model.args.formatArgs(args)
+
     series_id = md_model.id
     # md_model.login()
 
@@ -146,7 +152,7 @@ def main(args: Type[argparse.ArgumentParser.parse_args]) -> None:
                 getIdType(md_model)
                 typeChecker(md_model)
             else:
-                raise MDownloaderError('Please use a MangaDex manga/chapter/group/user/list link.')
+                raise MDownloaderError('Please use a MangaDex manga/chapter/group/user/list/follows link.')
         else:
             raise MDownloaderError('File not found!')
     # Use the id and download_type argument to download

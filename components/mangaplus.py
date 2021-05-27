@@ -6,13 +6,14 @@ import requests
 from tqdm import tqdm
 
 from .response_pb2 import Response
+from .model import MDownloader
 
 
 class MangaPlus:
 
     def __init__(
             self,
-            md_model) -> None:
+            md_model: MDownloader) -> None:
 
         self.md_model = md_model
         self.chapter_data = md_model.chapter_data
@@ -56,8 +57,8 @@ class MangaPlus:
         viewer = Response.FromString(response.content).success.manga_viewer
         pages = [p.manga_page for p in viewer.pages if p.manga_page.image_url]
 
-        exists = self.md_model.checkExist(pages)
-        self.md_model.existsBeforeDownload(exists)
+        exists = self.md_model.exist.checkExist(pages)
+        self.md_model.exist.existsBeforeDownload(exists)
 
         # Decrypt then save each image
         for page in tqdm(pages, desc=(str(datetime.now(tz=None))[:-7])):
@@ -65,5 +66,5 @@ class MangaPlus:
             page_no = pages.index(page) + 1
             self.exporter.addImage(image, page_no, self.extension)
 
-        downloaded_all = self.md_model.checkExist(pages)
-        self.md_model.existsAfterDownload(downloaded_all)
+        downloaded_all = self.md_model.exist.checkExist(pages)
+        self.md_model.exist.existsAfterDownload(downloaded_all)

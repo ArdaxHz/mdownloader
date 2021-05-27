@@ -5,12 +5,14 @@ This is a MangaDex specific downloader, other sites will not be supported.
 ## Install requirements
 `pip install -r requirements.txt`
 
+You'll need to name `.env.example` to `.env` and change the values to whatever would suit you best, if you don't know what its for, leave the values as they are.
+
 ## Excecute 
 `python3 mdownloader.py [options] (<manga|chapter|group|user|list link/id> or filename)`
 
-To bulk download, create a file in the same folder as the downloader. Inside, add one id or link per line, the id being . The link can be either for chapters or titles, no need to specify which it is using the "--type" argument. Instead of typing the id when executing, enter the filename. Since title is the default download type, there is no need to add it as an option for bulk download. Any line that isn't a mangadex manga/chapter/group/user/list link/id will be skipped.
+To bulk download, create a file in the same folder as the downloader. Inside, add one id or link per line, the id being . The link can be either for chapters or titles, no need to specify which it is using the "--type" argument. Instead of typing the id when executing, enter the filename. Since chapter is the default download type, there is no need to add it as an option for bulk download. Any line that isn't a mangadex manga/chapter/group/user/list link/id will be skipped.
 
-`python3 mdownloader.py mylist.txt [-t <chapter|group|user|list>]`
+`python3 mdownloader.py mylist.txt [-t <manga|group|user|list>]`
 
 ```
 link_1
@@ -26,12 +28,13 @@ link_3
 ```
     -l --language (optional. Use the MD code of the language you want to download. Default: English)
     -d --directory (optional. Can be an absolute or relative path. Default: script-folder/downloads)
-    -t --type (optional. You can choose between 'title', 'chapter', 'group' or 'user' options. Default: title)
-    -s --save_format (optional. Choose between comic archive or zip as the file type (both are zip files). You can choose between 'cbz' and 'zip' options. Default: cbz))
+    -t --type (optional. You can choose between 'manga', 'chapter', 'group' or 'user' options. Default: chapter)
+    -s --save_format (optional. Choose between comic archive or zip as the file type (both are zip files). You can choose between 'cbz' and 'zip' options. Default: cbz)
     -f --folder (optional. Downloads the images to a folder instead of an archive. You can choose between 'yes' and 'no' options. Default: no)
-    -c --covers (optional. Download the manga covers, works only with title downloads. You can choose between 'skip' and 'save' options. Default: skip)
+    -c --covers (optional. Download the manga covers, works only with manga downloads. You can choose between 'skip' and 'save' options. Default: skip)
     -j --json (optional. Add the chapter data as found on the api to the archive or folder. You can choose between 'add' and 'ignore' options. Default: add)
     -r --range (optional. Instead of downloading all the chapters, you can download a range of chapters, or download all while excluding some. 'all' to download all chapters, '!' before a chapter number or range to exclude those chapters from the download. You can choose between 'all' and 'range' options. Default: range)
+    --login (optional. Login to MangaDex.)
 ```
 
 Images will be downloaded in the download directory relative to the script location with the following structure:
@@ -76,4 +79,3 @@ This follows Daiz's [naming scheme](https://github.com/Daiz/manga-naming-scheme)
 Used the MangaPlus image decrypter from [here.](https://github.com/hurlenko/mloader)
 
 ## TODO
-Maybe add MDList download
