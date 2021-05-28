@@ -15,7 +15,7 @@ except ModuleNotFoundError:
     pass
 
 
-def updateChecker(args) -> None:
+def check_for_update(args) -> None:
     """Check if the program is the latest version.
 
     Args:
@@ -137,6 +137,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        updateChecker(args)
+        check_for_update(args)
     except KeyboardInterrupt:
-        print('\nProgram stopped!')
+        print('\nDownloader stopped!')

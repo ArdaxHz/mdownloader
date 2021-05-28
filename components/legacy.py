@@ -1,7 +1,7 @@
 from .model import MDownloader
 
 
-def legacyMap(md_model: MDownloader, download_type: str, ids_to_convert: list) -> list:
+def convert_ids(md_model: MDownloader, download_type: str, ids_to_convert: list) -> list:
     """Convert the old MangaDex ids into the new ones.
 
     Args:
@@ -15,12 +15,12 @@ def legacyMap(md_model: MDownloader, download_type: str, ids_to_convert: list) -
     new_ids = []
 
     data = {
-        "type": download_type,
-        "ids": ids_to_convert
+        'type': download_type,
+        'ids': ids_to_convert
     }
 
-    response = md_model.api.postData(md_model.report_url, data)
-    data = md_model.api.convertJson(md_model.id, f'{download_type}-legacy', response)
+    response = md_model.api.post_data(md_model.legacy_url, post_data=data)
+    data = md_model.api.convert_to_json(md_model.id, f'{download_type}-legacy', response)
 
     for legacy in data:
         old_id = legacy["data"]["attributes"]["legacyId"]
@@ -31,20 +31,20 @@ def legacyMap(md_model: MDownloader, download_type: str, ids_to_convert: list) -
     return new_ids
 
 
-def getIdType(md_model: MDownloader) -> None:
+def get_id_type(md_model: MDownloader) -> None:
     """Get the id and download type from the url.
 
     Args:
         md_model (MDownloader): The base class this program runs on.
     """
-    id_from_url, download_type_from_url = md_model.formatter.getIdFromUrl(md_model.id)
+    id_from_url, download_type_from_url = md_model.formatter.id_from_url(md_model.id)
     md_model.id = id_from_url
     md_model.download_type = download_type_from_url
 
-    idFromLegacy(md_model, id_from_url)
+    id_from_legacy(md_model, id_from_url)
 
 
-def idFromLegacy(md_model: MDownloader, old_id: str) -> None:
+def id_from_legacy(md_model: MDownloader, old_id: str) -> None:
     """Check if the id is only digits and use the default download type to try convert the ids.
 
     Args:
@@ -52,5 +52,5 @@ def idFromLegacy(md_model: MDownloader, old_id: str) -> None:
         old_id (str): The old id to convert.
     """
     if old_id.isdigit():
-        new_id = legacyMap(md_model, md_model.download_type, [int(old_id)])
+        new_id = convert_ids(md_model, md_model.download_type, [int(old_id)])
         md_model.id = new_id[0]["new_id"]

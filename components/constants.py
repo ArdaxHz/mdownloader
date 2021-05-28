@@ -30,7 +30,7 @@ class ImpVar:
     MANGADEX_API_URL = '{}://api.{}.{}'.format(scheme, domain, tld)
     MANGADEX_CDN_URL = '{}://uploads.{}.{}'.format(scheme, domain, tld)
 
-    API_MESSAGE = r"The global requests rate limit is 5/sec for the API. This program has waiting time to avoid bans, but it's not 100% guaranteed."
+    API_MESSAGE = r"The global requests rate limit is 5/sec for the API. This downloader has measures in place to avoid bans, but it's not guaranteed."
 
     MD_URL = re.compile(r'(?:https:\/\/)?(?:www.|api.)?(?:mangadex\.org\/)(?:api\/)?(?:v\d\/)?(title|chapter|manga|group|user|list)(?:\/)((?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})|(?:\d+))')
     MD_IMAGE_URL = re.compile(r'(?:https:\/\/)?(?:(?:(?:s\d|www)\.)?(?:mangadex\.org\/)|.+\.mangadex\.network(?::\d+)?\/)(?:.+)?(?:data\/)([a-f0-9]+)(?:\/)((?:\w+|\w+-\w+)\.(?:jpg|jpeg|png|gif))')

@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Type, Union
 
 from aiohttp import ClientSession, ClientError
-import click
 from tqdm import tqdm
 
 from .constants import ImpVar
@@ -14,7 +13,7 @@ from .mangaplus import MangaPlus
 from .model import MDownloader
 
 
-def reportImage(
+def report_image(
         md_model: MDownloader,
         success: bool,
         image_link: str,
@@ -39,14 +38,14 @@ def reportImage(
         "duration": elapsed_time
     }
 
-    response = md_model.api.postData(md_model.report_url, data)
+    response = md_model.api.post_data(md_model.report_url, data)
 
     if md_model.debug: print(f'Reporting image {str(success)}.')
 
     # data = md_model.api.convertJson(md_mode.chapter_id, 'image-report', response)
 
 
-def getServer(md_model: MDownloader) -> str:
+def get_server(md_model: MDownloader) -> str:
     """Get the MD@H node to download images from.
 
     Args:
@@ -55,12 +54,12 @@ def getServer(md_model: MDownloader) -> str:
     Returns:
         str: The MD@H node to download images from.
     """
-    server_response = md_model.api.requestData(f'{md_model.mdh_url}/{md_model.chapter_id}')
-    server_data = md_model.api.convertJson(md_model.chapter_id, 'chapter-server', server_response)
+    server_response = md_model.api.request_data(f'{md_model.mdh_url}/{md_model.chapter_id}')
+    server_data = md_model.api.convert_to_json(md_model.chapter_id, 'chapter-server', server_response)
     return server_data["baseUrl"]
 
 
-async def displayProgress(tasks: list) -> None:
+async def display_progress(tasks: list) -> None:
     """Display a progress bar of the downloaded images.
 
     Args:
@@ -72,7 +71,7 @@ async def displayProgress(tasks: list) -> None:
         except Exception as e: print(e)
 
 
-async def imageDownloader(
+async def image_download(
         md_model: MDownloader,
         url: str,
         fallback_url: str,
@@ -105,20 +104,20 @@ async def imageDownloader(
                     assert response.status == 200
                     img_data = await response.read()
 
-                    reportImage(md_model, True, image_link, len(img_data), start_time)
+                    report_image(md_model, True, image_link, len(img_data), start_time)
 
                     page_no = pages.index(image) + 1
                     extension = image.split('.', 1)[1]
 
                     # Add image to archive
-                    exporter.addImage(img_data, page_no, extension)
+                    exporter.add_image(img_data, page_no, extension)
 
                     retry = retry_max_times
 
             except (ClientError, AssertionError, ConnectionResetError, asyncio.TimeoutError):
                 retry += 1
 
-                reportImage(md_model, False, image_link, 0, start_time)
+                report_image(md_model, False, image_link, 0, start_time)
 
                 if retry == retry_max_times:
 
@@ -133,7 +132,7 @@ async def imageDownloader(
                 await asyncio.sleep(time_to_sleep)
 
 
-def baseDownloader(md_model: MDownloader) -> None:
+def chapter_downloader(md_model: MDownloader) -> None:
     """Use the chapter data for image downloads and file name export.
 
     download_type: 0 = chapter
@@ -172,25 +171,25 @@ def baseDownloader(md_model: MDownloader) -> None:
         # data_to_add.update({"mangaData": md_model.manga_data})
         md_model.title_json.chapters(data_to_add)
         if md_model.type_id in (2, 3):
-            md_model.account_json.chapters(data_to_add)
+            md_model.bulk_json.chapters(data_to_add)
 
-    click.echo(f'Downloading {title} | Volume: {chapter_data["volume"]} | Chapter: {chapter_data["chapter"]} | Title: {chapter_data["title"]}')
+    print(f'Downloading {title} | Volume: {chapter_data["volume"]} | Chapter: {chapter_data["chapter"]} | Title: {chapter_data["title"]}')
 
     # External chapters
     if external:
         # Call MangaPlus downloader
         print('External chapter. Connecting to MangaPlus to download.')
-        MangaPlus(md_model).plusImages()
+        MangaPlus(md_model).mplus_images()
         return
 
     pages = chapter_data["data"]
 
     # Check if the chapter has been downloaded already
-    exists = md_model.exist.checkExist(pages)
-    md_model.exist.existsBeforeDownload(exists)
+    exists = md_model.exist.check_exist(pages)
+    md_model.exist.before_download(exists)
 
-    server = getServer(md_model)
-    fallback_server = getServer(md_model)
+    server = get_server(md_model)
+    fallback_server = get_server(md_model)
 
     url = f'{server}/data/{chapter_data["hash"]}/'
     fallback_url = f'{fallback_server}/data/{chapter_data["hash"]}/'
@@ -201,11 +200,11 @@ def baseDownloader(md_model: MDownloader) -> None:
 
     # Download images
     for image in pages:
-        task = asyncio.ensure_future(imageDownloader(md_model, url, fallback_url, image, pages, exporter))
+        task = asyncio.ensure_future(image_download(md_model, url, fallback_url, image, pages, exporter))
         tasks.append(task)
 
-    runner = displayProgress(tasks)
+    runner = display_progress(tasks)
     loop.run_until_complete(runner)
 
-    downloaded_all = md_model.exist.checkExist(pages)
-    md_model.exist.existsAfterDownload(downloaded_all)
+    downloaded_all = md_model.exist.check_exist(pages)
+    md_model.exist.after_download(downloaded_all)
