@@ -18,21 +18,6 @@ def download_chapters(md_model: MDownloader, chapters: list, chapters_data: list
         chapters_data (list): The ids of the downloaded chapters from the data json.
     """
     for chapter in chapters:
-        groups = [g["id"] for g in chapter["relationships"] if g["type"] == 'scanlation_group']
-        users = [u["id"] for u in chapter["relationships"] if u["type"] == 'user']
-
-        if md_model.download_type == 'user' or md_model.download_type == 'manga':
-            # if any(group for group in groups if group not in md_model.filter.group_whitelist):
-            #     continue
-            if any(group for group in groups if group in md_model.filter.group_blacklist):
-                continue
-
-        if md_model.download_type == 'group' or md_model.download_type == 'manga':
-            # if any(user for user in users if user not in md_model.filter.user_whitelist):
-            #     continue
-            if any(user for user in users if user in md_model.filter.user_blacklist):
-                continue
-
         chapter_id = chapter["data"]["id"]
         md_model.chapter_id = chapter_id
         md_model.chapter_data = chapter        
@@ -109,7 +94,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
             md_model.wait(3)
 
         # End the loop when all the pages have been gone through
-        if iteration == pages:
+        if iteration == pages or offset == 10000:
             break
 
         iteration += 1
@@ -147,7 +132,6 @@ def manga_download(md_model: MDownloader) -> None:
     if download_type == 'manga':
         chapters_data = json_ids(title_json)
         md_model.title_json_data = chapters_data
-
         chapters = cache_json.get("chapters", [])
 
         if not chapters:
@@ -165,6 +149,17 @@ def manga_download(md_model: MDownloader) -> None:
         chapters = md_model.chapters_data[manga_id]["chapters"]
         chapters_data = md_model.bulk_json_data
         download_type = f'{download_type}-manga'
+
+    if md_model.filter.group_whitelist or md_model.filter.user_whitelist:
+        if md_model.filter.group_whitelist:
+            chapters = [c for c in chapters if [g["id"] for g in c["relationships"] if g["type"] == 'scanlation_group'] in md_model.filter.group_whitelist]
+        else:
+            if md_model.filter.user_whitelist:
+                chapters = [c for c in chapters if [u["id"] for u in c["relationships"] if u["type"] == 'user'] in md_model.filter.user_whitelist]
+    else:
+        chapters = [c for c in chapters if 
+            (([g["id"] for g in c["relationships"] if g["type"] == 'scanlation_group'] not in md_model.filter.group_blacklist) 
+                or [u["id"] for u in c["relationships"] if u["type"] == 'user'] not in md_model.filter.user_blacklist)]
 
     md_model.misc.download_message(0, download_type, title)
 

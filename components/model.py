@@ -536,7 +536,8 @@ class CacheRead(ModelsBase):
         """
         refresh = True
         if cache_json:
-            timestamp = datetime.strptime(cache_json["cache_date"], "%Y-%m-%d %H:%M:%S.%f") + timedelta(hours=self.cache_refresh_time)
+            cache_time = cache_json.get("cache_date", "1970-01-01 00:00:00.000000")
+            timestamp = datetime.strptime(cache_time, "%Y-%m-%d %H:%M:%S.%f") + timedelta(hours=self.cache_refresh_time)
             if datetime.now() >= timestamp:
                 pass
             refresh = False

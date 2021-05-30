@@ -169,7 +169,7 @@ class ExporterBase:
         """
         return f'{self.prefix} {self.suffix}'
 
-    def page_name(self, page_no: int, ext: str) -> str:
+    def format_page_name(self, page_no: int, ext: str) -> str:
         """Each page name.
 
         Args:
@@ -263,7 +263,7 @@ class ArchiveExporter(ExporterBase):
             page_no (int): The image number.
             ext (str): The image extension.
         """
-        self.page_name = self.page_name(page_no, ext)
+        self.page_name = self.format_page_name(page_no, ext)
         self.response = response
 
         self.check_image()
@@ -347,7 +347,7 @@ class FolderExporter(ExporterBase):
             page_no (int): The image number.
             ext (str): The image extension.
         """
-        self.page_name = self.page_name(page_no, ext)
+        self.page_name = self.format_page_name(page_no, ext)
         self.response = response
 
         self.check_image()

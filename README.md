@@ -10,7 +10,7 @@ You'll need to name `.env.example` to `.env` and change the values to whatever w
 ## Excecute 
 `python3 mdownloader.py [options] (<manga|chapter|group|user|list link/id> or filename)`
 
-To batch download, create a file in the same folder as the downloader. Inside, add one id or link per line. Instead of typing the id when executing, enter the filename. Since chapter is the default download type, any non-links will be treated as chapter ids and download as such.
+To batch download, create a file in the same folder as the downloader. Inside, add one id or link per line. Instead of typing the id when executing, enter the filename. Since chapter is the default download type, any non-links will be treated as chapter ids and be downloaded as such.
 
 `python3 mdownloader.py mylist.txt [-t <manga|group|user|list>]`
 
