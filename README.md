@@ -27,14 +27,13 @@ link_3
 ## Options
 ```
     -l --language (optional. Use the MD code of the language you want to download. Default: English)
-    -d --directory (optional. Can be an absolute or relative path. Default: ~/downloads)ww
     -t --type (optional. You can choose between 'manga', 'chapter', 'group' or 'user' options. Default: chapter)
-    -s --save_format (optional. Choose between comic archive or zip as the file type (both are zip files). You can choose between 'cbz' and 'zip' options. Default: cbz)
     -f --folder (optional. Downloads the images to a folder instead of an archive. You can choose between 'yes' and 'no' options. Default: no)
     -c --covers (optional. Download the manga covers, works only with manga downloads. You can choose between 'skip' and 'save' options. Default: skip)
     -j --json (optional. Add the chapter data as found on the api to the archive or folder. You can choose between 'add' and 'ignore' options. Default: add)
     -r --range (optional. Instead of downloading all the chapters, you can download a range of chapters, or download all while excluding some. 'all' to download all chapters, '!' before a chapter number or range to exclude those chapters from the download. You can choose between 'all' and 'range' options. Default: range)
-    --login (optional. Login to MangaDex.)
+    --login (optional. Login to MangaDex. Default: False)
+    --force (optional. Force refresh the downloaded cache. Default: False)
 ```
 
 Images will be downloaded in the download directory relative to the script location with the following structure:

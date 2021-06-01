@@ -15,8 +15,9 @@ class ImpVar:
 
     TOKEN_FILE = os.getenv("TOKEN_FILE", '.mdauth')
     CACHE_PATH = os.getenv("CACHE_PATH", '.cache')
+    DOWNLOAD_PATH = os.getenv("DOWNLOAD_PATH", 'downloads')
 
-    GLOBAL_TIME_TO_WAIT = int(os.getenv("GLOBAL_TIME_TO_WAIT", 1))
+    GLOBAL_TIME_TO_WAIT = int(os.getenv("GLOBAL_TIME_TO_WAIT", 2))
     RETRY_MAX_TIMES = int(os.getenv("IMAGE_RETRY_MAX_TIMES", 3))
     TIME_TO_SLEEP = int(os.getenv("IMAGE_RETRY_SLEEP", 3))
     CACHE_REFRESH_TIME = int(os.getenv("CACHE_REFRESH_TIME", 24))

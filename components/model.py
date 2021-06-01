@@ -265,6 +265,7 @@ class ProcessArgs(ModelsBase):
         self.covers = bool()
         self.add_data = bool()
         self.range_download = bool()
+        self.download_path = ImpVar.DOWNLOAD_PATH
 
     def format_args(self, args) -> None:
         """Format the arguments into readable data.
@@ -272,17 +273,20 @@ class ProcessArgs(ModelsBase):
         Args:
             args (argparse.ArgumentParser.parse_args): Command line arguments to parse.
         """
-        self.model.id = str(args.id)
-        self.model.debug = bool(args.debug)
-        self.model.download_type = str(args.type)
-        self.language = get_lang_md(args.language)
-        self.directory = str(args.directory)
-        self.save_format = self.archive_extension(args.save_format)
-        self.make_folder = self.folder_download(args.folder)
-        self.covers = self.download_covers(args.covers)
-        self.add_data = self.add_chapter_data(args.json)
-        self.range_download = self.download_range(args.range)
-        if args.login: self.model.auth.login()
+        args_dict = vars(args)
+
+        self.model.id = str(args_dict["id"])
+        self.model.debug = bool(args_dict["debug"])
+        self.model.force_refresh = bool(args_dict["force"])
+        self.model.download_type = str(args_dict["type"])
+        self.directory = str(args_dict.get("directory", self.download_path))
+        self.language = get_lang_md(args_dict["language"])
+        self.save_format = self.archive_extension('cbz')
+        self.make_folder = self.folder_download(args_dict["folder"])
+        self.covers = self.download_covers(args_dict["covers"])
+        self.add_data = self.add_chapter_data(args_dict["json"])
+        self.range_download = self.download_range(args_dict["range"])
+        if args_dict["login"]: self.model.auth.login()
 
     def archive_extension(self, save_format: str) -> str:
         """Check if the file extension is accepted. Default: cbz.
@@ -542,6 +546,9 @@ class CacheRead(ModelsBase):
                 pass
             refresh = False
 
+        if self.model.force_refresh:
+            refresh = True
+
         if refresh:
             if self.model.debug: print('Refreshing cache.')
         else:
@@ -712,10 +719,10 @@ class TitleDownloaderMisc(ModelsBase):
 
         Args:
             chapters_list (list): All the chapters in the manga.
-            chap_list (list): A list of chapter numberss to download.
+            chap_list (list): A list of chapter numbers to download.
 
         Returns:
-            list: The chapter number's to download's data.
+            list: The chapter numbers to download the data of.
         """
         chapters_range = []
 
@@ -753,7 +760,7 @@ class TitleDownloaderMisc(ModelsBase):
             chapters (list): The chapters to get the chapter numbers.
 
         Returns:
-            list: The list of chapters to download.
+            list: The chapters to download.
         """
         chapters_list = [c["data"]["attributes"]["chapter"] for c in chapters]
         chapters_list = list(set(chapters_list))
@@ -807,7 +814,7 @@ class MDownloader(MDownloaderBase):
         """Wait a certain amount of time before continuing.
 
         Args:
-            time_to_wait (int, optional): The time to wait. Defaults to ImpVar.GLOBAL_TIME_TO_WAIT.na
+            time_to_wait (int, optional): The time to wait. Defaults to ImpVar.GLOBAL_TIME_TO_WAIT.
             print_message (bool, optional): If to print the waiting message. Defaults to False.
         """
         if time_to_wait == 0:

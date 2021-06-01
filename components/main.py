@@ -65,7 +65,7 @@ def file_downloader(md_model: MDownloader) -> None:
                 new_id = link["new_id"]
                 links[links.index(str(old_id))] = new_id
 
-    md_model.wait(2)
+    md_model.wait()
 
     print(api_message)
     for download_id in links:

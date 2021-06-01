@@ -30,19 +30,24 @@ def download_chapters(md_model: MDownloader, chapters: list, chapters_data: list
             if e: print(e)
 
 
-def json_ids(json_data: Type[Union[TitleJson, BulkJson]]) -> list:
+def json_ids(md_model: MDownloader, json_data: Type[Union[TitleJson, BulkJson]]) -> list:
     """Check if a data json exists and return the ids saved.
 
     Args:
+        md_model (MDownloader): The base class this program runs on.
         json_data (Type[Union[TitleJson, BulkJson]]): If the json to look through is a title one or account one.
 
     Returns:
         list: A list containing all the ids stored if possible, otherwise return empty.
     """
-    if json_data.data_json:
-        chapters_data = json_data.data_json["chapters"]
-        return [c["data"]["id"] for c in chapters_data]
-    return []
+    ids = []
+
+    if json_data.data_json and not md_model.force_refresh:
+        chapters_data = json_data.data_json.get("chapters", [])
+        if chapters_data:
+            ids = [c["data"]["id"] for c in chapters_data]
+
+    return ids
 
 
 def get_chapters(md_model: MDownloader, url: str) -> list:
@@ -94,6 +99,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
             md_model.wait(3)
 
         # End the loop when all the pages have been gone through
+        # 
         if iteration == pages or offset == 10000:
             break
 
@@ -101,7 +107,6 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
         md_model.wait(0)
 
     print('Finished going through the pages.')
-
     return chapters
 
 
@@ -111,8 +116,8 @@ def manga_download(md_model: MDownloader) -> None:
     Args:
         md_model (MDownloader): The base class this program runs on.
     """
-    download_type = md_model.download_type
     manga_id = md_model.manga_id
+    download_type = md_model.download_type
 
     cache_json = md_model.cache.load_cache(manga_id)
     refresh_cache = md_model.cache.check_cache_time(cache_json)
@@ -130,7 +135,7 @@ def manga_download(md_model: MDownloader) -> None:
     md_model.title_json = title_json
 
     if download_type == 'manga':
-        chapters_data = json_ids(title_json)
+        chapters_data = json_ids(md_model, title_json)
         md_model.title_json_data = chapters_data
         chapters = cache_json.get("chapters", [])
 
@@ -232,7 +237,7 @@ def bulk_download(md_model: MDownloader) -> None:
     # Initalise json classes and make series folders
     bulk_json = BulkJson(md_model)
     md_model.bulk_json = bulk_json
-    md_model.bulk_json_data = json_ids(bulk_json)
+    md_model.bulk_json_data = json_ids(md_model, bulk_json)
 
     print(f"Getting each manga's data from the {download_type} chosen.")
 
@@ -255,6 +260,7 @@ def bulk_download(md_model: MDownloader) -> None:
         manga_download(md_model)
 
         md_model.manga_download = False
+        md_model.wait()
 
     md_model.misc.download_message(1, download_type, md_model.name)
 
