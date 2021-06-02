@@ -187,8 +187,8 @@ class ArchiveExporter(ExporterBase):
     def __init__(self, md_model: MDownloader) -> None:
         super().__init__(md_model)
 
-        self.save_format = md_model.args.save_format
-        self.archive_path = os.path.join(self.destination, f'{self.folder_name}.{self.save_format}')
+        self.archive_extension = md_model.args.archive_extension
+        self.archive_path = os.path.join(self.destination, f'{self.folder_name}.{self.archive_extension}')
         self.archive = self.check_zip()
  
     def make_zip(self) -> zipfile.ZipFile:
@@ -232,7 +232,7 @@ class ArchiveExporter(ExporterBase):
             # Loop until an available archive name that isn't taken is available
             while True:
                 if os.path.exists(self.archive_path):
-                    self.archive_path = os.path.join(self.destination, f'{self.folder_name}{{v{version_no}}}.{self.save_format}')
+                    self.archive_path = os.path.join(self.destination, f'{self.folder_name}{{v{version_no}}}.{self.archive_extension}')
                     self.archive = self.make_zip()
                     chapter_hash = self.archive.comment.decode().split('\n')[-1]
                     if chapter_hash == '' or chapter_hash == self.chapter_data["hash"]:

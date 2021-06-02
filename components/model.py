@@ -31,6 +31,7 @@ class MDownloaderBase:
         self.id = str()
         self.debug = False
         self.download_type = str()
+        self.directory = ImpVar.DOWNLOAD_PATH
 
         self.data = dict()
         self.manga_data = dict()
@@ -259,13 +260,12 @@ class ProcessArgs(ModelsBase):
     def __init__(self, model) -> None:
         super().__init__(model)
         self.language = str()
-        self.directory = str()
-        self.save_format = str()
+        # self.directory = str()
+        self.archive_extension = str()
         self.make_folder = bool()
         self.covers = bool()
         self.add_data = bool()
         self.range_download = bool()
-        self.download_path = ImpVar.DOWNLOAD_PATH
 
     def format_args(self, args) -> None:
         """Format the arguments into readable data.
@@ -279,20 +279,20 @@ class ProcessArgs(ModelsBase):
         self.model.debug = bool(args_dict["debug"])
         self.model.force_refresh = bool(args_dict["force"])
         self.model.download_type = str(args_dict["type"])
-        self.directory = str(args_dict.get("directory", self.download_path))
+        # self.directory = str(args_dict.get("directory", self.download_path))
         self.language = get_lang_md(args_dict["language"])
-        self.save_format = self.archive_extension('cbz')
+        self.archive_extension = self.check_archive_extension(ImpVar.ARCHIVE_EXTENSION)
         self.make_folder = self.folder_download(args_dict["folder"])
         self.covers = self.download_covers(args_dict["covers"])
         self.add_data = self.add_chapter_data(args_dict["json"])
         self.range_download = self.download_range(args_dict["range"])
         if args_dict["login"]: self.model.auth.login()
 
-    def archive_extension(self, save_format: str) -> str:
+    def check_archive_extension(self, archive_extension: str) -> str:
         """Check if the file extension is accepted. Default: cbz.
 
         Args:
-            save_format (str): The file extension.
+            archive_extension (str): The file extension.
 
         Raises:
             MDownloaderError: The extension chosen isn't allowed.
@@ -300,8 +300,8 @@ class ProcessArgs(ModelsBase):
         Returns:
             str: The file extension.
         """
-        if save_format in ('zip', 'cbz'):
-            return save_format
+        if archive_extension in ('zip', 'cbz'):
+            return archive_extension
         else:
             raise MDownloaderError("This archive save format is not allowed.")
 
@@ -440,7 +440,7 @@ class DataFormatter(ModelsBase):
 
     def format_route(self) -> None:
         """The route files will be saved to."""
-        self.model.route = os.path.join(self.model.args.directory, self.model.title)
+        self.model.route = os.path.join(self.model.directory, self.model.title)
 
     def format_title(self, data: dict) -> str:
         """Remove illegal characters from the manga title.

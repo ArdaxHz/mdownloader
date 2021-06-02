@@ -25,7 +25,7 @@ class JsonBase:
         else:
             data = md_model.data
             file_prefix = f'{self.type}_'
-            self.route = Path(md_model.args.directory)
+            self.route = Path(md_model.directory)
 
         self.id = data["data"]["id"]
         self.data = data["data"]["attributes"]

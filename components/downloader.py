@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Type, Union
 
 from .image_downloader import chapter_downloader
-from .errors import MDownloaderError, MDNotLoggedIn
+from .errors import MDownloaderError, NotLoggedInError
 from .jsonmaker import BulkJson, TitleJson
 from .model import MDownloader
 
@@ -99,7 +99,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
             md_model.wait(3)
 
         # End the loop when all the pages have been gone through
-        # 
+        # Offset 10000 is the highest you can go, any higher returns an error
         if iteration == pages or offset == 10000:
             break
 
@@ -260,7 +260,7 @@ def bulk_download(md_model: MDownloader) -> None:
         manga_download(md_model)
 
         md_model.manga_download = False
-        md_model.wait()
+        # md_model.wait()
 
     md_model.misc.download_message(1, download_type, md_model.name)
 
@@ -275,7 +275,7 @@ def follows_download(md_model: MDownloader) -> None:
         md_model (MDownloader): The base class this program runs on.
     """
     if not md_model.auth.successful_login:
-        raise MDNotLoggedIn('You need to be logged in to download your follows.')
+        raise NotLoggedInError('You need to be logged in to download your follows.')
 
     download_type = md_model.download_type
     response = md_model.api.request_data(f'{md_model.user_api_url}/me')

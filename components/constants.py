@@ -27,6 +27,8 @@ class ImpVar:
     USER_BLACKLIST_FILE = os.getenv("USER_BLACKLIST_FILE", 'user_blacklist.txt')
     USER_WHITELIST_FILE = os.getenv("USER_WHITELIST_FILE", 'user_whitelist.txt')
 
+    ARCHIVE_EXTENSION = os.getenv("ARCHIVE_EXTENSION", 'cbz')
+
     MANGADEX_URL = '{}://{}.{}'.format(scheme, domain, tld)
     MANGADEX_API_URL = '{}://api.{}.{}'.format(scheme, domain, tld)
     MANGADEX_CDN_URL = '{}://uploads.{}.{}'.format(scheme, domain, tld)
