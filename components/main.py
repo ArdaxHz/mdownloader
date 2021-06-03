@@ -46,6 +46,8 @@ def file_downloader(md_model: MDownloader) -> None:
     Args:
         md_model (MDownloader): The base class this program runs on.
     """
+    md_model.file_download = True
+
     # Open file and read lines
     with open(md_model.id, 'r') as bulk_file:
         links = [line.rstrip('\n') for line in bulk_file.readlines()]

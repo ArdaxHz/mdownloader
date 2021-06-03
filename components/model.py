@@ -32,6 +32,7 @@ class MDownloaderBase:
         self.debug = False
         self.download_type = str()
         self.directory = ImpVar.DOWNLOAD_PATH
+        self.file_download = False
 
         self.data = dict()
         self.manga_data = dict()
@@ -260,7 +261,6 @@ class ProcessArgs(ModelsBase):
     def __init__(self, model) -> None:
         super().__init__(model)
         self.language = str()
-        # self.directory = str()
         self.archive_extension = str()
         self.make_folder = bool()
         self.covers = bool()
@@ -279,7 +279,6 @@ class ProcessArgs(ModelsBase):
         self.model.debug = bool(args_dict["debug"])
         self.model.force_refresh = bool(args_dict["force"])
         self.model.download_type = str(args_dict["type"])
-        # self.directory = str(args_dict.get("directory", self.download_path))
         self.language = get_lang_md(args_dict["language"])
         self.archive_extension = self.check_archive_extension(ImpVar.ARCHIVE_EXTENSION)
         self.make_folder = self.folder_download(args_dict["folder"])
@@ -314,7 +313,7 @@ class ProcessArgs(ModelsBase):
         Returns:
             bool: True if to download in range, False if not.
         """
-        if range_download == 'range' and self.model.download_type == 'manga':
+        if range_download == 'range' and self.model.download_type == 'manga' and not self.model.file_download:
             return True
         else:
             return False
