@@ -313,7 +313,7 @@ class ProcessArgs(ModelsBase):
         Returns:
             bool: True if to download in range, False if not.
         """
-        if range_download == 'range' and self.model.download_type == 'manga' and not self.model.file_download:
+        if range_download == 'range' and self.model.download_type == 'manga':
             return True
         else:
             return False
@@ -703,14 +703,10 @@ class TitleDownloaderMisc(ModelsBase):
 
             if volume != '':
                 if result:
-                    temp_json = {}
-                    temp_json[volume] = chr(ord(prefix) + next_volume_index)
-                    chapter_prefix_dict.update(temp_json)
+                    vol_prefix = chr(ord(prefix) + next_volume_index)
                 else:
-                    temp_json = {}
-                    temp_json[volume] = 'c'
-                    chapter_prefix_dict.update(temp_json)
-
+                    vol_prefix = 'c'
+                chapter_prefix_dict.update({volume: vol_prefix})
         return chapter_prefix_dict
 
     def get_chapters_range(self, chapters_list: list, chap_list: list) -> list:
@@ -748,7 +744,6 @@ class TitleDownloaderMisc(ModelsBase):
                     print(f'Chapter {c} does not exist. Skipping.')
                     continue
             chapters_range.extend(c)
-
         return chapters_range
 
 
@@ -764,11 +759,9 @@ class TitleDownloaderMisc(ModelsBase):
         chapters_list = [c["data"]["attributes"]["chapter"] for c in chapters]
         chapters_list = list(set(chapters_list))
         chapters_list.sort()
-
-        print(f'Available chapters:\n{", ".join(chapters_list)}')
-
         remove_chapters = []
 
+        print(f'Available chapters:\n{", ".join(chapters_list)}')
         chap_list = input("\nEnter the chapter(s) to download: ").strip()
 
         if not chap_list:
@@ -776,7 +769,7 @@ class TitleDownloaderMisc(ModelsBase):
 
         chap_list = [c.strip() for c in chap_list.split(',')]
         chapters_to_remove = [c.strip('!') for c in chap_list if '!' in c]
-        [chap_list.remove(c) for c in chap_list if '!' in c]
+        chap_list = [c for c in chap_list if '!' not in c]
 
         # Find which chapters to download
         if 'all' not in chap_list:
@@ -787,10 +780,9 @@ class TitleDownloaderMisc(ModelsBase):
         # Get the chapters to remove from the download list
         remove_chapters = self.get_chapters_range(chapters_list, chapters_to_remove)
 
-        [chapters_to_download.remove(i) for i in remove_chapters]
-        chapters = [c for c in chapters if c["data"]["attributes"]["chapter"] in chapters_to_download]
-
-        return chapters
+        for i in remove_chapters:
+            chapters_to_download.remove(i)
+        return [c for c in chapters if c["data"]["attributes"]["chapter"] in chapters_to_download]
 
 
 

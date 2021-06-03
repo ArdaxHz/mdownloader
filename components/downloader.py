@@ -72,7 +72,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
         # Update the parameters with the new offset
         parameters.update({
             "limit": limit,
-            "offset": offset,
+            "offset": offset
         })
 
         # Call the api and get the json data
@@ -148,7 +148,6 @@ def manga_download(md_model: MDownloader) -> None:
             md_model.wait()
 
         md_model.chapters_data = chapters
-        # chapters = filterChapters(chapters, md_model.args.language)
         md_model.chapter_prefix_dict = md_model.title_misc.get_prefixes(chapters)
     else:
         chapters = md_model.chapters_data[manga_id]["chapters"]
