@@ -47,9 +47,10 @@ def file_downloader(md_model: MDownloader) -> None:
         md_model (MDownloader): The base class this program runs on.
     """
     md_model.args.range_download = False
+    filename = md_model.id
 
     # Open file and read lines
-    with open(md_model.id, 'r') as bulk_file:
+    with open(filename, 'r') as bulk_file:
         links = [line.rstrip('\n') for line in bulk_file.readlines()]
 
     md_model.misc.check_for_links(links, 'Empty file!')
@@ -81,7 +82,7 @@ def file_downloader(md_model: MDownloader) -> None:
         except MDownloaderError as e:
             if e: print(e)
 
-    print(f'All the ids in {md_model.id} have been downloaded')
+    print(f'All the ids in {filename} have been downloaded')
 
 
 def main(args: Type[argparse.ArgumentParser.parse_args]) -> None:

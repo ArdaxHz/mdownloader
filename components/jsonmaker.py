@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+from datetime import datetime
 import json
 import os
 import re
@@ -216,7 +217,7 @@ class TitleJson(JsonBase):
                 print("Couldn't get the covers data.")
                 return
 
-            self.md_model.cache.save_cache(cache_json["cache_date"], self.id, cache_json["data"], cache_json["chapters"], data)
+            self.md_model.cache.save_cache(cache_json.get("cache_date", datetime.now()), self.id, cache_json.get("data", []), cache_json.get("chapters", []), data)
 
         return {"covers": data["results"]}
 

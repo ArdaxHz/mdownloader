@@ -123,12 +123,16 @@ def manga_download(md_model: MDownloader) -> None:
     refresh_cache = md_model.cache.check_cache_time(cache_json)
     manga_data = cache_json.get('data', [])
 
+    if md_model.manga_data:
+        manga_data = md_model.manga_data
+        md_model.cache.save_cache(datetime.now(), manga_id, manga_data)
+
     if refresh_cache or not manga_data:
         manga_data = md_model.api.get_manga_data(download_type)
         md_model.cache.save_cache(datetime.now(), manga_id, manga_data)
-        md_model.wait()
+        md_model.manga_data = manga_data
+        md_model.wait()        
 
-    md_model.manga_data = manga_data
     title = md_model.formatter.format_title(manga_data)
     # Initalise json classes and make series folders
     title_json = TitleJson(md_model)

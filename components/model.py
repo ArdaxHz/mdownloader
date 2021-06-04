@@ -286,6 +286,7 @@ class ProcessArgs(ModelsBase):
         self.add_data = self.add_chapter_data(args_dict["json"])
         self.range_download = self.download_range(args_dict["range"])
         if args_dict["login"]: self.model.auth.login()
+        if args_dict["search"]: self.find_manga()
 
     def check_archive_extension(self, archive_extension: str) -> str:
         """Check if the file extension is accepted. Default: cbz.
@@ -359,6 +360,35 @@ class ProcessArgs(ModelsBase):
             return True
         else:
             return False
+
+    def find_manga(self):
+        manga_response = self.model.api.request_data(f'{self.model.manga_api_url}', **{"title": self.model.id, "limit": 100})
+        data = self.model.api.convert_to_json(self.model.id, 'manga-search', manga_response)
+
+        data = data["results"]
+
+        for count, manga in enumerate(data, start=1):
+            attributes = manga["data"]["attributes"]
+
+            if 'en' in attributes["title"]:
+                title = attributes["title"]["en"]
+            elif attributes["originalLanguage"] in attributes["title"]:
+                title = attributes["title"]["originalLanguage"]
+            else:
+                title = next(iter(attributes["title"]))
+
+            print(f'{count}: {title}')
+        
+        manga_to_use_num = int(input(f'Choose a number matching the position of the language: '))
+
+        if manga_to_use_num not in range(1, (len(data) + 1)):
+            raise MDownloaderError("Not a valid option.")
+
+        manga_to_use = data[(manga_to_use_num - 1)]
+
+        self.model.id = manga_to_use["data"]["id"]
+        self.model.download_type = 'manga'
+        self.model.manga_data = manga_to_use
 
 
 

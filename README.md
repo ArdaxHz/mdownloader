@@ -8,7 +8,7 @@ This is a MangaDex specific downloader, other sites will not be supported.
 You'll need to name `.env.example` to `.env` and change the values to whatever would suit you best, if you don't know what it's for, leave the values as they are.
 
 ## Excecute 
-`python3 mdownloader.py [options] (<manga|chapter|group|user|list link/id> or filename)`
+`python3 mdownloader.py (<manga|chapter|group|user|list link/id> or filename) [options]`
 
 To batch download, create a file in the same folder as the downloader. Inside, add one id or link per line. Instead of typing the id when executing, enter the filename. Since chapter is the default download type, any non-links will be treated as chapter ids and be downloaded as such.
 
@@ -32,6 +32,7 @@ link_3
     -c --covers (optional. Download the manga covers, works only with manga downloads. You can choose between 'skip' and 'save' options. Default: skip)
     -j --json (optional. Add the chapter data as found on the api to the archive or folder. You can choose between 'add' and 'ignore' options. Default: add)
     -r --range (optional. Instead of downloading all the chapters, you can download a range of chapters, or download all while excluding some. 'all' to download all chapters, '!' before a chapter number or range to exclude those chapters from the download. You can choose between 'all' and 'range' options. Default: range)
+    -s --search (optional. NEEDED to search for manga. Wrap multiple words in quotation marks, e.g. "Please Put These On, Takamine-san". Default: False)
     --login (optional. Login to MangaDex. Default: False)
     --force (optional. Force refresh the downloaded cache. Default: False)
 ```

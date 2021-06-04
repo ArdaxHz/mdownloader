@@ -129,6 +129,8 @@ if __name__ == "__main__":
     parser.add_argument('--json', '-j', default='add', nargs='?', const='ignore', choices=['add', 'ignore'], help='Add the chapter data as a json in the chapter archive/folder.')
     parser.add_argument('--range', '-r', default='range', nargs='?', const='all', choices=['all', 'range'], 
         help='Select custom chapters to download, add an "!" before a chapter number or range to exclude those chapters. Use "all" if you want to download all the chapters while excluding some.')
+    parser.add_argument('--search', '-s', default=False, const=True, nargs='?', 
+        help='Search for the manga specified. Wrap multiple words in quotation marks, e.g. "Please Put These On, Takamine-san"')
     parser.add_argument('--debug', default=False, const=True, nargs='?', help=argparse.SUPPRESS)
     parser.add_argument('--force', default=False, const=True, nargs='?', help='Force refresh the cache.')
     parser.add_argument('--login', default=False, const=True, nargs='?', help='Login to MangaDex.')
