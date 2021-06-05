@@ -57,7 +57,10 @@ def get_lang_md(language: str) -> str:
             for count, item in enumerate(languages_match, start=1):
                 print(f'{count}: {item["English"]}')
 
-            lang = int(input(f'Choose a number matching the position of the language: '))
+            try:
+                lang = int(input(f'Choose a number matching the position of the language: '))
+            except ValueError:
+                raise MDownloaderError("That's not a number.")
 
             if lang not in range(1, (len(languages_match) + 1)):
                 raise MDownloaderError(language_error)

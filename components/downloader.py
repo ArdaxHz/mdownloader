@@ -281,7 +281,7 @@ def follows_download(md_model: MDownloader) -> None:
         raise NotLoggedInError('You need to be logged in to download your follows.')
 
     download_type = md_model.download_type
-    response = md_model.api.request_data(f'{md_model.user_api_url}/me')
+    response = md_model.api.request_data(f'{md_model.user_api_url}/me', **{"order[createdAt]": "desc"})
     data = md_model.api.convert_to_json('User', download_type, response)
     md_model.wait()
 

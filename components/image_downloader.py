@@ -158,7 +158,7 @@ def chapter_downloader(md_model: MDownloader) -> None:
     md_model.prefix = md_model.chapter_prefix_dict.get(chapter_data["volume"], 'c')
 
     # Make the files
-    if md_model.args.make_folder:
+    if md_model.args.folder_download:
         exporter = FolderExporter(md_model)
     else:
         exporter = ArchiveExporter(md_model)

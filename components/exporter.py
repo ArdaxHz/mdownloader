@@ -32,7 +32,7 @@ class ExporterBase:
         self.suffix = self.suffix_name()
         self.folder_name = self.folder_name()
 
-        self.add_data = md_model.args.add_data
+        self.add_data = md_model.args.save_chapter_data
         self.destination = md_model.route
         self.path = Path(md_model.route)
         self.path.mkdir(parents=True, exist_ok=True)

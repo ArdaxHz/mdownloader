@@ -29,24 +29,24 @@ class MDownloaderBase:
 
     def __init__(self) -> None:
         self.id = str()
-        self.debug = False
+        self.debug = bool(False)
         self.download_type = str()
         self.directory = ImpVar.DOWNLOAD_PATH
         self.file_download = False
 
-        self.data = dict()
-        self.manga_data = dict()
-        self.chapters = list()
-        self.chapters_data = list()
-        self.chapter_data = dict()
+        self.data = {}
+        self.manga_data = {}
+        self.chapters = []
+        self.chapters_data = []
+        self.chapter_data = {}
         self.title_json = None
         self.bulk_json = None
-        self.chapter_prefix_dict = dict()
+        self.chapter_prefix_dict = {}
         self.exporter = None
-        self.title_json_data = list()
-        self.bulk_json_data = list()
-        self.params = dict()
-        self.cache_json = dict()
+        self.title_json_data = []
+        self.bulk_json_data = []
+        self.params = {}
+        self.cache_json = {}
 
         self.type_id = 0
         self.exporter_id = 1
@@ -57,7 +57,7 @@ class MDownloaderBase:
         self.name = str()
         self.route = str()
         self.chapter_limit = 500
-        self.manga_download = False
+        self.manga_download = bool(False)
 
         self.api_url = ImpVar.MANGADEX_API_URL
         self.mdh_url = f'{self.api_url}/at-home/server'
@@ -262,9 +262,9 @@ class ProcessArgs(ModelsBase):
         super().__init__(model)
         self.language = str()
         self.archive_extension = str()
-        self.make_folder = bool()
-        self.covers = bool()
-        self.add_data = bool()
+        self.folder_download = bool()
+        self.cover_download = bool()
+        self.save_chapter_data = bool()
         self.range_download = bool()
 
     def format_args(self, args) -> None:
@@ -280,10 +280,11 @@ class ProcessArgs(ModelsBase):
         self.model.force_refresh = bool(args_dict["force"])
         self.model.download_type = str(args_dict["type"])
         self.language = get_lang_md(args_dict["language"])
-        self.archive_extension = self.check_archive_extension(ImpVar.ARCHIVE_EXTENSION)
-        self.make_folder = self.folder_download(args_dict["folder"])
-        self.covers = self.download_covers(args_dict["covers"])
-        self.add_data = self.add_chapter_data(args_dict["json"])
+        self.archive_extension = ImpVar.ARCHIVE_EXTENSION
+        self.check_archive_extension(self.archive_extension)
+        self.folder_download = bool(args_dict["folder"])
+        self.cover_download = bool(args_dict["covers"])
+        self.save_chapter_data = bool(args_dict["json"])
         self.range_download = self.download_range(args_dict["range"])
         if args_dict["login"]: self.model.auth.login()
         if args_dict["search"]: self.find_manga()
@@ -300,86 +301,35 @@ class ProcessArgs(ModelsBase):
         Returns:
             str: The file extension.
         """
-        if archive_extension in ('zip', 'cbz'):
-            return archive_extension
-        else:
-            raise MDownloaderError("This archive save format is not allowed.")
+        if archive_extension not in ('zip', 'cbz'):
+            raise MDownloaderError("This archive save format is not allowed.")            
 
-    def download_range(self, range_download: str) -> bool:
+    def download_range(self, range_download: bool) -> bool:
         """Select the chapters to download. Works only on manga downloads. Default: range.
 
         Args:
-            range_download (str): The command line argument.
+            range_download (bool): The command line argument.
 
         Returns:
             bool: True if to download in range, False if not.
         """
-        if range_download == 'range' and self.model.download_type == 'manga':
+        if range_download and self.model.download_type == 'manga':
             return True
-        else:
-            return False
-
-    def add_chapter_data(self, add_data: str) -> bool:
-        """Add the chapter data to the save file/folder. Default: add.
-
-        Args:
-            add_data (str): The command line argument.
-
-        Returns:
-            bool: True if to save the data, False if not.
-        """
-        if add_data == 'add':
-            return True
-        else:
-            return False
-
-    def download_covers(self, covers: str) -> bool:
-        """Download manga covers. Works only on manga downloads. Default: skip.
-
-        Args:
-            covers (str): The command line argument.
-
-        Returns:
-            bool: True if to download the covers, False if not.
-        """
-        if covers == 'save':
-            return True
-        else:
-            return False
-
-    def folder_download(self, make_folder: str) -> bool:
-        """Download chapters to a folder or file. Default: file.
-
-        Args:
-            make_folder (str): The command line argument.
-
-        Returns:
-            bool: True if save to folder, False if not.
-        """
-        if make_folder == 'yes':
-            return True
-        else:
-            return False
+        return False
 
     def find_manga(self):
         manga_response = self.model.api.request_data(f'{self.model.manga_api_url}', **{"title": self.model.id, "limit": 100})
         data = self.model.api.convert_to_json(self.model.id, 'manga-search', manga_response)
-
         data = data["results"]
 
         for count, manga in enumerate(data, start=1):
-            attributes = manga["data"]["attributes"]
-
-            if 'en' in attributes["title"]:
-                title = attributes["title"]["en"]
-            elif attributes["originalLanguage"] in attributes["title"]:
-                title = attributes["title"]["originalLanguage"]
-            else:
-                title = next(iter(attributes["title"]))
-
+            title = self.model.formatter.get_title(manga)
             print(f'{count}: {title}')
-        
-        manga_to_use_num = int(input(f'Choose a number matching the position of the language: '))
+
+        try:
+            manga_to_use_num = int(input(f'Choose a number matching the position of the manga you want to download: '))
+        except ValueError:
+            raise MDownloaderError("That's not a number.")
 
         if manga_to_use_num not in range(1, (len(data) + 1)):
             raise MDownloaderError("Not a valid option.")
@@ -404,7 +354,7 @@ class ExistChecker(ModelsBase):
             bool: True if the amount of pages downloaded match the amount on the api, False if not.
         """
         # Only image files are counted
-        if self.model.args.make_folder:
+        if self.model.args.folder_download:
             files_path = os.listdir(self.model.exporter.folder_path)
         else:
             files_path = self.model.exporter.archive.namelist()
@@ -456,6 +406,26 @@ class ExistChecker(ModelsBase):
 
 class DataFormatter(ModelsBase):
 
+    def get_title(self, data: dict) -> str:
+        """Get the title from the manga data, looks for other languages if English is not available.
+
+        Args:
+            data (dict): Manga data to get the title from.
+
+        Returns:
+            str: The manga title from whatever language is available.
+        """
+        attributes = data["data"]["attributes"]
+
+        if 'en' in attributes["title"]:
+            title = attributes["title"]["en"]
+        elif attributes["originalLanguage"] in attributes["title"]:
+            title = attributes["title"]["originalLanguage"]
+        else:
+            title = next(iter(attributes["title"]))
+        
+        return title
+
     def strip_illegal(self, name: str) -> str:
         """Remove illegal characters from the specified name.
 
@@ -480,15 +450,7 @@ class DataFormatter(ModelsBase):
         Returns:
             str: The formatted title.
         """
-        attributes = data["data"]["attributes"]
-
-        if 'en' in attributes["title"]:
-            title = attributes["title"]["en"]
-        elif attributes["originalLanguage"] in attributes["title"]:
-            title = attributes["title"]["originalLanguage"]
-        else:
-            title = next(iter(attributes["title"]))
-
+        title = self.get_title(data)
         title = self.strip_illegal(title).rstrip(' .')
         self.model.title = title
         self.format_route()
@@ -823,8 +785,8 @@ class MDownloader(MDownloaderBase):
 
         self.api = ApiMD(self)
         self.auth = AuthMD(self)
-        self.args = ProcessArgs(self)
         self.formatter = DataFormatter(self)
+        self.args = ProcessArgs(self)
         self.exist = ExistChecker(self)
         self.cache = CacheRead(self)
         self.filter = Filtering(self)

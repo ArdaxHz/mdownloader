@@ -108,7 +108,7 @@ class TitleJson(JsonBase):
     def __init__(self, md_model: MDownloader) -> None:
         super().__init__(md_model)
         self.download_type = md_model.download_type
-        self.save_covers = md_model.args.covers
+        self.save_covers = md_model.args.cover_download
         self.regex = re.compile(ImpVar.REGEX)
 
         # Make the covers folder in the manga folder

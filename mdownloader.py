@@ -124,10 +124,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--language', '-l', default='en', help='Specify the language to download. NEEDED to download non-English chapters on manga downloads.')
     parser.add_argument('--type', '-t', default='chapter', nargs='?', const='manga', help='Type of id to download, manga, chapter, group, user or list.')
-    parser.add_argument('--folder', '-f', default='no', nargs='?', const='yes', choices=['yes', 'no'], help='Download into folder instead of archive.')
-    parser.add_argument('--covers', '-c', default='skip', nargs='?', const='save', choices=['skip', 'save'], help='Download the covers of the manga. Works only with manga downloads.')
-    parser.add_argument('--json', '-j', default='add', nargs='?', const='ignore', choices=['add', 'ignore'], help='Add the chapter data as a json in the chapter archive/folder.')
-    parser.add_argument('--range', '-r', default='range', nargs='?', const='all', choices=['all', 'range'], 
+    parser.add_argument('--folder', '-f', default=False, const=True, nargs='?', help='Download into folder instead of archive.')
+    parser.add_argument('--covers', '-c', default=False, const=True, nargs='?', help='Download the covers of the manga. Works only with manga downloads.')
+    parser.add_argument('--json', '-j', default=True, const=False, nargs='?', help='Add the chapter data as a json in the chapter archive/folder.')
+    parser.add_argument('--range', '-r', default=True, const=False, nargs='?', 
         help='Select custom chapters to download, add an "!" before a chapter number or range to exclude those chapters. Use "all" if you want to download all the chapters while excluding some.')
     parser.add_argument('--search', '-s', default=False, const=True, nargs='?', 
         help='Search for the manga specified. Wrap multiple words in quotation marks, e.g. "Please Put These On, Takamine-san"')
