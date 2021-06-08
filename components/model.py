@@ -182,7 +182,7 @@ class AuthMD(ModelsBase):
             bool: If login using the refresh token or account was successful.
         """
         refresh_token = {"token": token["refresh"]}
-        refresh_response = self.model.api.postData(f'{self.auth_url}/refresh', refresh_token)
+        refresh_response = self.model.api.post_data(f'{self.auth_url}/refresh', refresh_token)
 
         if refresh_response.status_code == 200:
             refresh_data = refresh_response.json()["token"]
@@ -225,7 +225,7 @@ class AuthMD(ModelsBase):
         password = getpass.getpass(prompt='Your password: ', stream=None)
 
         credentials = {"username": username, "password": password}
-        post = self.model.api.postData(f'{self.auth_url}/login', credentials)
+        post = self.model.api.post_data(f'{self.auth_url}/login', credentials)
         
         if post.status_code == 200:
             token = post.json()["token"]

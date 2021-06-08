@@ -2,8 +2,7 @@
 Download from MangaDex easily without compromising quality or speed!
 This is a MangaDex specific downloader, other sites will not be supported.
 
-## Computer OS System Differences
-If using Windows, you'll need to use `pip` and `python`. If using Linux or Mac OS, you'll need to use `pip3` and `python3`. For this readme, the Linux python namespace format will be used.
+*If using Windows, you'll need to use `pip` and `python`. If using Linux or Mac OS, you'll need to use `pip3` and `python3`. For this readme, the Linux python namespace format will be used.*
 
 ## Install requirements
 `pip3 install -r requirements.txt`
