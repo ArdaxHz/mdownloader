@@ -123,24 +123,29 @@ class ExporterBase:
         Returns:
             str: The names of the scanlation groups.
         """
-        group_ids = [g["id"] for g in self.relationships if g["type"] == 'scanlation_group']
-        groups = []
+        groups_relationship = [g for g in self.relationships if g["type"] == 'scanlation_group']
+        group_names = []
 
-        for group_id in group_ids:
-            cache_json = self.md_model.cache.load_cache(group_id)
-            refresh_cache = self.md_model.cache.check_cache_time(cache_json)
-            group_data = cache_json.get('data', [])
+        for group in groups_relationship:
+            group_data = group.get('attributes', {})
+            group_id = group["id"]
 
-            if refresh_cache or not group_data:
-                group_response = self.md_model.api.request_data(f'{self.md_model.group_api_url}/{group_id}')
-                group_data = self.md_model.api.convert_to_json(group_id, 'chapter-group', group_response)
+            if not group_data:
+                cache_json = self.md_model.cache.load_cache(group_id)
+                refresh_cache = self.md_model.cache.check_cache_time(cache_json)
+                group_data = cache_json.get('data', [])
 
-                self.md_model.cache.save_cache(datetime.now(), group_id, group_data)
+                if refresh_cache or not group_data:
+                    group_response = self.md_model.api.request_data(f'{self.md_model.group_api_url}/{group_id}')
+                    group = self.md_model.api.convert_to_json(group_id, 'chapter-group', group_response)
 
-            name = group_data["data"]["attributes"]["name"]
-            groups.append(name)
+                group_data = group["data"]["attributes"]
 
-        return self.md_model.formatter.strip_illegal(', '.join(groups))
+            self.md_model.cache.save_cache(datetime.now(), group_id, group)
+            name = group_data["name"]
+            group_names.append(name)
+
+        return self.md_model.formatter.strip_illegal(', '.join(group_names))
 
     def suffix_name(self) -> str:
         """Formatting the groups as the suffix.

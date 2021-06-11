@@ -66,7 +66,8 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
     pages = 1
     iteration = 1
 
-    parameters = md_model.params
+    parameters = {"includes[]": ["scanlation_group", "artist", "author"]}
+    parameters.update(md_model.params)
 
     while True:
         # Update the parameters with the new offset
@@ -91,6 +92,9 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
             chapters_count = md_model.misc.check_for_chapters(data)
             if chapters_count > limit:
                 pages = math.ceil(chapters_count / limit)
+
+            if chapters_count >= 10000:
+                print('Due to api limits, a maximum of 10000 chapters can be downloaded.')
 
             print(f"{pages} page(s) to go through.")
 
@@ -309,16 +313,20 @@ def chapter_download(md_model: MDownloader) -> None:
     manga_data = cache_json.get('data', {})
 
     if refresh_cache or not data or not manga_data:
-        response = md_model.api.request_data(f'{md_model.chapter_api_url}/{chapter_id}')
+        response = md_model.api.request_data(f'{md_model.chapter_api_url}/{chapter_id}', **{"includes[]": ["manga", "scanlation_group"]})
         data = md_model.api.convert_to_json(chapter_id, download_type, response)
 
         # Make sure only downloadable chapters are downloaded
         if data["result"] not in ('ok'):
             return
 
-        manga_id = [c["id"] for c in data["relationships"] if c["type"] == 'manga'][0]
+        manga = dict([c for c in data["relationships"] if c["type"] == 'manga'][0])
+        manga_id = manga["id"]
         md_model.manga_id = manga_id
-        manga_data = md_model.api.get_manga_data('chapter-manga')
+        manga_data = manga.get('attributes', {})
+
+        if not manga_data:
+            manga_data = md_model.api.get_manga_data('chapter-manga')
 
         md_model.cache.save_cache(datetime.now(), chapter_id, manga_data, data)
 

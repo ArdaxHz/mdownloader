@@ -415,7 +415,10 @@ class DataFormatter(ModelsBase):
         Returns:
             str: The manga title from whatever language is available.
         """
-        attributes = data["data"]["attributes"]
+        try:
+            attributes = data["data"]["attributes"]
+        except KeyError:
+            attributes = data
 
         if 'en' in attributes["title"]:
             title = attributes["title"]["en"]
