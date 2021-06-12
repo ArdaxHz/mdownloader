@@ -150,7 +150,7 @@ class ApiMD(ModelsBase):
         Returns:
             dict: The manga's data.
         """
-        manga_response = self.request_data(f'{self.model.manga_api_url}/{self.model.manga_id}')
+        manga_response = self.request_data(f'{self.model.manga_api_url}/{self.model.manga_id}', **{"includes[]": ["artist", "author", "cover"]})
         return self.convert_to_json(self.model.manga_id, download_type, manga_response)
 
 
@@ -318,7 +318,7 @@ class ProcessArgs(ModelsBase):
         return False
 
     def find_manga(self):
-        manga_response = self.model.api.request_data(f'{self.model.manga_api_url}', **{"title": self.model.id, "limit": 100})
+        manga_response = self.model.api.request_data(f'{self.model.manga_api_url}', **{"title": self.model.id, "limit": 100, "includes[]": ["artist", "author", "cover"]})
         data = self.model.api.convert_to_json(self.model.id, 'manga-search', manga_response)
         data = data["results"]
 

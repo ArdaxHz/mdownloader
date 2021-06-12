@@ -66,7 +66,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
     pages = 1
     iteration = 1
 
-    parameters = {"includes[]": ["scanlation_group", "artist", "author"]}
+    parameters = {"includes[]": "scanlation_group"}
     parameters.update(md_model.params)
 
     while True:
