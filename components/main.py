@@ -28,7 +28,7 @@ def check_type(md_model: MDownloader) -> None:
     elif md_model.download_type in ('title', 'manga'):
         md_model.type_id = 1
         md_model.manga_id = md_model.id
-        md_model.download_type == 'manga'
+        md_model.download_type = 'manga'
         manga_download(md_model)
     elif md_model.download_type in ('group', 'user', 'list'):
         md_model.type_id = 2

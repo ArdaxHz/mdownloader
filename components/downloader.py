@@ -322,11 +322,11 @@ def chapter_download(md_model: MDownloader) -> None:
             return
 
         manga = dict([c for c in data["relationships"] if c["type"] == 'manga'][0])
-        manga_id = manga["id"]
-        md_model.manga_id = manga_id
+        md_model.manga_id = manga["id"]
         manga_data = manga.get('attributes', {})
 
         if not manga_data:
+            if md_model.debug: print('Calling api for manga data from chapter download.')
             manga_data = md_model.api.get_manga_data('chapter-manga')
 
         md_model.cache.save_cache(datetime.now(), chapter_id, manga_data, data)

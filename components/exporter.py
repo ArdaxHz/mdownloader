@@ -131,6 +131,7 @@ class ExporterBase:
             group_id = group["id"]
 
             if not group_data:
+                if self.md_model.debug: print('Calling api for group data from chapter download.')
                 cache_json = self.md_model.cache.load_cache(group_id)
                 refresh_cache = self.md_model.cache.check_cache_time(cache_json)
                 group_data = cache_json.get('data', [])
