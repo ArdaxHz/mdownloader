@@ -127,16 +127,16 @@ def manga_download(md_model: MDownloader) -> None:
     refresh_cache = md_model.cache.check_cache_time(cache_json)
     manga_data = cache_json.get('data', [])
 
-    if md_model.manga_data:
+    if md_model.manga_data and md_model.args.search_manga:
         manga_data = md_model.manga_data
-        md_model.cache.save_cache(datetime.now(), manga_id, manga_data)
+        md_model.cache.save_cache(datetime.now(), manga_id, data=manga_data)
 
     if refresh_cache or not manga_data:
         manga_data = md_model.api.get_manga_data(download_type)
-        md_model.cache.save_cache(datetime.now(), manga_id, manga_data)
-        md_model.manga_data = manga_data
+        md_model.cache.save_cache(datetime.now(), manga_id, data=manga_data)
         md_model.wait()        
 
+    md_model.manga_data = manga_data
     title = md_model.formatter.format_title(manga_data)
     # Initalise json classes and make series folders
     title_json = TitleJson(md_model)
@@ -152,7 +152,7 @@ def manga_download(md_model: MDownloader) -> None:
             md_model.params = {"translatedLanguage[]": md_model.args.language, "order[chapter]": "desc", "order[volume]": "desc"}
             url = f'{md_model.manga_api_url}/{md_model.id}'
             chapters = get_chapters(md_model, url)
-            md_model.cache.save_cache(datetime.now(), manga_id, manga_data, chapters)
+            md_model.cache.save_cache(datetime.now(), manga_id, data=manga_data, chapters=chapters)
             md_model.wait()
 
         md_model.chapters_data = chapters
@@ -203,7 +203,7 @@ def bulk_download(md_model: MDownloader) -> None:
             response = md_model.api.request_data(f'{md_model.api_url}/{md_model.download_type}/{md_model.id}')
             data = md_model.api.convert_to_json(md_model.id, download_type, response)
 
-            md_model.cache.save_cache(datetime.now(), md_model.id, data)
+            md_model.cache.save_cache(datetime.now(), download_id=md_model.id, data=data)
             md_model.wait()
 
         # Order the chapters descending by the order they're released to read
@@ -267,7 +267,8 @@ def bulk_download(md_model: MDownloader) -> None:
         manga_download(md_model)
 
         md_model.manga_download = False
-        # md_model.wait()
+        md_model.manga_data = {}
+        md_model.wait(0)
 
     md_model.misc.download_message(1, download_type, md_model.name)
 

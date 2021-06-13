@@ -54,3 +54,4 @@ def id_from_legacy(md_model: MDownloader, old_id: str) -> None:
     if old_id.isdigit():
         new_id = convert_ids(md_model, md_model.download_type, [int(old_id)])
         md_model.id = new_id[0]["new_id"]
+        if md_model.debug: print(new_id)

@@ -266,6 +266,7 @@ class ProcessArgs(ModelsBase):
         self.cover_download = bool()
         self.save_chapter_data = bool()
         self.range_download = bool()
+        self.search_manga = False
 
     def format_args(self, args) -> None:
         """Format the arguments into readable data.
@@ -287,7 +288,9 @@ class ProcessArgs(ModelsBase):
         self.save_chapter_data = bool(args_dict["json"])
         self.range_download = self.download_range(args_dict["range"])
         if args_dict["login"]: self.model.auth.login()
-        if args_dict["search"]: self.find_manga()
+        if args_dict["search"]:
+            self.search_manga = True
+            self.find_manga()
 
     def check_archive_extension(self, archive_extension: str) -> str:
         """Check if the file extension is accepted. Default: cbz.
@@ -503,8 +506,10 @@ class CacheRead(ModelsBase):
             covers (list, optional): The covers of the manga.. Defaults to [].
         """
         cache_json = {"cache_date": str(cache_time), "data": data, "covers": covers, "chapters": chapters}
+        cache_file_path = self.root.joinpath(f'{download_id}').with_suffix('.json.gz')
+        if self.model.debug: print(cache_file_path)
 
-        with gzip.open(self.root.joinpath(f'{download_id}').with_suffix('.json.gz'), 'w') as cache_json_fp:
+        with gzip.open(cache_file_path, 'w') as cache_json_fp:
             cache_json_fp.write(json.dumps(cache_json, indent=4, ensure_ascii=False).encode('utf-8'))
 
     def load_cache(self, download_id: str) -> dict:
@@ -516,8 +521,11 @@ class CacheRead(ModelsBase):
         Returns:
             dict: The cache's data.
         """
+        cache_file_path = self.root.joinpath(f'{download_id}').with_suffix('.json.gz')
+        if self.model.debug: print(cache_file_path)
+
         try:
-            with gzip.open(self.root.joinpath(f'{download_id}').with_suffix('.json.gz'), 'r') as cache_json_fp:
+            with gzip.open(cache_file_path, 'r') as cache_json_fp:
                 cache_json = json.loads(cache_json_fp.read().decode('utf-8'))
             return cache_json
         except (FileNotFoundError, json.JSONDecodeError, gzip.BadGzipFile):
