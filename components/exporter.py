@@ -129,7 +129,7 @@ class ExporterBase:
         for group in groups_relationship:
             group_id = group["id"]
             group_data = group.get('attributes', {})
-            group_data_unformatted = {"data": {"id": group_id, "type": "scanlation_group", "attributes": group_data}}
+            group_data_unformatted = {"data": group}
 
             if not group_data:
                 if self.md_model.debug: print('Calling api for group data from chapter download.')
