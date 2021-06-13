@@ -125,13 +125,14 @@ def manga_download(md_model: MDownloader) -> None:
 
     cache_json = md_model.cache.load_cache(manga_id)
     refresh_cache = md_model.cache.check_cache_time(cache_json)
-    manga_data = cache_json.get('data', [])
+    manga_data = cache_json.get('data', {})
+    relationships = manga_data.get('relationships', [])
 
     if md_model.manga_data and md_model.args.search_manga:
         manga_data = md_model.manga_data
         md_model.cache.save_cache(datetime.now(), manga_id, data=manga_data)
 
-    if refresh_cache or not manga_data:
+    if refresh_cache or not manga_data or not relationships:
         manga_data = md_model.api.get_manga_data(download_type)
         md_model.cache.save_cache(datetime.now(), manga_id, data=manga_data)
         md_model.wait()        
@@ -179,7 +180,6 @@ def manga_download(md_model: MDownloader) -> None:
         chapters = md_model.title_misc.download_range_chapters(chapters)
 
     download_chapters(md_model, chapters, chapters_data)
-
     md_model.misc.download_message(1, download_type, title)
 
     # Save the json and covers if selected
@@ -197,9 +197,10 @@ def bulk_download(md_model: MDownloader) -> None:
     if md_model.type_id == 2:
         cache_json = md_model.cache.load_cache(md_model.id)
         refresh_cache = md_model.cache.check_cache_time(cache_json)
-        data = cache_json.get('data', [])
+        data = cache_json.get('data', {})
+        relationships = data.get('relationships', [])
 
-        if refresh_cache or not data:
+        if refresh_cache or not data or not relationships:
             response = md_model.api.request_data(f'{md_model.api_url}/{md_model.download_type}/{md_model.id}')
             data = md_model.api.convert_to_json(md_model.id, download_type, response)
 
@@ -310,30 +311,24 @@ def chapter_download(md_model: MDownloader) -> None:
 
     cache_json = md_model.cache.load_cache(md_model.id)
     refresh_cache = md_model.cache.check_cache_time(cache_json)
-    data = cache_json.get('chapters', {})
-    manga_data = cache_json.get('data', {})
+    chapter_data = cache_json.get('data', {})
 
-    if refresh_cache or not data or not manga_data:
+    if refresh_cache or not chapter_data:
         response = md_model.api.request_data(f'{md_model.chapter_api_url}/{chapter_id}', **{"includes[]": ["manga", "scanlation_group"]})
-        data = md_model.api.convert_to_json(chapter_id, download_type, response)
+        chapter_data = md_model.api.convert_to_json(chapter_id, download_type, response)
 
         # Make sure only downloadable chapters are downloaded
-        if data["result"] not in ('ok'):
+        if chapter_data["result"] not in ('ok'):
             return
 
-        manga = dict([c for c in data["relationships"] if c["type"] == 'manga'][0])
-        md_model.manga_id = manga["id"]
-        manga_data = manga.get('attributes', {})
-
-        if not manga_data:
-            if md_model.debug: print('Calling api for manga data from chapter download.')
-            manga_data = md_model.api.get_manga_data('chapter-manga')
-
-        md_model.cache.save_cache(datetime.now(), chapter_id, manga_data, data)
+        md_model.cache.save_cache(datetime.now(), chapter_id, data=chapter_data)
+        manga_data = md_model.misc.check_manga_data(chapter_data)
+    else:
+        manga_data = md_model.misc.check_manga_data(chapter_data)
 
     md_model.formatter.format_title(manga_data)
-    md_model.chapter_data = data
-    name = f'{md_model.title}: Chapter {data["data"]["attributes"]["chapter"]}'
+    md_model.chapter_data = chapter_data
+    name = f'{md_model.title}: Chapter {chapter_data["data"]["attributes"]["chapter"]}'
 
     md_model.misc.download_message(0, download_type, name)
 

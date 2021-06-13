@@ -206,9 +206,9 @@ class TitleJson(JsonBase):
         """
         cache_json = self.md_model.cache.load_cache(self.id)
         refresh_cache = self.md_model.cache.check_cache_time(cache_json)
-        data = cache_json.get('covers', [])
+        covers = cache_json.get('covers', [])
 
-        if refresh_cache or not data:
+        if refresh_cache or not covers:
             cover_response = self.md_model.api.request_data(f'{self.md_model.cover_api_url}', **{"manga[]": self.id, "limit": 100})
 
             try:
@@ -217,9 +217,10 @@ class TitleJson(JsonBase):
                 print("Couldn't get the covers data.")
                 return
 
-            self.md_model.cache.save_cache(cache_json.get("cache_date", datetime.now()), self.id, cache_json.get("data", []), cache_json.get("chapters", []), data)
+            covers = data.get('results', [])
+            self.md_model.cache.save_cache(cache_json.get("cache_date", datetime.now()), self.id, cache_json.get("data", []), cache_json.get("chapters", []), covers)
 
-        return {"covers": data["results"]}
+        return {"covers": covers}
 
     def format_socials(self) -> dict:
         """The social data of the manga.

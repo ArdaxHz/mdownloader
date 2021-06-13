@@ -663,6 +663,35 @@ class MDownloaderMisc(ModelsBase):
             raise NoChaptersError(f'{download_type.title()}: {download_id} - {name} has no chapters. Possibly because of the language chosen or because there are no uploads.')
         return count
 
+    def check_manga_data(self, chapter_data: dict) -> dict:
+        """Uses the chapter data to check if a manga's data is available, if not call the manga api.
+
+        Args:
+            chapter_data (dict): Chapter data to get the manga details from.
+
+        Returns:
+            dict: The manga data to use.
+        """
+        manga = dict([c for c in chapter_data["relationships"] if c["type"] == 'manga'][0])
+        manga_id = manga["id"]
+        self.model.manga_id = manga_id
+        manga_data = manga.get('attributes', {})
+
+        if not manga_data:
+            cache_json = self.model.cache.load_cache(manga_id)
+            refresh_cache = self.model.cache.check_cache_time(cache_json)
+            manga_data = cache_json.get('data', {})
+            # relationships = manga_data.get('relationships', [])
+
+            if refresh_cache or not manga_data:
+                if self.model.debug: print('Calling api for manga data from chapter download.')
+                manga_data = self.model.api.get_manga_data('chapter-manga')
+                self.model.cache.save_cache(datetime.now(), manga_id, data=manga_data)
+        else:
+            self.model.cache.save_cache(datetime.now(), manga_id, data={"data": manga})
+
+        return manga_data
+
 
 
 class TitleDownloaderMisc(ModelsBase):
