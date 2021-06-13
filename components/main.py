@@ -33,7 +33,7 @@ def check_type(md_model: MDownloader) -> None:
     elif md_model.download_type in ('group', 'user', 'list'):
         md_model.type_id = 2
         bulk_download(md_model)
-    elif md_model.download_type == 'follows':
+    elif md_model.download_type in ('follows', 'feed'):
         md_model.type_id = 3
         follows_download(md_model)
     else:

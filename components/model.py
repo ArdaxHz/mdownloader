@@ -187,6 +187,7 @@ class AuthMD(ModelsBase):
         if refresh_response.status_code == 200:
             refresh_data = refresh_response.json()["token"]
 
+            self.model.api.session.headers = {'Authorization': f'Bearer {token["session"]}'}
             self.save_session(refresh_data)
             return True
         elif refresh_response.status_code in (401, 403):
