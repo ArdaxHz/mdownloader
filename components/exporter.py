@@ -127,8 +127,9 @@ class ExporterBase:
         group_names = []
 
         for group in groups_relationship:
-            group_data = group.get('attributes', {})
             group_id = group["id"]
+            group_data = group.get('attributes', {})
+            group_data_unformatted = {"data": {"id": group_id, "type": "scanlation_group", "attributes": group_data}}
 
             if not group_data:
                 if self.md_model.debug: print('Calling api for group data from chapter download.')
@@ -138,11 +139,13 @@ class ExporterBase:
 
                 if refresh_cache or not group_data:
                     group_response = self.md_model.api.request_data(f'{self.md_model.group_api_url}/{group_id}')
-                    group = self.md_model.api.convert_to_json(group_id, 'chapter-group', group_response)
+                    group_data = self.md_model.api.convert_to_json(group_id, 'chapter-group', group_response)
+                    self.md_model.cache.save_cache(datetime.now(), group_id, group_data)
 
-                group_data = group["data"]["attributes"]
-
-            self.md_model.cache.save_cache(datetime.now(), group_id, group)
+                group_data = group_data["data"]["attributes"]
+            else:
+                self.md_model.cache.save_cache(datetime.now(), group_id, group_data_unformatted)
+            
             name = group_data["name"]
             group_names.append(name)
 
