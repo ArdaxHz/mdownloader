@@ -8,7 +8,7 @@ load_dotenv()
 
 class ImpVar:
     scheme = 'https'
-    netloc = 'mangadex'
+    domain = 'mangadex'
     tld = 'org'
 
     MANGAPLUS_GROUP_ID = '4f1de6a2-f0c5-4ac5-bce5-02c7dbb67deb'
@@ -29,9 +29,9 @@ class ImpVar:
 
     ARCHIVE_EXTENSION = os.getenv("ARCHIVE_EXTENSION", 'cbz')
 
-    MANGADEX_URL = '{}://{}.{}'.format(scheme, netloc, tld)
-    MANGADEX_API_URL = '{}://api.{}.{}'.format(scheme, netloc, tld)
-    MANGADEX_CDN_URL = '{}://uploads.{}.{}'.format(scheme, netloc, tld)
+    MANGADEX_URL = '{}://{}.{}'.format(scheme, domain, tld)
+    MANGADEX_API_URL = '{}://api.{}.{}'.format(scheme, domain, tld)
+    MANGADEX_CDN_URL = '{}://uploads.{}.{}'.format(scheme, domain, tld)
 
     API_MESSAGE = r"The global requests rate limit is 5/sec for the API. This downloader has measures in place to avoid bans, but it's not guaranteed."
 
