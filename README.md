@@ -2,10 +2,10 @@
 Download from MangaDex easily without compromising quality or speed!
 This is a MangaDex specific downloader, other sites will not be supported.
 
-*If using Windows, you'll need to use `pip` and `python`. If using Linux or Mac OS, you'll need to use `pip3` and `python3`.*
+*If on Windows, you'll need to use `python` instead of `python3`*
 
 ## Install requirements
-`pip3 install -r requirements.txt`
+`pip install -r requirements.txt`
 
 You'll need to rename `.env.example` to `.env` and change the values to whatever would suit you best, if you don't know what it's for, leave the values as they are.
 
@@ -35,13 +35,19 @@ To search for a manga to download, instead of id, enter the manga's name. You **
 
 `python3 mdownloader.py "Please Put These On, Takamine-san" -s`
 
+### Range Downloading
+Pass the `-r` parameter to download a range of chapters for manga download. You can use `all` to download all the chapters, `!` in front of a chapter number to exclude that chapter or chapter range.
+
+`Enter the chapter(s) to download: all, !2-5` Will download all the chapters excluding 2 to 5 (inclusive).
+`Enter the chapter(s) to download: 10-18, 5` Will download chapter 5, then 10 to 18 (inclusive).
+
 ## Options
 - -l --language (optional. Use the MD code of the language you want to download. Default: en)
 - -t --type (optional. You can choose between 'manga', 'chapter', 'group' or 'user' options. Default: chapter)
 - -f --folder (optional. Downloads the images to a folder instead of an archive. Default: False)
 - -c --covers (optional. Download the manga covers, *works only with manga downloads*. Default: False)
 - -j --json (optional. Add the chapter data as found on the api to the archive or folder. Default: True)
-- -r --range (optional. Instead of downloading all the chapters, you can download a range of chapters, or download all while excluding some. 'all' to download all chapters, '!' before a chapter number or range to exclude those chapters from the download. Default: True)
+- -r --range (optional. Download a range of chapters, or download all while excluding some. Default: True)
 - -s --search (optional. **NEEDED** to search for manga. Wrap multiple words in quotation marks, e.g. "Please Put These On, Takamine-san". Default: False)
 - --login (optional. Login to MangaDex. Default: False)
 - --force (optional. Force refresh the downloaded cache. Default: False)

@@ -21,7 +21,7 @@ def check_for_update(args) -> None:
     Args:
         args (argparse.ArgumentParser.parse_args): Command line arguments to parse.
     """
-    excluded = ['LICENSE', 'README.md', 'components', '.env.example']
+    excluded = ['components', '.env.example']
     components_path = Path('components')
 
     # Call GitHub api to check if there are missing local files
@@ -123,12 +123,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--language', '-l', default='en', help='Specify the language to download. NEEDED to download non-English chapters on manga downloads.')
-    parser.add_argument('--type', '-t', default='chapter', nargs='?', const='manga', help='Type of id to download, manga, chapter, group, user or list.')
-    parser.add_argument('--folder', '-f', default=False, const=True, nargs='?', help='Download into folder instead of archive.')
+    parser.add_argument('--type', '-t', default='chapter', nargs='?', const='manga', help='Type of id to download, manga, chapter, group, user, list or follows.')
+    parser.add_argument('--folder', '-f', default=False, const=True, nargs='?', help='Download into a folder instead of an archive.')
     parser.add_argument('--covers', '-c', default=False, const=True, nargs='?', help='Download the covers of the manga. Works only with manga downloads.')
     parser.add_argument('--json', '-j', default=True, const=False, nargs='?', help='Add the chapter data as a json in the chapter archive/folder.')
-    parser.add_argument('--range', '-r', default=True, const=False, nargs='?', 
-        help='Select custom chapters to download, add an "!" before a chapter number or range to exclude those chapters. Use "all" if you want to download all the chapters while excluding some.')
+    parser.add_argument('--range', '-r', default=True, const=False, nargs='?',
+        help='Download a range of chapters, or all while excluding some. Put "!" in front of the chapters you want to exclude.')
     parser.add_argument('--search', '-s', default=False, const=True, nargs='?', 
         help='Search for the manga specified. Wrap multiple words in quotation marks, e.g. "Please Put These On, Takamine-san"')
     parser.add_argument('--debug', default=False, const=True, nargs='?', help=argparse.SUPPRESS)

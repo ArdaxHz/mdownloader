@@ -115,7 +115,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
 
 
 def manga_download(md_model: MDownloader) -> None:
-    """Download titles.
+    """Download manga.
 
     Args:
         md_model (MDownloader): The base class this program runs on.
@@ -143,7 +143,7 @@ def manga_download(md_model: MDownloader) -> None:
     title_json = TitleJson(md_model)
     md_model.title_json = title_json
 
-    if download_type == 'manga':
+    if md_model.type_id == 1:
         chapters_data = json_ids(md_model, title_json)
         md_model.title_json_data = chapters_data
         chapters = cache_json.get("chapters", [])
@@ -176,7 +176,7 @@ def manga_download(md_model: MDownloader) -> None:
 
     md_model.misc.download_message(0, download_type, title)
 
-    if md_model.args.range_download:
+    if md_model.args.range_download and md_model.type_id == 1:
         chapters = md_model.title_misc.download_range_chapters(chapters)
 
     download_chapters(md_model, chapters, chapters_data)
@@ -211,7 +211,7 @@ def bulk_download(md_model: MDownloader) -> None:
         md_model.params.update({"order[createdAt]": "desc"})
         md_model.data = data
         download_id = md_model.id
-        url = f'{md_model.api_url}/{md_model.download_type}/{md_model.id}'
+        url = f'{md_model.api_url}/{download_type}/{md_model.id}'
     else:
         download_id = f'{md_model.id}-follows'
         url = f'{md_model.user_api_url}/follows/manga'

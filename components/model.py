@@ -287,7 +287,7 @@ class ProcessArgs(ModelsBase):
         self.folder_download = bool(args_dict["folder"])
         self.cover_download = bool(args_dict["covers"])
         self.save_chapter_data = bool(args_dict["json"])
-        self.range_download = self.download_range(args_dict["range"])
+        self.range_download = args_dict["range"]
         if args_dict["login"]: self.model.auth.login()
         if args_dict["search"]:
             self.search_manga = True
@@ -317,7 +317,7 @@ class ProcessArgs(ModelsBase):
         Returns:
             bool: True if to download in range, False if not.
         """
-        if range_download and self.model.download_type == 'manga':
+        if range_download:
             return True
         return False
 
@@ -742,6 +742,13 @@ class TitleDownloaderMisc(ModelsBase):
                 chapter_prefix_dict.update({volume: vol_prefix})
         return chapter_prefix_dict
 
+    def natsort(self, x) -> Union[float, str]:
+        """Sort the chapter numbers naturally."""
+        try:
+            return float(x)
+        except ValueError:
+            return x
+
     def get_chapters_range(self, chapters_list: list, chap_list: list) -> list:
         """Loop through the lists and get the chapters between the upper and lower bounds.
 
@@ -791,7 +798,7 @@ class TitleDownloaderMisc(ModelsBase):
         """
         chapters_list = [c["data"]["attributes"]["chapter"] for c in chapters]
         chapters_list = list(set(chapters_list))
-        chapters_list.sort()
+        chapters_list.sort(key=self.natsort)
         remove_chapters = []
 
         print(f'Available chapters:\n{", ".join(chapters_list)}')
