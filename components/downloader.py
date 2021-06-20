@@ -104,7 +104,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
 
         # End the loop when all the pages have been gone through
         # Offset 10000 is the highest you can go, any higher returns an error
-        if iteration == pages or offset == 10000:
+        if iteration == pages or offset == 10000 or not data["results"]:
             break
 
         iteration += 1

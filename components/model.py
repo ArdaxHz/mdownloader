@@ -419,10 +419,7 @@ class DataFormatter(ModelsBase):
         Returns:
             str: The manga title from whatever language is available.
         """
-        try:
-            attributes = data["data"]["attributes"]
-        except KeyError:
-            attributes = data
+        attributes = data["data"]["attributes"]
 
         if 'en' in attributes["title"]:
             title = attributes["title"]["en"]
@@ -688,7 +685,8 @@ class MDownloaderMisc(ModelsBase):
                 manga_data = self.model.api.get_manga_data('chapter-manga')
                 self.model.cache.save_cache(datetime.now(), manga_id, data=manga_data)
         else:
-            self.model.cache.save_cache(datetime.now(), manga_id, data={"data": manga})
+            manga_data = {"data": manga}
+            self.model.cache.save_cache(datetime.now(), manga_id, data=manga_data)
 
         return manga_data
 
