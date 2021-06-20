@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 import requests
+from dotenv import load_dotenv
 
 from components.main import main
 
@@ -14,13 +15,13 @@ except ModuleNotFoundError:
     pass
 
 
-def updateChecker(args) -> None:
+def check_for_update(args) -> None:
     """Check if the program is the latest version.
 
     Args:
         args (argparse.ArgumentParser.parse_args): Command line arguments to parse.
     """
-    excluded = ['LICENSE', 'README.md', 'components']
+    excluded = ['components', '.env.example']
     components_path = Path('components')
 
     # Call GitHub api to check if there are missing local files
@@ -71,14 +72,15 @@ def updateChecker(args) -> None:
         ver_regex = re.compile(r'(?:__version__\s=\s\')(.+)(?:\')')
         version_number = version_info[0]
         match = ver_regex.match(version_number)
+        remote_number = match.group(1)
 
         local_version = int(__version__.replace('.', ''))
-        remote_version = int(match.group(1).replace('.', ''))
+        remote_version = int(remote_number.replace('.', ''))
 
         remote_components = [f["name"] for f in components_data]
 
         if remote_version > local_version:
-            download_update = input("Looks like there is an update available, do you want to download it?\nThe update will remove the unnecessary files from the components folder, backup any changes made if needed.\n'y' or 'n' ")
+            download_update = input(f"Looks like update {remote_number} is available, do you want to download?\nThe update will remove the unnecessary files from the components folder, backup any changes made if needed.\n'y' or 'n' ")
 
             if download_update.lower() == 'y':
                 [os.remove(i) for i in os.listdir('./components') if (i not in remote_components and i != '__pycache__')]
@@ -112,24 +114,31 @@ def updateChecker(args) -> None:
 
     main(args)
 
-    return
-
 
 if __name__ == "__main__":
+
+    os.system("")
+    load_dotenv()
 
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--language', '-l', default='en', help='Specify the language to download. NEEDED to download non-English chapters on manga downloads.')
-    parser.add_argument('--directory', '-d', default='./downloads', help='The download location, can be an absolute or relative path.')
-    parser.add_argument('--type', '-t', default='manga', nargs='?', const='chapter', help='Type of id to download, manga, chapter, group, user or list.')
-    parser.add_argument('--save_format', '-s', default='cbz', nargs='?', const='zip', help='Choose to download as a zip archive or as a comic archive.')
-    parser.add_argument('--folder', '-f', default='no', nargs='?', const='yes', choices=['yes', 'no'], help='Make chapter folder.')
-    parser.add_argument('--covers', '-c', default='skip', nargs='?', const='save', choices=['skip', 'save'], help='Download the covers of the manga. Works only with manga downloads.')
-    parser.add_argument('--json', '-j', default='add', nargs='?', const='ignore', choices=['add', 'ignore'], help='Add the chapter data as a json in the chapter archive/folder.')
-    parser.add_argument('--range', '-r', default='range', nargs='?', const='all', choices=['all', 'range'], 
-        help='Select custom chapters to download, add an "!" before a chapter number or range to exclude those chapters. Use "all" if you want to download all the chapters while excluding some.')
+    parser.add_argument('--type', '-t', default='chapter', nargs='?', const='manga', help='Type of id to download, manga, chapter, group, user, list or follows.')
+    parser.add_argument('--folder', '-f', default=False, const=True, nargs='?', help='Download into a folder instead of an archive.')
+    parser.add_argument('--covers', '-c', default=False, const=True, nargs='?', help='Download the covers of the manga. Works only with manga downloads.')
+    parser.add_argument('--json', '-j', default=True, const=False, nargs='?', help='Add the chapter data as a json in the chapter archive/folder.')
+    parser.add_argument('--range', '-r', default=True, const=False, nargs='?',
+        help='Download a range of chapters, or all while excluding some. Put "!" in front of the chapters you want to exclude.')
+    parser.add_argument('--search', '-s', default=False, const=True, nargs='?', 
+        help='Search for the manga specified. Wrap multiple words in quotation marks, e.g. "Please Put These On, Takamine-san"')
+    parser.add_argument('--debug', default=False, const=True, nargs='?', help=argparse.SUPPRESS)
+    parser.add_argument('--force', default=False, const=True, nargs='?', help='Force refresh the cache.')
+    parser.add_argument('--login', default=False, const=True, nargs='?', help='Login to MangaDex.')
     parser.add_argument('id', help='ID to download. Can be chapter, manga, group, user, list, link/id or file.')
 
     args = parser.parse_args()
 
-    updateChecker(args)
+    try:
+        check_for_update(args)
+    except KeyboardInterrupt:
+        print('\nDownloader stopped!')

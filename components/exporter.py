@@ -1,38 +1,43 @@
 #!/usr/bin/python3
-import html
 import json
 import os
 import re
 import shutil
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
-from .constants import ImpVar
 from .errors import MDownloaderError
-from .languages import getLangIso
+from .languages import get_lang_iso
+from .model import MDownloader
 
 
 
 class ExporterBase:
 
-    def __init__(self, md_model) -> None:
+    def __init__(self, md_model: MDownloader) -> None:
         self.md_model = md_model
         self.series_title = md_model.title
+        self.orig_chapter_data = md_model.chapter_data
         self.chapter_id = md_model.chapter_data["data"]["id"]
         self.chapter_data = md_model.chapter_data["data"]["attributes"]
         self.relationships = md_model.chapter_data["relationships"]
         self.chapter_prefix = md_model.prefix
-        self.regex = re.compile(ImpVar.REGEX)
-        self.oneshot = self.oneshotChecker()
-        self.groups = self.groupNames()
-        self.chapter_number = self.chapterNo()
-        self.volume = self.volumeNo()
-        self.language = self.langCode()
-        self.prefix = self.prefixName()
-        self.suffix = self.suffixName()
-        self.folder_name = self.folderName()
+        self.oneshot = self.check_oneshot()
+        self.groups = self.group_names()
+        self.chapter_number = self.format_chapter_number()
+        self.volume = self.format_volume_number()
+        self.language = self.lang_code()
+        self.prefix = self.prefix_name()
+        self.suffix = self.suffix_name()
+        self.folder_name = self.folder_name()
 
-    def oneshotChecker(self) -> int:
+        self.add_data = md_model.args.save_chapter_data
+        self.destination = md_model.route
+        self.path = Path(md_model.route)
+        self.path.mkdir(parents=True, exist_ok=True)
+
+    def check_oneshot(self) -> int:
         """If the chapter is a oneshot.
 
         Returns:
@@ -49,16 +54,16 @@ class ExporterBase:
         else:
             return 0
 
-    def chapterNo(self) -> str:
+    def format_chapter_number(self) -> str:
         """Format the chapter number into 3 digits long.
 
         Returns:
             str: The formatted chapter number.
         """
-        chapter_number = str(self.chapter_data["chapter"])
-
         if self.oneshot in (1, 2, 3):
-            return chapter_number.zfill(3)
+            return '000'
+
+        chapter_number = str(self.chapter_data["chapter"])
 
         if re.search(r'[\\\\/-:*?"<>|]', chapter_number):
             decimal = chapter_number.split('.', 1)
@@ -77,7 +82,7 @@ class ExporterBase:
 
         return chapter_number
 
-    def langCode(self) -> str:
+    def lang_code(self) -> str:
         """Ignore language code if in english.
 
         Returns:
@@ -85,16 +90,16 @@ class ExporterBase:
         """
         if self.chapter_data["translatedLanguage"] == 'en':
             return ''
-        return f' [{getLangIso(self.chapter_data["translatedLanguage"])}]'
+        return f' [{get_lang_iso(self.chapter_data["translatedLanguage"])}]'
 
-    def volumeNo(self) -> str:
+    def format_volume_number(self) -> str:
         """Get the volume number if applicable.
 
         Returns:
             str: The formatted volume number.
         """
         volume_number = self.chapter_data["volume"]
-        if volume_number is None or self.oneshot in (1, 2) or volume_number == '0':
+        if volume_number is None or volume_number.lower() in ('0', 'none', 'null') or self.oneshot in (1, 2):
             return ''
 
         volume_number = str(volume_number)
@@ -104,7 +109,7 @@ class ExporterBase:
         volume_number = vol_no + '.' + parts[1] if len(parts) > 1 else vol_no
         return f' (v{volume_number})'
 
-    def prefixName(self) -> str:
+    def prefix_name(self) -> str:
         """The formatted prefix name.
 
         Returns:
@@ -112,31 +117,48 @@ class ExporterBase:
         """
         return f'{self.series_title}{self.language} - {self.chapter_number}{self.volume}'
 
-    def groupNames(self) -> str:
+    def group_names(self) -> str:
         """The chapter's groups.
 
         Returns:
             str: The names of the scanlation groups.
         """
-        group_ids = [g["id"] for g in self.relationships if g["type"] == 'scanlation_group']
-        groups = []
+        groups_relationship = [g for g in self.relationships if g["type"] == 'scanlation_group']
+        group_names = []
 
-        for group_id in group_ids:
-            group_response = self.md_model.requestData(f'{self.md_model.group_api_url}/{group_id}')
-            group_data = self.md_model.convertJson(group_id, 'chapter-group', group_response)
-            name = group_data["data"]["attributes"]["name"]
-            groups.append(name)
+        for group in groups_relationship:
+            group_id = group["id"]
+            group_data = group.get('attributes', {})
+            group_data_unformatted = {"data": group}
 
-        return self.regex.sub('_', html.unescape(', '.join(groups)))
+            if not group_data:
+                if self.md_model.debug: print('Calling api for group data from chapter download.')
+                cache_json = self.md_model.cache.load_cache(group_id)
+                refresh_cache = self.md_model.cache.check_cache_time(cache_json)
+                group_data = cache_json.get('data', {})
 
-    def suffixName(self) -> str:
+                if refresh_cache or not group_data:
+                    group_response = self.md_model.api.request_data(f'{self.md_model.group_api_url}/{group_id}')
+                    group_data = self.md_model.api.convert_to_json(group_id, 'chapter-group', group_response)
+                    self.md_model.cache.save_cache(datetime.now(), group_id, group_data)
+
+                group_data = group_data["data"]["attributes"]
+            else:
+                self.md_model.cache.save_cache(datetime.now(), group_id, group_data_unformatted)
+            
+            name = group_data["name"]
+            group_names.append(name)
+
+        return self.md_model.formatter.strip_illegal(', '.join(group_names))
+
+    def suffix_name(self) -> str:
         """Formatting the groups as the suffix.
 
         Returns:
             str: The suffix of the file name.
         """
         chapter_title = f'{self.chapter_data["title"][:31]}...' if len(self.chapter_data["title"]) > 30 else self.chapter_data["title"]
-        title = f'[{self.regex.sub("_", html.unescape(chapter_title))}] ' if len(chapter_title) > 0 else ''
+        title = f'[{self.md_model.formatter.strip_illegal(chapter_title)}] ' if len(chapter_title) > 0 else ''
         oneshot_prefix = '[Oneshot] '
         group_suffix = f'[{self.groups}]'
 
@@ -148,15 +170,15 @@ class ExporterBase:
             return f'{title}{group_suffix}'
         return group_suffix
 
-    def folderName(self) -> str:
+    def folder_name(self) -> str:
         """The final folder name combining the prefix and suffix for the archive/folder name
 
         Returns:
-            str: The file name images to be saved to.
+            str: The file name images to be saved to. 
         """
         return f'{self.prefix} {self.suffix}'
 
-    def pageName(self, page_no: int, ext: str) -> str:
+    def format_page_name(self, page_no: int, ext: str) -> str:
         """Each page name.
 
         Args:
@@ -164,25 +186,21 @@ class ExporterBase:
             ext (str): The image extension.
 
         Returns:
-            str: The page name downloaded.
+            str: The formatted page name.
         """
         return f'{self.prefix} - p{page_no:0>3} {self.suffix}.{ext}'
 
 
 
 class ArchiveExporter(ExporterBase):
-    def __init__(self, md_model) -> None:
+    def __init__(self, md_model: MDownloader) -> None:
         super().__init__(md_model)
-        
-        self.add_data = md_model.add_data
-        self.destination = md_model.route
-        self.save_format = md_model.save_format
-        self.path = Path(md_model.route)
-        self.path.mkdir(parents=True, exist_ok=True)
-        self.archive_path = os.path.join(self.destination, f'{self.folder_name}.{self.save_format}')
-        self.archive = self.checkZip()
+
+        self.archive_extension = md_model.args.archive_extension
+        self.archive_path = os.path.join(self.destination, f'{self.folder_name}.{self.archive_extension}')
+        self.archive = self.check_zip()
  
-    def makeZip(self) -> zipfile.ZipFile:
+    def make_zip(self) -> zipfile.ZipFile:
         """Make a zipfile, if it exists, open it instead.
 
         Raises:
@@ -199,23 +217,20 @@ class ArchiveExporter(ExporterBase):
         except PermissionError:
             raise MDownloaderError("The file is open by another process.")
 
-    def checkZip(self) -> zipfile.ZipFile:
+    def check_zip(self) -> zipfile.ZipFile:
         """Check the zipfile to see if it is a duplicate or not.
 
         Returns:
             zipfile.ZipFile: A ZipFile object of the open archive. 
         """
         version_no = 1
-        self.archive = self.makeZip()
+        self.archive = self.make_zip()
         chapter_hash = self.archive.comment.decode().split('\n')[-1]
         to_add = f'{self.chapter_id}\n{self.chapter_data["title"]}\n{self.chapter_data["hash"]}'
 
         if chapter_hash == '' or chapter_hash == self.chapter_data["hash"]:
-            if self.archive.comment.decode() == to_add:
-                pass
-            else:
+            if self.archive.comment.decode() != to_add:
                 self.archive.comment = to_add.encode()
-
             return self.archive
         else:
             self.close()
@@ -226,35 +241,30 @@ class ArchiveExporter(ExporterBase):
             # Loop until an available archive name that isn't taken is available
             while True:
                 if os.path.exists(self.archive_path):
-                    self.archive_path = os.path.join(self.destination, f'{self.folder_name}{{v{version_no}}}.{self.save_format}')
-                    self.archive = self.makeZip()
+                    self.archive_path = os.path.join(self.destination, f'{self.folder_name}{{v{version_no}}}.{self.archive_extension}')
+                    self.archive = self.make_zip()
                     chapter_hash = self.archive.comment.decode().split('\n')[-1]
                     if chapter_hash == '' or chapter_hash == self.chapter_data["hash"]:
-                        if self.archive.comment.decode() == to_add:
-                            pass
-                        else:
-                            self.archive.comment = to_add.encode()
                         break
                     else:
                         self.close()
                         version_no += 1
-                        continue
                 else:
                     break
 
             self.archive.comment = to_add.encode()
             return self.archive
 
-    def imageCompress(self) -> None:
+    def compress_image(self) -> None:
         """Add image to archive through the memory."""
         self.archive.writestr(self.page_name, self.response)
 
-    def checkImages(self) -> None:
+    def check_image(self) -> None:
         """Check if the image is in the archive, skip if it is."""
         if self.page_name not in self.archive.namelist():
-            self.imageCompress()
+            self.compress_image()
 
-    def addImage(self, response: bytes, page_no: int, ext: str) -> None:
+    def add_image(self, response: bytes, page_no: int, ext: str) -> None:
         """Format the image name then add to archive.
 
         Args:
@@ -262,10 +272,10 @@ class ArchiveExporter(ExporterBase):
             page_no (int): The image number.
             ext (str): The image extension.
         """
-        self.page_name = self.pageName(page_no, ext)
+        self.page_name = self.format_page_name(page_no, ext)
         self.response = response
 
-        self.checkImages()
+        self.check_image()
 
     def close(self, status: bool=0) -> None:
         """Close the archive and save the chapter data.
@@ -276,7 +286,7 @@ class ArchiveExporter(ExporterBase):
         if not status:
             # Add the chapter data json to the archive
             if self.add_data and f'{self.chapter_id}.json' not in self.archive.namelist():
-                self.archive.writestr(f'{self.chapter_id}.json', json.dumps(self.chapter_data, indent=4, ensure_ascii=False))
+                self.archive.writestr(f'{self.chapter_id}.json', json.dumps(self.orig_chapter_data, indent=4, ensure_ascii=False))
 
         self.archive.close()
 
@@ -286,15 +296,12 @@ class ArchiveExporter(ExporterBase):
 
 
 class FolderExporter(ExporterBase):
-    def __init__(self, md_model) -> None:
-        super().__init__(md_model.title, md_model.chapter_data, md_model.chapter_prefix)
+    def __init__(self, md_model: MDownloader) -> None:
+        super().__init__(md_model)
 
-        self.add_data = md_model.add_data
-        self.path = Path(md_model.route)
-        self.path.mkdir(parents=True, exist_ok=True)
-        self.checkFolder()
+        self.check_folder()
 
-    def makeFolder(self) -> bool:
+    def make_folder(self) -> bool:
         """Make the folder.
 
         Raises:
@@ -312,10 +319,10 @@ class FolderExporter(ExporterBase):
         except OSError:
             raise MDownloaderError('Error creating folder')
 
-    def checkFolder(self) -> None:
+    def check_folder(self) -> None:
         """Check if the image is in the folder, skip if it is"""
         self.folder_path = self.path.joinpath(self.folder_name)
-        self.makeFolder()
+        self.make_folder()
         # version_no = 1
         # if self.makeFolder():
         #     if f'{self.chapter_id}.json' not in os.listdir(self.folder_path):
@@ -331,17 +338,17 @@ class FolderExporter(ExporterBase):
         #             else:
         #                 break
 
-    def folderAdd(self) -> None:
+    def add_to_folder(self) -> None:
         """Add images to the folder."""
         with open(self.folder_path.joinpath(self.page_name), 'wb') as file:
             file.write(self.response)
 
-    def checkImages(self) -> None:
+    def check_image(self) -> None:
         """Check if images are in the folder."""
         if self.page_name not in os.listdir(self.folder_path):
-            self.folderAdd()
+            self.add_to_folder()
 
-    def addImage(self, response: bytes, page_no: int, ext: str) -> None:
+    def add_image(self, response: bytes, page_no: int, ext: str) -> None:
         """Format the image name then add to archive.
 
         Args:
@@ -349,10 +356,10 @@ class FolderExporter(ExporterBase):
             page_no (int): The image number.
             ext (str): The image extension.
         """
-        self.page_name = self.pageName(page_no, ext)
+        self.page_name = self.format_page_name(page_no, ext)
         self.response = response
 
-        self.checkImages()
+        self.check_image()
 
     def close(self, status: bool=0) -> None:
         """Close the archive and save the chapter data.
@@ -364,6 +371,6 @@ class FolderExporter(ExporterBase):
             # Add the chapter data json to the folder
             if self.add_data and f'{self.chapter_id}.json' not in os.listdir(self.folder_path):
                 with open(self.folder_path.joinpath(f'{self.chapter_id}.json'), 'w') as json_file:
-                    json.dump(self.chapter_data, json_file, indent=4, ensure_ascii=False)
+                    json.dump(self.orig_chapter_data, json_file, indent=4, ensure_ascii=False)
         else:
             shutil.rmtree(self.folder_path)

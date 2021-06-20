@@ -2,15 +2,23 @@
 Download from MangaDex easily without compromising quality or speed!
 This is a MangaDex specific downloader, other sites will not be supported.
 
+*If on Windows, you'll need to use `python` instead of `python3`*
+
 ## Install requirements
 `pip install -r requirements.txt`
 
+You'll need to rename `.env.example` to `.env` and change the values to whatever would suit you best, if you don't know what it's for, leave the values as they are.
+
 ## Excecute 
-`python3 mdownloader.py [options] (<manga|chapter|group|user|list link/id> or filename)`
+`python3 mdownloader.py link/id [options]`
 
-To bulk download, create a file in the same folder as the downloader. Inside, add one id or link per line, the id being . The link can be either for chapters or titles, no need to specify which it is using the "--type" argument. Instead of typing the id when executing, enter the filename. Since title is the default download type, there is no need to add it as an option for bulk download. Any line that isn't a mangadex manga/chapter/group/user/list link/id will be skipped.
+### Parameters
+To use an additional option, you can just add the parameter by itself (except language, type or search), with no arguments. e.g. `python3 mdownloader.py id -t manga -c` will download the covers of a manga, not adding a parameter will fallback to the default parameter behaviour.
 
-`python3 mdownloader.py mylist.txt [-t <chapter|group|user|list>]`
+### Batch Downloading
+To batch download, create a file in the same folder as the downloader. Inside, add one id or link per line. Instead of typing the id when executing, enter the filename. Since chapter is the default download type, any non-links will be treated as chapter ids and be downloaded as such. Using this will override the range download option to be False.
+
+`python3 mdownloader.py mylist.txt [-t <manga|group|user|list>]`
 
 ```
 link_1
@@ -22,18 +30,35 @@ link_3
 ...
 ```
 
-## Options
-```
-    -l --language (optional. Use the MD code of the language you want to download. Default: English)
-    -d --directory (optional. Can be an absolute or relative path. Default: script-folder/downloads)
-    -t --type (optional. You can choose between 'title', 'chapter', 'group' or 'user' options. Default: title)
-    -s --save_format (optional. Choose between comic archive or zip as the file type (both are zip files). You can choose between 'cbz' and 'zip' options. Default: cbz))
-    -f --folder (optional. Downloads the images to a folder instead of an archive. You can choose between 'yes' and 'no' options. Default: no)
-    -c --covers (optional. Download the manga covers, works only with title downloads. You can choose between 'skip' and 'save' options. Default: skip)
-    -j --json (optional. Add the chapter data as found on the api to the archive or folder. You can choose between 'add' and 'ignore' options. Default: add)
-    -r --range (optional. Instead of downloading all the chapters, you can download a range of chapters, or download all while excluding some. 'all' to download all chapters, '!' before a chapter number or range to exclude those chapters from the download. You can choose between 'all' and 'range' options. Default: range)
-```
+### Searching
+To search for a manga to download, instead of id, enter the manga's name. You **need** to make sure the `-s` parameter is included. If you want to enter multiple words, wrap them with quotation marks. You can still use the other options available, the type option will be overridden to type "manga".
 
+`python3 mdownloader.py "Please Put These On, Takamine-san" -s`
+
+### Range Downloading
+Pass the `-r` parameter to download a range of chapters for manga download. You can use `all` to download all the chapters, `!` in front of a chapter number to exclude that chapter or chapter range.
+
+`Enter the chapter(s) to download: all, !2-5` Will download all the chapters excluding 2 to 5 (inclusive).
+`Enter the chapter(s) to download: 10-18, 5` Will download chapter 5, then 10 to 18 (inclusive).
+
+## Options
+- -l --language (optional. Use the MD code of the language you want to download. Default: en)
+- -t --type (optional. You can choose between 'manga', 'chapter', 'group' or 'user' options. Default: chapter)
+- -f --folder (optional. Downloads the images to a folder instead of an archive. Default: False)
+- -c --covers (optional. Download the manga covers, *works only with manga downloads*. Default: False)
+- -j --json (optional. Add the chapter data as found on the api to the archive or folder. Default: True)
+- -r --range (optional. Download a range of chapters, or download all while excluding some. Default: True)
+- -s --search (optional. **NEEDED** to search for manga. Wrap multiple words in quotation marks, e.g. "Please Put These On, Takamine-san". Default: False)
+- --login (optional. Login to MangaDex. Default: False)
+- --force (optional. Force refresh the downloaded cache. Default: False)
+
+## Blacklisting and Whitelisting
+***Whitelisting takes priority with group filtering taking priority over user filtering.***
+To blacklist a group or user, create a file in the same folder as the download, it can be called whatever you want, default names are "group_blacklist.txt" and "user_blacklist.txt", however you will **need** to change the name of the files in the `.env` file if you want to use your own names. Add an id per line of the group or user's chapters you want to skip.
+
+To whitelist a group or user, create a file in the same folder as the download, it can be called whatever you want, default names are "group_whitelist.txt" and "user_whitelist.txt", however you will **need** to change the name of the files in the `.env` file if you want to use your own names. Add an id per line of the group or user's chapters you want to download. *If both group and user whitelists are specified, group whitelisting takes priority.*
+
+## Naming
 Images will be downloaded in the download directory relative to the script location with the following structure:
 
 ```
@@ -76,4 +101,3 @@ This follows Daiz's [naming scheme](https://github.com/Daiz/manga-naming-scheme)
 Used the MangaPlus image decrypter from [here.](https://github.com/hurlenko/mloader)
 
 ## TODO
-Maybe add MDList download

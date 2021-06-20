@@ -2,3 +2,4 @@ tqdm
 aiohttp
 requests
 protobuf
+python-dotenv

@@ -9,7 +9,7 @@ language_error = 'Not a valid language option, exiting.'
 languages = [{"English":"English","md":"en","iso":"eng"},{"English":"Japanese","md":"ja","iso":"jpn"},{"English":"Polish","md":"pl","iso":"pol"},{"English":"Serbo-Croatian","md":"sh","iso":"hrv"},{"English":"Dutch","md":"nl","iso":"dut"},{"English":"Italian","md":"it","iso":"ita"},{"English":"Russian","md":"ru","iso":"rus"},{"English":"German","md":"de","iso":"ger"},{"English":"Hungarian","md":"hu","iso":"hun"},{"English":"French","md":"fr","iso":"fre"},{"English":"Finnish","md":"fi","iso":"fin"},{"English":"Vietnamese","md":"vi","iso":"vie"},{"English":"Greek","md":"el","iso":"gre"},{"English":"Bulgarian","md":"bg","iso":"bul"},{"English":"Spanish (Es)","md":"es","iso":"spa"},{"English":"Portuguese (Br)","md":"pt-br","iso":"por"},{"English":"Portuguese (Pt)","md":"pt","iso":"por"},{"English":"Swedish","md":"sv","iso":"swe"},{"English":"Arabic","md":"ar","iso":"ara"},{"English":"Danish","md":"da","iso":"dan"},{"English":"Chinese (Simp)","md":"zh","iso":"chi"},{"English":"Bengali","md":"bn","iso":"ben"},{"English":"Romanian","md":"ro","iso":"rum"},{"English":"Czech","md":"cs","iso":"cze"},{"English":"Mongolian","md":"mn","iso":"mon"},{"English":"Turkish","md":"tr","iso":"tur"},{"English":"Indonesian","md":"id","iso":"ind"},{"English":"Korean","md":"ko","iso":"kor"},{"English":"Spanish (LATAM)","md":"es-la","iso":"spa"},{"English":"Persian","md":"fa","iso":"per"},{"English":"Malay","md":"ms","iso":"may"},{"English":"Thai","md":"th","iso":"tha"},{"English":"Catalan","md":"ca","iso":"cat"},{"English":"Filipino","md":"tl","iso":"fil"},{"English":"Chinese (Trad)","md":"zh-hk","iso":"chi"},{"English":"Ukrainian","md":"uk","iso":"ukr"},{"English":"Burmese","md":"my","iso":"bur"},{"English":"Lithuanian","md":"lt","iso":"lit"},{"English":"Hebrew","md":"he","iso":"heb"},{"English":"Hindi","md":"hi","iso":"hin"},{"English":"Norwegian","md":"no","iso":"nor"},{"English":"Other","md":"NULL","iso":"NULL"}]
 
 
-def getLangIso(language: str) -> str:
+def get_lang_iso(language: str) -> str:
     """Get the ISO 639-3 code of the language of the chapter.
 
     Args:
@@ -25,7 +25,7 @@ def getLangIso(language: str) -> str:
     return "N/A"
 
 
-def getLangMD(language: str) -> str:
+def get_lang_md(language: str) -> str:
     """Convert the inputted language into the format MangaDex uses
 
     Args:
@@ -57,7 +57,10 @@ def getLangMD(language: str) -> str:
             for count, item in enumerate(languages_match, start=1):
                 print(f'{count}: {item["English"]}')
 
-            lang = int(input(f'Choose a number matching the position of the language: '))
+            try:
+                lang = int(input(f'Choose a number matching the position of the language: '))
+            except ValueError:
+                raise MDownloaderError("That's not a number.")
 
             if lang not in range(1, (len(languages_match) + 1)):
                 raise MDownloaderError(language_error)
