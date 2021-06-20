@@ -544,7 +544,8 @@ class CacheRead(ModelsBase):
             timestamp = datetime.strptime(cache_time, "%Y-%m-%d %H:%M:%S.%f") + timedelta(hours=self.cache_refresh_time)
             if datetime.now() >= timestamp:
                 pass
-            refresh = False
+            else:
+                refresh = False
 
         if self.model.force_refresh:
             refresh = True
