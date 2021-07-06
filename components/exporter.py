@@ -71,13 +71,13 @@ class ExporterBase:
             c = int(parts[0])
             parts = [i.zfill(3) for i in parts]
             chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
-            chap_no = '-'.join(parts) + '.' + decimal[1] if len(decimal) > 1 else '-'.join(parts)
+            chap_no = '-'.join(parts) + '.' + decimal[1] if (len(decimal) > 1 and decimal[1] != '0') else '-'.join(parts)
         else:
             parts = chapter_number.split('.', 1)
             c = int(parts[0])
             chap_no = str(c).zfill(3)
             chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
-            chap_no = chap_no + '.' + parts[1] if len(parts) > 1 else chap_no
+            chap_no = chap_no + '.' + parts[1] if (len(parts) > 1 and parts[1] != '0') else chap_no
         chapter_number = chap_prefix + chap_no
 
         return chapter_number
@@ -106,7 +106,7 @@ class ExporterBase:
         parts = volume_number.split('.', 1)
         v = int(parts[0])
         vol_no = str(v).zfill(2)
-        volume_number = vol_no + '.' + parts[1] if len(parts) > 1 else vol_no
+        volume_number = vol_no + '.' + parts[1] if (len(parts) > 1 and parts[1] != '0') else vol_no
         return f' (v{volume_number})'
 
     def prefix_name(self) -> str:
@@ -129,12 +129,11 @@ class ExporterBase:
         for group in groups_relationship:
             group_id = group["id"]
             group_data = group.get('attributes', {})
-            group_data_unformatted = {"data": group}
+            cache_json = self.md_model.cache.load_cache(group_id)
+            refresh_cache = self.md_model.cache.check_cache_time(cache_json)
 
             if not group_data:
                 if self.md_model.debug: print('Calling api for group data from chapter download.')
-                cache_json = self.md_model.cache.load_cache(group_id)
-                refresh_cache = self.md_model.cache.check_cache_time(cache_json)
                 group_data = cache_json.get('data', {})
 
                 if refresh_cache or not group_data:
@@ -144,10 +143,17 @@ class ExporterBase:
 
                 group_data = group_data["data"]["attributes"]
             else:
-                self.md_model.cache.save_cache(datetime.now(), group_id, group_data_unformatted)
+                if refresh_cache:
+                    cache_group_data = cache_json.get('data', {})
+                    if cache_group_data:
+                        cache_group_data = {"data": group, "relationships": cache_group_data.get('relationships', [])}
+                    self.md_model.cache.save_cache(cache_json.get('cache_date', ''), download_id=group_id, data=cache_group_data, chapters=cache_json.get('chapters', []), covers=cache_json.get('covers', []))
             
             name = group_data["name"]
             group_names.append(name)
+
+        if len(group_names) == 0:
+            group_names.append('no group')
 
         return self.md_model.formatter.strip_illegal(', '.join(group_names))
 
