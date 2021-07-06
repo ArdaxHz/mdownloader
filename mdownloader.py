@@ -138,7 +138,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    try:
-        check_for_update(args)
-    except KeyboardInterrupt:
-        print('\nDownloader stopped!')
+    check_for_update(args)

@@ -30,9 +30,10 @@ class MDownloaderBase:
     def __init__(self) -> None:
         self.id = str()
         self.debug = bool(False)
+        self.force_refresh = bool(False)
         self.download_type = str()
         self.directory = ImpVar.DOWNLOAD_PATH
-        self.file_download = False
+        self.file_download = bool(False)
 
         self.data = {}
         self.manga_data = {}
@@ -43,10 +44,10 @@ class MDownloaderBase:
         self.bulk_json = None
         self.chapter_prefix_dict = {}
         self.exporter = None
-        self.title_json_data = []
-        self.bulk_json_data = []
         self.params = {}
         self.cache_json = {}
+        self.chapters_archive = []
+        self.chapters_folder = []
 
         self.type_id = 0
         self.exporter_id = 1
@@ -492,6 +493,7 @@ class CacheRead(ModelsBase):
         self.cache_refresh_time = ImpVar.CACHE_REFRESH_TIME
         self.root = Path(ImpVar.CACHE_PATH)
         self.root.mkdir(parents=True, exist_ok=True)
+        self.force_reset_cache_time = "1970-01-01 00:00:00.000000"
 
     def save_cache(self, cache_time: Union[str, datetime], download_id: str, data: dict={}, chapters: list=[], covers: list=[]) -> None:
         """Save the data to the cache.
@@ -503,6 +505,9 @@ class CacheRead(ModelsBase):
             chapters (list, optional): The chapters to cache. Defaults to [].
             covers (list, optional): The covers of the manga.. Defaults to [].
         """
+        if cache_time == '':
+            cache_time = self.force_reset_cache_time
+
         cache_json = {"cache_date": str(cache_time), "data": data, "covers": covers, "chapters": chapters}
         cache_file_path = self.root.joinpath(f'{download_id}').with_suffix('.json.gz')
         if self.model.debug: print(cache_file_path)
@@ -540,7 +545,7 @@ class CacheRead(ModelsBase):
         """
         refresh = True
         if cache_json:
-            cache_time = cache_json.get("cache_date", "1970-01-01 00:00:00.000000")
+            cache_time = cache_json.get("cache_date", self.force_reset_cache_time)
             timestamp = datetime.strptime(cache_time, "%Y-%m-%d %H:%M:%S.%f") + timedelta(hours=self.cache_refresh_time)
             if datetime.now() >= timestamp:
                 pass

@@ -14,7 +14,7 @@ from .model import MDownloader
 class JsonBase:
 
     def __init__(self, md_model: MDownloader) -> None:
-        self.md_model = md_model
+        self.md_model: MDownloader = md_model
         self.type = md_model.download_type
         self.domain = ImpVar.MANGADEX_URL
         self.api_url = ImpVar.MANGADEX_API_URL
@@ -38,6 +38,9 @@ class JsonBase:
         self.data_json = self.check_json_exist()
         self.new_data = {}
         self.chapter_data = self.data_json.get('chapters', [])
+        self.downloaded_ids = [c["data"]["id"] for c in self.chapter_data] if (self.chapter_data and not self.md_model.force_refresh) else []
+        self.chapters_archive = [c["data"]["id"] for c in self.chapter_data if 'chapters_archive' in c and c["chapters_archive"]] if (self.chapter_data and not self.md_model.force_refresh) else []
+        self.chapters_folder = [c["data"]["id"] for c in self.chapter_data if 'chapters_folder' in c and c["chapters_folder"]] if (self.chapter_data and not self.md_model.force_refresh) else []
 
     def check_json_exist(self) -> dict:
         """Check if the json already exists.
@@ -58,22 +61,16 @@ class JsonBase:
         Args:
             chapter_data (dict): The chapter data returned from the api.
         """
-        if not self.data_json:
-            try:
-                if chapter_data not in self.chapter_data:
-                    self.chapter_data.append(chapter_data)
-            except KeyError:
-                self.chapter_data = [chapter_data]
+        chapter_id = chapter_data["data"]["id"]
+
+        if self.md_model.args.folder_download:
+            chapter_data.update({"chapters_folder": True})
         else:
-            try:
-                self.chapter_data = self.data_json["chapters"]
-            except KeyError:
-                self.chapter_data = []
-            try:
-                if chapter_data not in self.chapter_data:
-                    self.chapter_data.append(chapter_data)
-            except AttributeError:
-                pass
+            chapter_data.update({"chapters_archive": True})
+
+        if chapter_id not in self.downloaded_ids:
+            self.chapter_data.append(chapter_data)
+            self.downloaded_ids.append(chapter_id)
 
     def save_json(self) -> None:
         """Save the json."""
@@ -97,6 +94,8 @@ class JsonBase:
         else:
             self.new_data = self.bulk_data
 
+        # self.new_data["chapters_archive"] = self.chapters_archive
+        # self.new_data["chapters_folder"] = self.chapters_folder
         self.new_data["chapters"] = self.chapter_data
         # self.addChaptersJson()
         self.save_json()
@@ -220,7 +219,7 @@ class TitleJson(JsonBase):
             covers = data.get('results', [])
             self.md_model.cache.save_cache(cache_json.get("cache_date", datetime.now()), self.id, cache_json.get("data", []), cache_json.get("chapters", []), covers)
 
-        return {"covers": covers}
+        return covers
 
     def format_socials(self) -> dict:
         """The social data of the manga.
