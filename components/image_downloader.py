@@ -166,12 +166,12 @@ def chapter_downloader(md_model: MDownloader) -> None:
     md_model.exporter = exporter
 
     # Add chapter data to the json for title, group or user downloads
-    if md_model.type_id in (1, 2, 3) or md_model.manga_download:
-        data_to_add = data.copy()
+    data_to_add = data.copy()
+    if md_model.type_id in (1,):
         # data_to_add.update({"mangaData": md_model.manga_data})
         md_model.title_json.chapters(data_to_add)
-        if md_model.type_id in (2, 3):
-            md_model.bulk_json.chapters(data_to_add)
+    if md_model.type_id in (2, 3):
+        md_model.bulk_json.chapters(data_to_add)
 
     print(f'Downloading {title} | Volume: {chapter_data["volume"]} | Chapter: {chapter_data["chapter"]} | Title: {chapter_data["title"]}')
 

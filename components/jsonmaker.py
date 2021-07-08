@@ -42,6 +42,13 @@ class JsonBase:
         self.chapters_archive = [c["data"]["id"] for c in self.chapter_data if 'chapters_archive' in c and c["chapters_archive"]] if (self.chapter_data and not self.md_model.force_refresh) else []
         self.chapters_folder = [c["data"]["id"] for c in self.chapter_data if 'chapters_folder' in c and c["chapters_folder"]] if (self.chapter_data and not self.md_model.force_refresh) else []
 
+        if self.md_model.args.folder_download:
+            self.downloaded_ids.extend(self.chapters_folder)
+        else:
+            self.downloaded_ids.extend(self.chapters_archive)
+
+        self.downloaded_ids = list(set(self.downloaded_ids))
+
     def check_json_exist(self) -> dict:
         """Check if the json already exists.
 

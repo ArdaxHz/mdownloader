@@ -131,6 +131,7 @@ if __name__ == "__main__":
         help='Download a range of chapters, or all while excluding some. Put "!" in front of the chapters you want to exclude.')
     parser.add_argument('--search', '-s', default=False, const=True, nargs='?', 
         help='Search for the manga specified. Wrap multiple words in quotation marks, e.g. "Please Put These On, Takamine-san"')
+    parser.add_argument('--order', '-o', default=False, const=True, nargs='?', help='Download chapters in descending order instead of grouping by manga.')
     parser.add_argument('--debug', default=False, const=True, nargs='?', help=argparse.SUPPRESS)
     parser.add_argument('--force', default=False, const=True, nargs='?', help='Force refresh the cache.')
     parser.add_argument('--login', default=False, const=True, nargs='?', help='Login to MangaDex.')

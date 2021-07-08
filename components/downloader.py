@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 import math
 from datetime import datetime
-from typing import Type, Union
 
 from .image_downloader import chapter_downloader
 from .errors import MDownloaderError, NotLoggedInError
@@ -20,10 +19,14 @@ def download_chapters(md_model: MDownloader, chapters: list, chapters_data: list
     for chapter in chapters:
         chapter_id = chapter["data"]["id"]
         md_model.chapter_id = chapter_id
-        md_model.chapter_data = chapter 
+        md_model.chapter_data = chapter
+
+        if md_model.args.download_in_order and md_model.type_id in (2, 3):
+            manga_data = md_model.misc.check_manga_data(chapter)
+            md_model.formatter.format_title(manga_data)
 
         try:
-            if chapter_id not in chapters_data or not md_model.chapters_archive or not md_model.chapters_folder:
+            if chapter_id not in chapters_data:
                 chapter_downloader(md_model)
                 md_model.wait()
         except MDownloaderError as e:
@@ -46,7 +49,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
     pages = 1
     iteration = 1
 
-    parameters = {"includes[]": "scanlation_group"}
+    parameters = {"includes[]": ["manga"]}
     parameters.update(md_model.params)
 
     while True:
@@ -142,17 +145,7 @@ def manga_download(md_model: MDownloader) -> None:
         chapters_data = md_model.bulk_json.downloaded_ids
         download_type = f'{download_type}-manga'
 
-    if md_model.filter.group_whitelist or md_model.filter.user_whitelist:
-        if md_model.filter.group_whitelist:
-            chapters = [c for c in chapters if [g["id"] for g in c["relationships"] if g["type"] == 'scanlation_group'] in md_model.filter.group_whitelist]
-        else:
-            if md_model.filter.user_whitelist:
-                chapters = [c for c in chapters if [u["id"] for u in c["relationships"] if u["type"] == 'user'] in md_model.filter.user_whitelist]
-    else:
-        chapters = [c for c in chapters if 
-            (([g["id"] for g in c["relationships"] if g["type"] == 'scanlation_group'] not in md_model.filter.group_blacklist) 
-                or [u["id"] for u in c["relationships"] if u["type"] == 'user'] not in md_model.filter.user_blacklist)]
-
+    chapters = md_model.filter.filter_chapters(chapters)
     md_model.misc.download_message(0, download_type, title)
 
     if md_model.args.range_download and md_model.type_id == 1:
@@ -225,29 +218,34 @@ def bulk_download(md_model: MDownloader) -> None:
     bulk_json = BulkJson(md_model)
     md_model.bulk_json = bulk_json
 
-    print(f"Getting each manga's data from the {download_type} chosen.")
+    if not md_model.args.download_in_order:
+        print(f"Getting each manga's data from the {download_type} chosen.")
 
-    titles = {}
-    for chapter in chapters:
-        manga_id = [c["id"] for c in chapter["relationships"] if c["type"] == 'manga'][0]
-        if manga_id in titles:
-            titles[manga_id]["chapters"].append(chapter)
-        else:
-            titles[manga_id] = {"mangaId": manga_id, "chapters": [chapter]}
+        titles = {}
+        for chapter in chapters:
+            manga_id = [c["id"] for c in chapter["relationships"] if c["type"] == 'manga'][0]
+            if manga_id in titles:
+                titles[manga_id]["chapters"].append(chapter)
+            else:
+                titles[manga_id] = {"mangaId": manga_id, "chapters": [chapter]}
 
-    md_model.chapters_data = titles
+        md_model.chapters_data = titles
 
-    print("Finished getting each manga's data, downloading the chapters.")
+        print("Finished getting each manga's data, downloading the chapters.")
 
-    for title in titles:
-        md_model.manga_download = True
-        md_model.manga_id = titles[title]["mangaId"]
+        for title in titles:
+            md_model.manga_download = True
+            md_model.manga_id = titles[title]["mangaId"]
 
-        manga_download(md_model)
+            manga_download(md_model)
 
-        md_model.manga_download = False
-        md_model.manga_data = {}
-        md_model.wait(0)
+            md_model.manga_download = False
+            md_model.manga_data = {}
+            md_model.wait(0)
+    else:
+        chapters_data = bulk_json.downloaded_ids
+        chapters = md_model.filter.filter_chapters(chapters)
+        download_chapters(md_model, chapters, chapters_data)
 
     md_model.misc.download_message(1, download_type, md_model.name)
 
@@ -287,7 +285,7 @@ def chapter_download(md_model: MDownloader) -> None:
     chapter_id = md_model.chapter_id
     download_type = md_model.download_type
 
-    cache_json = md_model.cache.load_cache(md_model.id)
+    cache_json = md_model.cache.load_cache(chapter_id)
     refresh_cache = md_model.cache.check_cache_time(cache_json)
     chapter_data = cache_json.get('data', {})
 

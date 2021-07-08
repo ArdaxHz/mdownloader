@@ -43,7 +43,9 @@ class ExporterBase:
         Returns:
             int: If the chapter is a oneshot or not.
         """
-        if self.chapter_data["title"].lower() == 'oneshot':
+        if self.chapter_data["title"] is None:
+            return 0
+        elif self.chapter_data["title"].lower() == 'oneshot':
             return 1
         elif self.chapter_data["chapter"] == '' and (self.chapter_data["volume"] == '' or self.chapter_data["volume"] == '0') and self.chapter_data["title"] == '':
             return 1
@@ -51,8 +53,7 @@ class ExporterBase:
             return 2
         elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] != '' and (self.chapter_data["title"] != '' or self.chapter_data["title"] == ''):
             return 3
-        else:
-            return 0
+        return 0
 
     def format_chapter_number(self) -> str:
         """Format the chapter number into 3 digits long.
@@ -163,7 +164,10 @@ class ExporterBase:
         Returns:
             str: The suffix of the file name.
         """
-        chapter_title = f'{self.chapter_data["title"][:31]}...' if len(self.chapter_data["title"]) > 30 else self.chapter_data["title"]
+        chapter_title = self.chapter_data["title"]
+        if chapter_title is None:
+            chapter_title = ''
+        chapter_title = f'{chapter_title[:31]}...' if len(chapter_title) > 30 else chapter_title
         title = f'[{self.md_model.formatter.strip_illegal(chapter_title)}] ' if len(chapter_title) > 0 else ''
         oneshot_prefix = '[Oneshot] '
         group_suffix = f'[{self.groups}]'
