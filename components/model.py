@@ -269,6 +269,7 @@ class ProcessArgs(ModelsBase):
         self.save_chapter_data = bool()
         self.range_download = bool()
         self.search_manga = False
+        self.download_in_order = False
 
     def format_args(self, args) -> None:
         """Format the arguments into readable data.
@@ -288,7 +289,8 @@ class ProcessArgs(ModelsBase):
         self.folder_download = bool(args_dict["folder"])
         self.cover_download = bool(args_dict["covers"])
         self.save_chapter_data = bool(args_dict["json"])
-        self.range_download = args_dict["range"]
+        self.range_download = bool(args_dict["range"])
+        self.download_in_order = bool(args_dict["order"])
         if args_dict["login"]: self.model.auth.login()
         if args_dict["search"]:
             self.search_manga = True
@@ -307,20 +309,7 @@ class ProcessArgs(ModelsBase):
             str: The file extension.
         """
         if archive_extension not in ('zip', 'cbz'):
-            raise MDownloaderError("This archive save format is not allowed.")            
-
-    def download_range(self, range_download: bool) -> bool:
-        """Select the chapters to download. Works only on manga downloads. Default: range.
-
-        Args:
-            range_download (bool): The command line argument.
-
-        Returns:
-            bool: True if to download in range, False if not.
-        """
-        if range_download:
-            return True
-        return False
+            raise MDownloaderError("This archive save format is not allowed.")
 
     def find_manga(self):
         manga_response = self.model.api.request_data(f'{self.model.manga_api_url}', **{"title": self.model.id, "limit": 100, "includes[]": ["artist", "author", "cover"]})
@@ -372,12 +361,13 @@ class ExistChecker(ModelsBase):
 
     def save_json(self) -> None:
         """Save the chapter data to the data json and save the json."""
-        if self.model.type_id in (1, 2, 3) or self.model.manga_download:
+        if self.model.type_id in (1,):
             self.model.title_json.core()
-            if self.model.type_id in (2, 3):
-                self.model.manga_download = False
-                self.model.bulk_json.core()
-                self.model.manga_download = True
+
+        if self.model.type_id in (2, 3):
+            self.model.manga_download = False
+            self.model.bulk_json.core()
+            self.model.manga_download = True
 
     def before_download(self, exists: bool) -> None:
         """Check if the chapter exists before downloading the images.
@@ -578,13 +568,42 @@ class Filtering(ModelsBase):
         self.user_blacklist = self.read_file(self._user_blacklist_file)
         self.user_whitelist = self.read_file(self._user_userlist_file)
 
-    def read_file(self, file_path):
+    def read_file(self, file_path: str) -> list:
+        """Opens the text file and gets the groups/users to filter.
+
+        Args:
+            file_path (str): Path to the file.
+
+        Returns:
+            list: The ids to filter.
+        """
         try:
             with open(file_path, 'r') as fp:
                 filter_list = [line.rstrip('\n') for line in fp.readlines()]
                 return filter_list
         except FileNotFoundError:
             return []
+    
+    def filter_chapters(self, chapters: list) -> list:
+        """Takes the chapters to download and filters them accordingly.
+
+        Args:
+            chapters (list): Chapters to filter.
+
+        Returns:
+            list: The filtered chapters.
+        """
+        if self.model.filter.group_whitelist or self.model.filter.user_whitelist:
+            if self.model.filter.group_whitelist:
+                chapters = [c for c in chapters if [g["id"] for g in c["relationships"] if g["type"] == 'scanlation_group'] in self.model.filter.group_whitelist]
+            else:
+                if self.model.filter.user_whitelist:
+                    chapters = [c for c in chapters if [u["id"] for u in c["relationships"] if u["type"] == 'user'] in self.model.filter.user_whitelist]
+        else:
+            chapters = [c for c in chapters if 
+                (([g["id"] for g in c["relationships"] if g["type"] == 'scanlation_group'] not in self.model.filter.group_blacklist) 
+                    or [u["id"] for u in c["relationships"] if u["type"] == 'user'] not in self.model.filter.user_blacklist)]
+        return chapters
 
 
 

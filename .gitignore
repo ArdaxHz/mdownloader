@@ -1,6 +1,6 @@
 .vscode
 components/__pycache__
-downloads
+downloads*
 *.txt
 *.py_temp
 .env
