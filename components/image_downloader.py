@@ -8,6 +8,7 @@ from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
 
 from .constants import ImpVar
+from .errors import MDownloaderError
 from .exporter import ArchiveExporter, FolderExporter
 from .mangaplus import MangaPlus
 from .model import MDownloader
@@ -183,6 +184,9 @@ def chapter_downloader(md_model: MDownloader) -> None:
         return
 
     pages = chapter_data["data"]
+
+    if not pages:
+        raise MDownloaderError('This chapter has no pages.')
 
     # Check if the chapter has been downloaded already
     exists = md_model.exist.check_exist(pages)

@@ -23,9 +23,10 @@ class ExporterBase:
         self.chapter_data = md_model.chapter_data["data"]["attributes"]
         self.relationships = md_model.chapter_data["relationships"]
         self.chapter_prefix = md_model.prefix
+        self.process_data()
         self.oneshot = self.check_oneshot()
         self.groups = self.group_names()
-        self.chapter_number = self.format_chapter_number()
+        self.chapter = self.format_chapter_number()
         self.volume = self.format_volume_number()
         self.language = self.lang_code()
         self.prefix = self.prefix_name()
@@ -37,22 +38,29 @@ class ExporterBase:
         self.path = Path(md_model.route)
         self.path.mkdir(parents=True, exist_ok=True)
 
+    def process_data(self):
+        """Convert the chapter data into a more readable format."""
+        chapter_number = self.chapter_data["chapter"]
+        volume_number = self.chapter_data["volume"]
+        chapter_title = self.chapter_data["title"]
+
+        if chapter_number is None or str(chapter_number).lower() in ('', 'none'):
+            self.chapter_number = None
+        if volume_number is None or str(volume_number).lower() in ('', '0', 'none'):
+            self.volume_number = None
+        if chapter_title is None or str(chapter_title).lower() in ('', 'none', 'oneshot'):
+            self.chapter_title = None
+
     def check_oneshot(self) -> int:
         """If the chapter is a oneshot.
 
         Returns:
             int: If the chapter is a oneshot or not.
         """
-        if self.chapter_data["title"] is None:
-            return 0
-        elif self.chapter_data["title"].lower() == 'oneshot':
+        if self.chapter_number is None and self.volume_number is None and self.chapter_title is None:
             return 1
-        elif self.chapter_data["chapter"] == '' and (self.chapter_data["volume"] == '' or self.chapter_data["volume"] == '0') and self.chapter_data["title"] == '':
-            return 1
-        elif self.chapter_data["chapter"] == '' and (self.chapter_data["volume"] == '' or self.chapter_data["volume"] == '0'):
+        elif self.chapter_number is None and self.volume_number is None:
             return 2
-        elif self.chapter_data["chapter"] == '' and self.chapter_data["volume"] != '' and (self.chapter_data["title"] != '' or self.chapter_data["title"] == ''):
-            return 3
         return 0
 
     def format_chapter_number(self) -> str:
@@ -61,20 +69,20 @@ class ExporterBase:
         Returns:
             str: The formatted chapter number.
         """
-        if self.oneshot in (1, 2, 3):
+        if self.oneshot in (1, 2):
             return '000'
 
-        chapter_number = str(self.chapter_data["chapter"])
+        chapter_number = str(self.chapter_number)
 
         if re.search(r'[\\\\/-:*?"<>|]', chapter_number):
-            decimal = chapter_number.split('.', 1)
+            decimal = chapter_number.split('.,', 1)
             parts = re.split(r'\D', decimal[0], 1)
             c = int(parts[0])
             parts = [i.zfill(3) for i in parts]
             chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
             chap_no = '-'.join(parts) + '.' + decimal[1] if (len(decimal) > 1 and decimal[1] != '0') else '-'.join(parts)
         else:
-            parts = chapter_number.split('.', 1)
+            parts = chapter_number.split('.,', 1)
             c = int(parts[0])
             chap_no = str(c).zfill(3)
             chap_prefix = self.chapter_prefix if c < 1000 else (chr(ord(self.chapter_prefix) + 1))
@@ -99,11 +107,10 @@ class ExporterBase:
         Returns:
             str: The formatted volume number.
         """
-        volume_number = self.chapter_data["volume"]
-        if volume_number is None or volume_number.lower() in ('0', 'none', 'null') or self.oneshot in (1, 2):
+        if self.volume_number is None:
             return ''
 
-        volume_number = str(volume_number)
+        volume_number = str(self.volume_number)
         parts = volume_number.split('.', 1)
         v = int(parts[0])
         vol_no = str(v).zfill(2)
@@ -116,7 +123,7 @@ class ExporterBase:
         Returns:
             str: The name prefix.
         """
-        return f'{self.series_title}{self.language} - {self.chapter_number}{self.volume}'
+        return f'{self.series_title}{self.language} - {self.chapter}{self.volume}'
 
     def group_names(self) -> str:
         """The chapter's groups.
@@ -149,7 +156,7 @@ class ExporterBase:
                     if cache_group_data:
                         cache_group_data = {"data": group, "relationships": cache_group_data.get('relationships', [])}
                     self.md_model.cache.save_cache(cache_json.get('cache_date', ''), download_id=group_id, data=cache_group_data, chapters=cache_json.get('chapters', []), covers=cache_json.get('covers', []))
-            
+
             name = group_data["name"]
             group_names.append(name)
 
@@ -164,9 +171,10 @@ class ExporterBase:
         Returns:
             str: The suffix of the file name.
         """
-        chapter_title = self.chapter_data["title"]
+        chapter_title = self.chapter_title
         if chapter_title is None:
             chapter_title = ''
+
         chapter_title = f'{chapter_title[:31]}...' if len(chapter_title) > 30 else chapter_title
         title = f'[{self.md_model.formatter.strip_illegal(chapter_title)}] ' if len(chapter_title) > 0 else ''
         oneshot_prefix = '[Oneshot] '
@@ -176,8 +184,6 @@ class ExporterBase:
             return f'{oneshot_prefix}{group_suffix}'
         elif self.oneshot == 2:
             return f'{oneshot_prefix}{title}{group_suffix}'
-        elif self.oneshot == 3:
-            return f'{title}{group_suffix}'
         return group_suffix
 
     def folder_name(self) -> str:
