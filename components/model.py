@@ -173,6 +173,14 @@ class AuthMD(ModelsBase):
         with open(self.token_file, 'w') as login_file:
             login_file.write(json.dumps(token, indent=4))
 
+    def update_headers(self, session_token: str) -> None:
+        """Update the session headers to include the auth token.
+
+        Args:
+            session_token (str): The token used for logging in.
+        """
+        self.model.api.session.headers = {"Authorization": f"Bearer {session_token}"}
+
     def refresh_token(self, token: dict) -> bool:
         """Use the refresh token to get a new session token.
 
@@ -188,7 +196,7 @@ class AuthMD(ModelsBase):
         if refresh_response.status_code == 200:
             refresh_data = refresh_response.json()["token"]
 
-            self.model.api.session.headers = {'Authorization': f'Bearer {token["session"]}'}
+            self.update_headers(token["session"])
             self.save_session(refresh_data)
             return True
         elif refresh_response.status_code in (401, 403):
@@ -231,7 +239,7 @@ class AuthMD(ModelsBase):
         
         if post.status_code == 200:
             token = post.json()["token"]
-            self.model.api.session.headers = {'Authorization': f'Bearer {token["session"]}'}
+            self.update_headers(token["session"])
             self.save_session(token)
             return True
         return False
@@ -244,7 +252,7 @@ class AuthMD(ModelsBase):
             with open(self.token_file, 'r') as login_file:
                 token = json.load(login_file)
 
-            self.model.api.session.headers = {"Authorization": f'Bearer {token["session"]}'}
+            self.update_headers(token["session"])
             logged_in = self.check_login(token)
         except (FileNotFoundError, json.JSONDecodeError):
             print("Couldn't find the file, trying to login using your account.")
@@ -292,7 +300,7 @@ class ProcessArgs(ModelsBase):
         self.range_download = bool(args_dict["range"])
         self.download_in_order = bool(args_dict["order"])
         if args_dict["login"]: self.model.auth.login()
-        if args_dict["search"]:
+        if args_dict["search"] and self.model.download_type in ('title', 'manga'):
             self.search_manga = True
             self.find_manga()
 
@@ -583,7 +591,7 @@ class Filtering(ModelsBase):
                 return filter_list
         except FileNotFoundError:
             return []
-    
+
     def filter_chapters(self, chapters: list) -> list:
         """Takes the chapters to download and filters them accordingly.
 
@@ -593,16 +601,16 @@ class Filtering(ModelsBase):
         Returns:
             list: The filtered chapters.
         """
-        if self.model.filter.group_whitelist or self.model.filter.user_whitelist:
-            if self.model.filter.group_whitelist:
-                chapters = [c for c in chapters if [g["id"] for g in c["relationships"] if g["type"] == 'scanlation_group'] in self.model.filter.group_whitelist]
+        if self.group_whitelist or self.user_whitelist:
+            if self.group_whitelist:
+                chapters = [c for c in chapters if [g["id"] for g in c["relationships"] if g["type"] == 'scanlation_group'] in self.group_whitelist]
             else:
-                if self.model.filter.user_whitelist:
-                    chapters = [c for c in chapters if [u["id"] for u in c["relationships"] if u["type"] == 'user'] in self.model.filter.user_whitelist]
+                if self.user_whitelist:
+                    chapters = [c for c in chapters if [u["id"] for u in c["relationships"] if u["type"] == 'user'] in self.user_whitelist]
         else:
             chapters = [c for c in chapters if 
-                (([g["id"] for g in c["relationships"] if g["type"] == 'scanlation_group'] not in self.model.filter.group_blacklist) 
-                    or [u["id"] for u in c["relationships"] if u["type"] == 'user'] not in self.model.filter.user_blacklist)]
+                (([g["id"] for g in c["relationships"] if g["type"] == 'scanlation_group'] not in self.group_blacklist) 
+                    or [u["id"] for u in c["relationships"] if u["type"] == 'user'] not in self.user_blacklist)]
         return chapters
 
 
@@ -769,6 +777,8 @@ class TitleDownloaderMisc(ModelsBase):
         """Sort the chapter numbers naturally."""
         try:
             return float(x)
+        except TypeError:
+            return '0'
         except ValueError:
             return x
 
@@ -787,20 +797,23 @@ class TitleDownloaderMisc(ModelsBase):
         for c in chap_list:
             if "-" in c:
                 chapter_range = c.split('-')
+                chapter_range = [None if v == 'oneshot' else v for v in c]
                 lower_bound = chapter_range[0].strip()
                 upper_bound = chapter_range[1].strip()
                 try:
                     lower_bound_i = chapters_list.index(lower_bound)
                 except ValueError:
-                    print(f'Chapter {lower_bound} does not exist. Skipping {c}.')
+                    print(f'Chapter lower bound {lower_bound} does not exist. Skipping {c}.')
                     continue
                 try:
                     upper_bound_i = chapters_list.index(upper_bound)
                 except ValueError:
-                    print(f'Chapter {upper_bound} does not exist. Skipping {c}.')
+                    print(f'Chapter upper bound {upper_bound} does not exist. Skipping {c}.')
                     continue
                 c = chapters_list[lower_bound_i:upper_bound_i+1]
             else:
+                if c == 'oneshot':
+                    c = None
                 try:
                     c = [chapters_list[chapters_list.index(c)]]
                 except ValueError:
@@ -808,7 +821,6 @@ class TitleDownloaderMisc(ModelsBase):
                     continue
             chapters_range.extend(c)
         return chapters_range
-
 
     def download_range_chapters(self, chapters: list) -> list:
         """Check which chapters you want to download.
@@ -820,11 +832,12 @@ class TitleDownloaderMisc(ModelsBase):
             list: The chapters to download.
         """
         chapters_list = [c["data"]["attributes"]["chapter"] for c in chapters]
+        chapters_list_str = ['oneshot' if c is None else c for c in chapters_list]
         chapters_list = list(set(chapters_list))
         chapters_list.sort(key=self.natsort)
         remove_chapters = []
 
-        print(f'Available chapters:\n{", ".join(chapters_list)}')
+        print(f'Available chapters:\n{", ".join(chapters_list_str)}')
         chap_list = input("\nEnter the chapter(s) to download: ").strip()
 
         if not chap_list:

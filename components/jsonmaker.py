@@ -18,6 +18,7 @@ class JsonBase:
         self.type = md_model.download_type
         self.domain = ImpVar.MANGADEX_URL
         self.api_url = ImpVar.MANGADEX_API_URL
+        self.downloaded_ids = []
 
         if self.md_model.type_id == 1 or self.md_model.manga_download:
             data = md_model.manga_data
@@ -38,7 +39,7 @@ class JsonBase:
         self.data_json = self.check_json_exist()
         self.new_data = {}
         self.chapter_data = self.data_json.get('chapters', [])
-        self.downloaded_ids = [c["data"]["id"] for c in self.chapter_data] if (self.chapter_data and not self.md_model.force_refresh) else []
+        self.json_ids = [c["data"]["id"] for c in self.chapter_data] if (self.chapter_data and not self.md_model.force_refresh) else []
         self.chapters_archive = [c["data"]["id"] for c in self.chapter_data if 'chapters_archive' in c and c["chapters_archive"]] if (self.chapter_data and not self.md_model.force_refresh) else []
         self.chapters_folder = [c["data"]["id"] for c in self.chapter_data if 'chapters_folder' in c and c["chapters_folder"]] if (self.chapter_data and not self.md_model.force_refresh) else []
 
@@ -93,7 +94,6 @@ class JsonBase:
         if self.md_model.type_id == 1 or self.md_model.manga_download:
             self.new_data = self.title_json
             self.new_data["externalLinks"] = self.links
-            self.new_data["relationships"] = self.relationsips
             self.new_data["covers"] = self.covers
 
             if save_type and self.save_covers:
@@ -101,10 +101,8 @@ class JsonBase:
         else:
             self.new_data = self.bulk_data
 
-        # self.new_data["chapters_archive"] = self.chapters_archive
-        # self.new_data["chapters_folder"] = self.chapters_folder
+        self.new_data["relationships"] = self.relationsips
         self.new_data["chapters"] = self.chapter_data
-        # self.addChaptersJson()
         self.save_json()
 
 

@@ -49,7 +49,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
     pages = 1
     iteration = 1
 
-    parameters = {"includes[]": ["manga"]}
+    parameters = {}
     parameters.update(md_model.params)
 
     while True:
@@ -173,7 +173,7 @@ def bulk_download(md_model: MDownloader) -> None:
         relationships = data.get('relationships', [])
 
         if refresh_cache or not data or not relationships:
-            response = md_model.api.request_data(f'{md_model.api_url}/{md_model.download_type}/{md_model.id}')
+            response = md_model.api.request_data(f'{md_model.api_url}/{md_model.download_type}/{md_model.id}', **{"includes[]": ["user", "leader", "member"]})
             data = md_model.api.convert_to_json(md_model.id, download_type, response)
 
             md_model.cache.save_cache(datetime.now(), download_id=md_model.id, data=data)
@@ -190,6 +190,7 @@ def bulk_download(md_model: MDownloader) -> None:
         cache_json = md_model.cache_json
 
     name_path = md_model.data["data"]["attributes"]
+    md_model.params.update({"includes[]": ["manga"]})
 
     if download_type == 'group':
         md_model.name = name_path["name"]
@@ -200,7 +201,8 @@ def bulk_download(md_model: MDownloader) -> None:
         md_model.params.update({"uploader": md_model.id})
         md_model.chapter_limit = 100
     elif download_type == 'list':
-        owner = name_path["owner"]["attributes"]["username"]
+        owner = [u for u in md_model.data["relationships"] if u["type"] == 'user'][0]
+        owner = owner["attributes"]["username"]
         md_model.name = f"{owner}'s Custom List"
     else:
         owner = name_path["username"]
