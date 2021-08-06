@@ -40,15 +40,15 @@ class ExporterBase:
 
     def process_data(self):
         """Convert the chapter data into a more readable format."""
-        chapter_number = self.chapter_data["chapter"]
-        volume_number = self.chapter_data["volume"]
-        chapter_title = self.chapter_data["title"]
+        self.chapter_number = self.chapter_data["chapter"]
+        self.volume_number = self.chapter_data["volume"]
+        self.chapter_title = self.chapter_data["title"]
 
-        if chapter_number is None or str(chapter_number).lower() in ('', 'none'):
+        if self.chapter_number is None or str(self.chapter_number).lower() in ('', 'none'):
             self.chapter_number = None
-        if volume_number is None or str(volume_number).lower() in ('', '0', 'none'):
+        if self.volume_number is None or str(self.volume_number).lower() in ('', '0', 'none'):
             self.volume_number = None
-        if chapter_title is None or str(chapter_title).lower() in ('', 'none', 'oneshot'):
+        if self.chapter_title is None or str(self.chapter_title).lower() in ('', 'none', 'oneshot'):
             self.chapter_title = None
 
     def check_oneshot(self) -> int:

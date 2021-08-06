@@ -425,8 +425,9 @@ class DataFormatter(ModelsBase):
         elif attributes["originalLanguage"] in attributes["title"]:
             title = attributes["title"]["originalLanguage"]
         else:
-            title = next(iter(attributes["title"]))
-        
+            key = next(iter(attributes["title"]))
+            title = attributes["title"][key]
+
         return title
 
     def strip_illegal(self, name: str) -> str:
@@ -836,6 +837,9 @@ class TitleDownloaderMisc(ModelsBase):
         chapters_list = list(set(chapters_list))
         chapters_list.sort(key=self.natsort)
         remove_chapters = []
+
+        if not chapters_list:
+            return chapters
 
         print(f'Available chapters:\n{", ".join(chapters_list_str)}')
         chap_list = input("\nEnter the chapter(s) to download: ").strip()
