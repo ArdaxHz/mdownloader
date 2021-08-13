@@ -724,6 +724,37 @@ class MDownloaderMisc(ModelsBase):
 
         return manga_data
 
+    def check_external(self, chapter_data: dict) -> Union[str, None]:
+        """Checks if the chapter is a MangaDex chapter or an external official one.
+
+        Args:
+            chapter_data (dict): Chapter data to check.
+
+        Raises:
+            MDownloaderError: Chapter is external and not downloadable.
+
+        Returns:
+            Union[str, None]: The mangaplus url or None for not external chapters.
+        """
+        external = False
+        url = ''
+
+        if 'externalUrl' in chapter_data:
+            if chapter_data["externalUrl"] is not None and chapter_data["externalUrl"] != '':
+                url = chapter_data["externalUrl"]
+                external = True
+
+        if bool(ImpVar.URL_RE.match(chapter_data["data"][0])):
+            url = chapter_data["data"][0]
+            external = True
+
+        if external:
+            if 'mangaplus' in url:
+                return url
+            else:
+                raise MDownloaderError('Chapter external to MangaDex, unable to download. Skipping...')
+
+        return None
 
 
 class TitleDownloaderMisc(ModelsBase):

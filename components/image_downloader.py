@@ -144,19 +144,15 @@ def chapter_downloader(md_model: MDownloader) -> None:
     Args:
         md_model (MDownloader): The base class this program runs on.
     """
-    external = False
     chapter_id = md_model.chapter_id
     data = md_model.chapter_data
     title = md_model.title
-
-    if r'https://mangaplus.shueisha.co.jp/viewer/' in data["data"]["attributes"]["data"][0]:
-        external = True
-
-    # if ImpVar.MANGAPLUS_GROUP_ID in [g["id"] for g in data["relationships"] if g["type"] == 'scanlation_group']:
-    #     external = True
-
     chapter_data = data["data"]["attributes"]
     md_model.prefix = md_model.chapter_prefix_dict.get(chapter_data["volume"], 'c')
+
+    print(f'Downloading {title} | Volume: {chapter_data["volume"]} | Chapter: {chapter_data["chapter"]} | Title: {chapter_data["title"]}')
+
+    external = md_model.misc.check_external(chapter_data)
 
     # Make the files
     if md_model.args.folder_download:
@@ -174,13 +170,11 @@ def chapter_downloader(md_model: MDownloader) -> None:
     if md_model.type_id in (2, 3):
         md_model.bulk_json.chapters(data_to_add)
 
-    print(f'Downloading {title} | Volume: {chapter_data["volume"]} | Chapter: {chapter_data["chapter"]} | Title: {chapter_data["title"]}')
-
     # External chapters
-    if external:
+    if external is not None:
         # Call MangaPlus downloader
         print('External chapter. Connecting to MangaPlus to download.')
-        MangaPlus(md_model).mplus_images()
+        MangaPlus(md_model, external).mplus_images()
         return
 
     pages = chapter_data["data"]
