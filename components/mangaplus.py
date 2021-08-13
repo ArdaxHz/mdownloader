@@ -13,23 +13,27 @@ class MangaPlus:
 
     def __init__(
             self,
-            md_model: MDownloader) -> None:
+            md_model: MDownloader,
+            mplus_url: str) -> None:
 
         self.md_model = md_model
         self.chapter_data = md_model.chapter_data
         self.type = md_model.download_type
         self.exporter = md_model.exporter
-        self.api_url = self.check_id()
+        self.api_url = self.check_id(mplus_url)
         self.extension = 'jpg'
 
-    def check_id(self) -> str:
+    def check_id(self, mplus_url: str) -> str:
         """Get the MangaPlus id for the api.
+
+        Args:
+            mplus_url (dict): Mangaplus url to get chapter id from.
 
         Returns:
             str: The MangaPlus url to request.
         """
-        mplus_url = re.compile(r'(?:https:\/\/mangaplus\.shueisha\.co\.jp\/viewer\/)([0-9]+)')
-        mplus_id = mplus_url.match(self.chapter_data["data"]["attributes"]["data"][0]).group(1)
+        mplus_url_regex = re.compile(r'(?:https:\/\/mangaplus\.shueisha\.co\.jp\/viewer\/)([0-9]+)')
+        mplus_id = mplus_url_regex.match(mplus_url).group(1)
         url = f'https://jumpg-webapi.tokyo-cdn.com/api/manga_viewer?chapter_id={mplus_id}&split=no&img_quality=super_high'
         return url
 
@@ -64,7 +68,7 @@ class MangaPlus:
         for page in tqdm(pages, desc=(str(datetime.now(tz=None))[:-7])):
             image = self.decrypt_image(page.image_url, page.encryption_key)
             page_no = pages.index(page) + 1
-            self.exporter.addImage(image, page_no, self.extension)
+            self.exporter.add_image(image, page_no, self.extension)
 
         downloaded_all = self.md_model.exist.check_exist(pages)
         self.md_model.exist.after_download(downloaded_all)
