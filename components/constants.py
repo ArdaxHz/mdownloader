@@ -11,8 +11,6 @@ class ImpVar:
     domain = 'mangadex'
     tld = 'org'
 
-    MANGAPLUS_GROUP_ID = '4f1de6a2-f0c5-4ac5-bce5-02c7dbb67deb'
-
     TOKEN_FILE = os.getenv("TOKEN_FILE", '.mdauth')
     CACHE_PATH = os.getenv("CACHE_PATH", '.cache')
     DOWNLOAD_PATH = os.getenv("DOWNLOAD_PATH", 'downloads')
@@ -48,6 +46,6 @@ class ImpVar:
         r'(?::\d+)?' # optional port
         r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
-    REGEX = r'[\\\\/:*?"<>|]'
+    CHARA_REGEX = r'[\\\\/:*?"<>|]'
     UUID_REGEX = r'[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}'
     FILE_NAME_REGEX = r'(?P<title>.+?)(?:\s\[(?P<language>[a-zA-Z]+)\])?\s-\s(?P<prefix>[c-z])?(?P<chapter>\S+)(?:\s\((?:v)(?P<volume>\S+?)\))?\s?(?:.+)(?:\[(?P<group>.+)\])(?:\{(?:v)(?P<version>\d)\})?(?:\.(?P<extension>zip|cbz))?'

@@ -21,8 +21,9 @@ class ExporterBase:
         self.orig_chapter_data = md_model.chapter_data
         self.chapter_id = md_model.chapter_data["data"]["id"]
         self.chapter_data = md_model.chapter_data["data"]["attributes"]
-        self.relationships = md_model.chapter_data["relationships"]
+        self.relationships = md_model.chapter_data["data"]["relationships"]
         self.chapter_prefix = md_model.prefix
+        self.naming_scheme = md_model.args.naming_scheme
         self.process_data()
         self.oneshot = self.check_oneshot()
         self.groups = self.group_names()
@@ -154,7 +155,7 @@ class ExporterBase:
                 if refresh_cache:
                     cache_group_data = cache_json.get('data', {})
                     if cache_group_data:
-                        cache_group_data = {"data": group, "relationships": cache_group_data.get('relationships', [])}
+                        cache_group_data = {"data": group}
                     self.md_model.cache.save_cache(cache_json.get('cache_date', ''), download_id=group_id, data=cache_group_data, chapters=cache_json.get('chapters', []), covers=cache_json.get('covers', []))
 
             name = group_data["name"]
@@ -192,19 +193,33 @@ class ExporterBase:
         Returns:
             str: The file name images to be saved to. 
         """
-        return f'{self.prefix} {self.suffix}'
+        if self.naming_scheme == 'default':
+            return f'{self.prefix} {self.suffix}'
+        elif self.naming_scheme == 'number':
+            name = self.chapter_number
+            if self.chapter_number is None:
+                name = '0'
+            return f'Chapter {name}'
+        elif self.naming_scheme == 'original':
+            return f'{self.chapter_id}'
 
-    def format_page_name(self, page_no: int, ext: str) -> str:
+    def format_page_name(self, page_no: int, ext: str, orig_name: str) -> str:
         """Each page name.
 
         Args:
             page_no (int): The image number.
             ext (str): The image extension.
+            orig_name (str): The original image name.
 
         Returns:
             str: The formatted page name.
         """
-        return f'{self.prefix} - p{page_no:0>3} {self.suffix}.{ext}'
+        if self.naming_scheme == 'default':
+            return f'{self.prefix} - p{page_no:0>3} {self.suffix}.{ext}'
+        elif self.naming_scheme == 'number':
+            return f'{page_no:0>3}.{ext}'
+        elif self.naming_scheme == 'original':
+            return f'{orig_name}'
 
 
 
@@ -280,15 +295,16 @@ class ArchiveExporter(ExporterBase):
         if self.page_name not in self.archive.namelist():
             self.compress_image()
 
-    def add_image(self, response: bytes, page_no: int, ext: str) -> None:
+    def add_image(self, response: bytes, page_no: int, ext: str, orig_name: str) -> None:
         """Format the image name then add to archive.
 
         Args:
             response (bytes): The image data.
             page_no (int): The image number.
             ext (str): The image extension.
+            orig_name (str): The original image name.
         """
-        self.page_name = self.format_page_name(page_no, ext)
+        self.page_name = self.format_page_name(page_no, ext, orig_name)
         self.response = response
 
         self.check_image()
@@ -328,10 +344,10 @@ class FolderExporter(ExporterBase):
         """
         try:
             if os.path.exists(self.folder_path):
-                return 1
+                return True
             else:
                 self.folder_path.mkdir(parents=True, exist_ok=True)
-                return 0
+                return False
         except OSError:
             raise MDownloaderError('Error creating folder')
 
@@ -364,15 +380,16 @@ class FolderExporter(ExporterBase):
         if self.page_name not in os.listdir(self.folder_path):
             self.add_to_folder()
 
-    def add_image(self, response: bytes, page_no: int, ext: str) -> None:
+    def add_image(self, response: bytes, page_no: int, ext: str, orig_name: str) -> None:
         """Format the image name then add to archive.
 
         Args:
             response (bytes): The image data.
             page_no (int): The image number.
             ext (str): The image extension.
+            orig_name (str): The original image name.
         """
-        self.page_name = self.format_page_name(page_no, ext)
+        self.page_name = self.format_page_name(page_no, ext, orig_name)
         self.response = response
 
         self.check_image()

@@ -111,7 +111,7 @@ async def image_download(
                     extension = image.split('.', 1)[1]
 
                     # Add image to archive
-                    exporter.add_image(img_data, page_no, extension)
+                    exporter.add_image(img_data, page_no, extension, image)
 
                     retry = retry_max_times
 

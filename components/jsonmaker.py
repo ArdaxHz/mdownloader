@@ -31,8 +31,6 @@ class JsonBase:
 
         self.id = data["data"]["id"]
         self.data = data["data"]["attributes"]
-        self.relationsips = data["relationships"]
-
         self.route.mkdir(parents=True, exist_ok=True)
         self.json_path = self.route.joinpath(f'{file_prefix}{self.id}_data').with_suffix('.json')
 
@@ -101,7 +99,6 @@ class JsonBase:
         else:
             self.new_data = self.bulk_data
 
-        self.new_data["relationships"] = self.relationsips
         self.new_data["chapters"] = self.chapter_data
         self.save_json()
 
@@ -113,7 +110,7 @@ class TitleJson(JsonBase):
         super().__init__(md_model)
         self.download_type = md_model.download_type
         self.save_covers = md_model.args.cover_download
-        self.regex = re.compile(ImpVar.REGEX)
+        self.regex = re.compile(ImpVar.CHARA_REGEX)
 
         # Make the covers folder in the manga folder
         if self.save_covers:
