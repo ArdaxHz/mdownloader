@@ -278,6 +278,8 @@ class ProcessArgs(ModelsBase):
         self.range_download = bool()
         self.search_manga = False
         self.download_in_order = False
+        self.naming_scheme_options = ["default", "original", "number"]
+        self.naming_scheme = "default"
 
     def format_args(self, args) -> None:
         """Format the arguments into readable data.
@@ -439,7 +441,7 @@ class DataFormatter(ModelsBase):
         Returns:
             str: The now-legal name.
         """
-        return re.sub(ImpVar.REGEX, '_', html.unescape(name))
+        return re.sub(ImpVar.CHARA_REGEX, '_', html.unescape(name))
 
     def format_route(self) -> None:
         """The route files will be saved to."""
@@ -604,14 +606,14 @@ class Filtering(ModelsBase):
         """
         if self.group_whitelist or self.user_whitelist:
             if self.group_whitelist:
-                chapters = [c for c in chapters if [g["id"] for g in c["relationships"] if g["type"] == 'scanlation_group'] in self.group_whitelist]
+                chapters = [c for c in chapters if [g["id"] for g in c["data"]["relationships"] if g["type"] == 'scanlation_group'] in self.group_whitelist]
             else:
                 if self.user_whitelist:
-                    chapters = [c for c in chapters if [u["id"] for u in c["relationships"] if u["type"] == 'user'] in self.user_whitelist]
+                    chapters = [c for c in chapters if [u["id"] for u in c["data"]["relationships"] if u["type"] == 'user'] in self.user_whitelist]
         else:
             chapters = [c for c in chapters if 
-                (([g["id"] for g in c["relationships"] if g["type"] == 'scanlation_group'] not in self.group_blacklist) 
-                    or [u["id"] for u in c["relationships"] if u["type"] == 'user'] not in self.user_blacklist)]
+                (([g["id"] for g in c["data"]["relationships"] if g["type"] == 'scanlation_group'] not in self.group_blacklist) 
+                    or [u["id"] for u in c["data"]["relationships"] if u["type"] == 'user'] not in self.user_blacklist)]
         return chapters
 
 
@@ -680,8 +682,10 @@ class MDownloaderMisc(ModelsBase):
             int: The amount of chapters found.
         """
         download_id = self.model.id
-
         count = data.get('total', 0)
+
+        if not data["results"]:
+            count = 0
 
         if self.model.type_id == 1:
             download_type = 'manga'
@@ -703,7 +707,7 @@ class MDownloaderMisc(ModelsBase):
         Returns:
             dict: The manga data to use.
         """
-        manga = dict([c for c in chapter_data["relationships"] if c["type"] == 'manga'][0])
+        manga = dict([c for c in chapter_data["data"]["relationships"] if c["type"] == 'manga'][0])
         manga_id = manga["id"]
         self.model.manga_id = manga_id
         manga_data = manga.get('attributes', {})
@@ -712,7 +716,6 @@ class MDownloaderMisc(ModelsBase):
             cache_json = self.model.cache.load_cache(manga_id)
             refresh_cache = self.model.cache.check_cache_time(cache_json)
             manga_data = cache_json.get('data', {})
-            # relationships = manga_data.get('relationships', [])
 
             if refresh_cache or not manga_data:
                 if self.model.debug: print('Calling api for manga data from chapter download.')

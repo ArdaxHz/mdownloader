@@ -109,13 +109,12 @@ def manga_download(md_model: MDownloader) -> None:
     cache_json = md_model.cache.load_cache(manga_id)
     refresh_cache = md_model.cache.check_cache_time(cache_json)
     manga_data = cache_json.get('data', {})
-    relationships = manga_data.get('relationships', [])
 
     if md_model.manga_data and md_model.args.search_manga:
         manga_data = md_model.manga_data
         md_model.cache.save_cache(datetime.now(), manga_id, data=manga_data)
 
-    if refresh_cache or not manga_data or not relationships:
+    if refresh_cache or not manga_data:
         manga_data = md_model.api.get_manga_data(download_type)
         md_model.cache.save_cache(datetime.now(), manga_id, data=manga_data)
         md_model.wait()        
@@ -170,9 +169,8 @@ def bulk_download(md_model: MDownloader) -> None:
         cache_json = md_model.cache.load_cache(md_model.id)
         refresh_cache = md_model.cache.check_cache_time(cache_json)
         data = cache_json.get('data', {})
-        relationships = data.get('relationships', [])
 
-        if refresh_cache or not data or not relationships:
+        if refresh_cache or not data:
             response = md_model.api.request_data(f'{md_model.api_url}/{md_model.download_type}/{md_model.id}', **{"includes[]": ["user", "leader", "member"]})
             data = md_model.api.convert_to_json(md_model.id, download_type, response)
 
@@ -201,7 +199,7 @@ def bulk_download(md_model: MDownloader) -> None:
         md_model.params.update({"uploader": md_model.id})
         md_model.chapter_limit = 100
     elif download_type == 'list':
-        owner = [u for u in md_model.data["relationships"] if u["type"] == 'user'][0]
+        owner = [u for u in md_model.data["data"]["relationships"] if u["type"] == 'user'][0]
         owner = owner["attributes"]["username"]
         md_model.name = f"{owner}'s Custom List"
     else:
@@ -225,7 +223,7 @@ def bulk_download(md_model: MDownloader) -> None:
 
         titles = {}
         for chapter in chapters:
-            manga_id = [c["id"] for c in chapter["relationships"] if c["type"] == 'manga'][0]
+            manga_id = [c["id"] for c in chapter["data"]["relationships"] if c["type"] == 'manga'][0]
             if manga_id in titles:
                 titles[manga_id]["chapters"].append(chapter)
             else:
