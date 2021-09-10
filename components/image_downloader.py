@@ -10,7 +10,6 @@ from tqdm import tqdm
 from .constants import ImpVar
 from .errors import MDownloaderError
 from .exporter import ArchiveExporter, FolderExporter
-from .mangaplus import MangaPlus
 from .model import MDownloader
 
 
@@ -23,7 +22,6 @@ def report_image(
     """Report the success of the image.
 
     Args:
-        md_model (MDownloader): The base class this program runs on.
         success (bool): If the image was downloaded or not.
         image_link (str): The url of the image.
         img_size (int): The size in bytes of the image.
@@ -47,25 +45,14 @@ def report_image(
 
 
 def get_server(md_model: MDownloader) -> str:
-    """Get the MD@H node to download images from.
-
-    Args:
-        md_model (MDownloader): The base class this program runs on.
-
-    Returns:
-        str: The MD@H node to download images from.
-    """
+    """Get the MD@H node to download images from."""
     server_response = md_model.api.request_data(f'{md_model.mdh_url}/{md_model.chapter_id}')
     server_data = md_model.api.convert_to_json(md_model.chapter_id, 'chapter-server', server_response)
     return server_data["baseUrl"]
 
 
 async def display_progress(tasks: list) -> None:
-    """Display a progress bar of the downloaded images.
-
-    Args:
-        tasks (list): Asyncio tasks for downloading images.
-    """
+    """Display a progress bar of the downloaded images using the asyncio tasks."""
     for f in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc=(str(datetime.now(tz=None))[:-7])):
         try: await f
         except ConnectionResetError: pass
@@ -82,7 +69,6 @@ async def image_download(
     """Download the MangaDex chapter images.
 
     Args:
-        md_model (MDownloader): The base class this program runs on.
         url (str): The server to download images from.
         fallback_url (str): A backup server to download images from.
         image (str): The image name.
@@ -93,11 +79,11 @@ async def image_download(
     fallback_retry = 0
     retry_max_times = ImpVar.RETRY_MAX_TIMES
     time_to_sleep = ImpVar.TIME_TO_SLEEP
-    image_link = url + image
 
     # Try to download it retry_max_times times
     while retry < retry_max_times:
         start_time = time.time()
+        image_link = url + image
         async with ClientSession() as session:
             try:
                 async with session.get(image_link) as response:
@@ -140,9 +126,6 @@ def chapter_downloader(md_model: MDownloader) -> None:
     download_type: 1 = manga
     download_type: 2 = group|user|list
     download_type: 3 = follows
-
-    Args:
-        md_model (MDownloader): The base class this program runs on.
     """
     chapter_id = md_model.chapter_id
     data = md_model.chapter_data
@@ -163,18 +146,22 @@ def chapter_downloader(md_model: MDownloader) -> None:
     md_model.exporter = exporter
 
     # Add chapter data to the json for title, group or user downloads
-    data_to_add = data.copy()
     if md_model.type_id in (1,):
-        # data_to_add.update({"mangaData": md_model.manga_data})
-        md_model.title_json.chapters(data_to_add)
+        md_model.title_json.add_chapter(data)
     if md_model.type_id in (2, 3):
-        md_model.bulk_json.chapters(data_to_add)
+        md_model.bulk_json.add_chapter(data)
 
     # External chapters
     if external is not None:
-        # Call MangaPlus downloader
-        print('External chapter. Connecting to MangaPlus to download.')
-        MangaPlus(md_model, external).mplus_images()
+        from .external import MangaPlus, ComiKey
+        if 'mangaplus' in external:
+            # Call MangaPlus downloader
+            print('External chapter. Connecting to MangaPlus to download.')
+            MangaPlus(md_model, external).download_mplus_chap()
+        elif 'comikey' in external:
+            # Call ComiKey downloader
+            print('External chapter. Connecting to ComiKey to download.')
+            ComiKey(md_model, external).download_comikey_chap()
         return
 
     pages = chapter_data["data"]

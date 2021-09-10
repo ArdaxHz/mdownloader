@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import math
+# import multiprocessing
 from datetime import datetime
 
 from .image_downloader import chapter_downloader
@@ -12,7 +13,6 @@ def download_chapters(md_model: MDownloader, chapters: list, chapters_data: list
     """Loop chapters and call the baseDownloader function.
 
     Args:
-        md_model (MDownloader): The base class this program runs on.
         chapters (list): The chapters to download.
         chapters_data (list): The ids of the downloaded chapters from the data json.
     """
@@ -28,16 +28,63 @@ def download_chapters(md_model: MDownloader, chapters: list, chapters_data: list
         try:
             if chapter_id not in chapters_data:
                 chapter_downloader(md_model)
-                md_model.wait()
+                md_model.wait(1)
         except MDownloaderError as e:
             if e: print(e)
+
+
+# def download_chapters(md_model: MDownloader, chapters: list, chapters_data: list) -> None:
+#     """Loop chapters and call the baseDownloader function.
+
+#     Args:
+#         chapters (list): The chapters to download.
+#         chapters_data (list): The ids of the downloaded chapters from the data json.
+#     """
+#     # Split chapters array into arrays of 3
+#     chapters_separated = [chapters[l:l + 3] for l in range(0, len(chapters), 3)]
+#     for index, separated_chapters in enumerate(chapters_separated, start=1):
+#         processes = []
+#         for chapter in separated_chapters:
+#             chapter_id = chapter["data"]["id"]
+#             md_model.chapter_id = chapter_id
+#             md_model.chapter_data = chapter
+
+#             if md_model.args.download_in_order and md_model.type_id in (2, 3):
+#                 manga_data = md_model.misc.check_manga_data(chapter)
+#                 md_model.formatter.format_title(manga_data)
+
+#             try:
+#                 if chapter_id not in chapters_data:
+#                     process = multiprocessing.Process(target=chapter_downloader, args=(md_model,))
+#                     process.start()
+#                     processes.append(process)
+#             except MDownloaderError as e:
+#                 if e: print(e)
+
+#         # Check all chapter proccesses have finished before moving onto next chapters
+#         while True:
+#             all_finished = False
+#             for process in processes:
+#                 process.join(timeout=0)
+#                 if process.is_alive():
+#                     # print('alive')
+#                     all_finished = False
+#                 else:
+#                     # print('dead')
+#                     all_finished = True
+            
+#             if all_finished:
+#                 break
+
+#         # Pause every 6 chapters
+#         if index % 2 == 0:
+#             md_model.wait(3, print_message=True)
 
 
 def get_chapters(md_model: MDownloader, url: str) -> list:
     """Go through each page in the api to get all the chapters.
 
     Args:
-        md_model (MDownloader): The base class this program runs on.
         url (str): Request url.
 
     Returns:
@@ -49,7 +96,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
     pages = 1
     iteration = 1
 
-    parameters = {}
+    parameters = {"translatedLanguage[]": md_model.args.language}
     parameters.update(md_model.params)
 
     while True:
@@ -98,11 +145,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
 
 
 def manga_download(md_model: MDownloader) -> None:
-    """Download manga.
-
-    Args:
-        md_model (MDownloader): The base class this program runs on.
-    """
+    """Download manga."""
     manga_id = md_model.manga_id
     download_type = md_model.download_type
 
@@ -131,7 +174,7 @@ def manga_download(md_model: MDownloader) -> None:
 
         if not chapters:
             # Call the api and filter out languages other than the selected
-            md_model.params = {"translatedLanguage[]": md_model.args.language, "order[chapter]": "desc", "order[volume]": "desc"}
+            md_model.params = {"order[chapter]": "desc", "order[volume]": "desc"}
             url = f'{md_model.manga_api_url}/{md_model.id}'
             chapters = get_chapters(md_model, url)
             md_model.cache.save_cache(datetime.now(), manga_id, data=manga_data, chapters=chapters)
@@ -158,11 +201,7 @@ def manga_download(md_model: MDownloader) -> None:
 
 
 def bulk_download(md_model: MDownloader) -> None:
-    """Download group, user and list chapters.
-
-    Args:
-        md_model (MDownloader): The base class this program runs on.
-    """
+    """Download group, user and list chapters."""
     download_type = md_model.download_type
 
     if md_model.type_id == 2:
@@ -254,11 +293,7 @@ def bulk_download(md_model: MDownloader) -> None:
 
 
 def follows_download(md_model: MDownloader) -> None:
-    """Download logged in user follows.
-
-    Args:
-        md_model (MDownloader): The base class this program runs on.
-    """
+    """Download logged in user follows."""
     if not md_model.auth.successful_login:
         raise NotLoggedInError('You need to be logged in to download your follows.')
 
@@ -276,11 +311,7 @@ def follows_download(md_model: MDownloader) -> None:
 
 
 def chapter_download(md_model: MDownloader) -> None:
-    """Get the chapter data for download.
-
-    Args:
-        md_model (MDownloader): The base class this program runs on.
-    """
+    """Get the chapter data for download."""
     # Connect to API and get chapter info
     chapter_id = md_model.chapter_id
     download_type = md_model.download_type

@@ -15,9 +15,6 @@ api_message = ImpVar.API_MESSAGE
 def check_type(md_model: MDownloader) -> None:
     """Call the different functions depending on the type of download.
 
-    Args:
-        md_model (MDownloader): The base class this program runs on.
-
     Raises:
         MDownloaderError: The selected download type is not recognised.
     """
@@ -41,11 +38,7 @@ def check_type(md_model: MDownloader) -> None:
 
 
 def file_downloader(md_model: MDownloader) -> None:
-    """Download from file.
-
-    Args:
-        md_model (MDownloader): The base class this program runs on.
-    """
+    """Download from file."""
     md_model.args.range_download = False
     filename = md_model.id
 
