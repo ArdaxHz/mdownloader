@@ -32,7 +32,7 @@ class ExternalBase:
                 image = self.decrypt_image(page.image_url, page.encryption_key)
             elif download_site == 'comikey':
                 image = requests.get(page).content
-                if self.model.debug: print(image.url)
+                if self.md_model.debug: print(image.url)
             page_no = pages.index(page) + 1
             self.exporter.add_image(image, page_no, self.extension, '')
 
@@ -86,7 +86,7 @@ class MangaPlus(ExternalBase):
     def download_mplus_chap(self) -> None:
         """Get the images from the MangaPlus api."""
         response = requests.get(self.api_url)
-        if self.model.debug: print(response.url)
+        if self.md_model.debug: print(response.url)
         viewer = Response.FromString(response.content).success.manga_viewer
         pages = [p.manga_page for p in viewer.pages if p.manga_page.image_url]
         self.download_chapter(pages, 'mangaplus')

@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 import math
-# import multiprocessing
 from datetime import datetime
 
 from .image_downloader import chapter_downloader
@@ -17,7 +16,7 @@ def download_chapters(md_model: MDownloader, chapters: list, chapters_data: list
         chapters_data (list): The ids of the downloaded chapters from the data json.
     """
     for chapter in chapters:
-        chapter_id = chapter["data"]["id"]
+        chapter_id = chapter["id"]
         md_model.chapter_id = chapter_id
         md_model.chapter_data = chapter
 
@@ -31,54 +30,6 @@ def download_chapters(md_model: MDownloader, chapters: list, chapters_data: list
                 md_model.wait(1)
         except MDownloaderError as e:
             if e: print(e)
-
-
-# def download_chapters(md_model: MDownloader, chapters: list, chapters_data: list) -> None:
-#     """Loop chapters and call the baseDownloader function.
-
-#     Args:
-#         chapters (list): The chapters to download.
-#         chapters_data (list): The ids of the downloaded chapters from the data json.
-#     """
-#     # Split chapters array into arrays of 3
-#     chapters_separated = [chapters[l:l + 3] for l in range(0, len(chapters), 3)]
-#     for index, separated_chapters in enumerate(chapters_separated, start=1):
-#         processes = []
-#         for chapter in separated_chapters:
-#             chapter_id = chapter["data"]["id"]
-#             md_model.chapter_id = chapter_id
-#             md_model.chapter_data = chapter
-
-#             if md_model.args.download_in_order and md_model.type_id in (2, 3):
-#                 manga_data = md_model.misc.check_manga_data(chapter)
-#                 md_model.formatter.format_title(manga_data)
-
-#             try:
-#                 if chapter_id not in chapters_data:
-#                     process = multiprocessing.Process(target=chapter_downloader, args=(md_model,))
-#                     process.start()
-#                     processes.append(process)
-#             except MDownloaderError as e:
-#                 if e: print(e)
-
-#         # Check all chapter proccesses have finished before moving onto next chapters
-#         while True:
-#             all_finished = False
-#             for process in processes:
-#                 process.join(timeout=0)
-#                 if process.is_alive():
-#                     # print('alive')
-#                     all_finished = False
-#                 else:
-#                     # print('dead')
-#                     all_finished = True
-            
-#             if all_finished:
-#                 break
-
-#         # Pause every 6 chapters
-#         if index % 2 == 0:
-#             md_model.wait(3, print_message=True)
 
 
 def get_chapters(md_model: MDownloader, url: str) -> list:
@@ -107,10 +58,10 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
         })
 
         # Call the api and get the json data
-        chapters_response = md_model.api.request_data(url, 1, **parameters)
-        data = md_model.api.convert_to_json(md_model.id, f'{md_model.download_type}-chapters', chapters_response)
+        chapters_response = md_model.api.request_data(url, True, **parameters)
+        chapters_response_data = md_model.api.convert_to_json(md_model.id, f'{md_model.download_type}-chapters', chapters_response)
 
-        chapters.extend(data["results"])
+        chapters.extend(chapters_response_data["data"])
         offset += limit
 
         if md_model.type_id == 3:
@@ -119,7 +70,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
 
         # Finds how many pages needed to be called
         if pages == 1:
-            chapters_count = md_model.misc.check_for_chapters(data)
+            chapters_count = md_model.misc.check_for_chapters(chapters_response_data)
             if chapters_count > limit:
                 pages = math.ceil(chapters_count / limit)
 
@@ -134,7 +85,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
 
         # End the loop when all the pages have been gone through
         # Offset 10000 is the highest you can go, any higher returns an error
-        if iteration == pages or offset == 10000 or not data["results"]:
+        if iteration == pages or offset == 10000 or not chapters_response_data["data"]:
             break
 
         iteration += 1
@@ -218,7 +169,6 @@ def bulk_download(md_model: MDownloader) -> None:
 
         # Order the chapters descending by the order they're released to read
         md_model.params.update({"order[createdAt]": "desc"})
-        md_model.data = data
         download_id = md_model.id
         url = f'{md_model.api_url}/{download_type}/{md_model.id}'
     else:
@@ -226,7 +176,7 @@ def bulk_download(md_model: MDownloader) -> None:
         url = f'{md_model.user_api_url}/follows/manga'
         cache_json = md_model.cache_json
 
-    name_path = md_model.data["data"]["attributes"]
+    name_path = md_model.data["attributes"]
     md_model.params.update({"includes[]": ["manga"]})
 
     if download_type == 'group':
@@ -238,7 +188,7 @@ def bulk_download(md_model: MDownloader) -> None:
         md_model.params.update({"uploader": md_model.id})
         md_model.chapter_limit = 100
     elif download_type == 'list':
-        owner = [u for u in md_model.data["data"]["relationships"] if u["type"] == 'user'][0]
+        owner = [u for u in md_model.data["relationships"] if u["type"] == 'user'][0]
         owner = owner["attributes"]["username"]
         md_model.name = f"{owner}'s Custom List"
     else:
@@ -262,7 +212,7 @@ def bulk_download(md_model: MDownloader) -> None:
 
         titles = {}
         for chapter in chapters:
-            manga_id = [c["id"] for c in chapter["data"]["relationships"] if c["type"] == 'manga'][0]
+            manga_id = [c["id"] for c in chapter["relationships"] if c["type"] == 'manga'][0]
             if manga_id in titles:
                 titles[manga_id]["chapters"].append(chapter)
             else:
@@ -299,13 +249,11 @@ def follows_download(md_model: MDownloader) -> None:
 
     download_type = md_model.download_type
     response = md_model.api.request_data(f'{md_model.user_api_url}/me', **{"order[createdAt]": "desc"})
-    data = md_model.api.convert_to_json('User', download_type, response)
+    md_model.data = md_model.api.convert_to_json('follows-user', download_type, response)
     md_model.wait()
 
-    user_id = data["data"]["id"]
-    md_model.id = user_id
-    md_model.data = data
-    md_model.cache_json = {"cache_date": datetime.now(), "data": data, "chapters": [], "covers": []}
+    md_model.id = md_model.data["id"]
+    md_model.cache_json = {"cache_date": datetime.now(), "data": md_model.data, "chapters": [], "covers": []}
 
     bulk_download(md_model)
 
@@ -323,19 +271,12 @@ def chapter_download(md_model: MDownloader) -> None:
     if refresh_cache or not chapter_data:
         response = md_model.api.request_data(f'{md_model.chapter_api_url}/{chapter_id}', **{"includes[]": ["manga", "scanlation_group"]})
         chapter_data = md_model.api.convert_to_json(chapter_id, download_type, response)
-
-        # Make sure only downloadable chapters are downloaded
-        if chapter_data["result"] not in ('ok'):
-            return
-
         md_model.cache.save_cache(datetime.now(), chapter_id, data=chapter_data)
-        manga_data = md_model.misc.check_manga_data(chapter_data)
-    else:
-        manga_data = md_model.misc.check_manga_data(chapter_data)
 
+    manga_data = md_model.misc.check_manga_data(chapter_data)
     md_model.formatter.format_title(manga_data)
     md_model.chapter_data = chapter_data
-    name = f'{md_model.title}: Chapter {chapter_data["data"]["attributes"]["chapter"]}'
+    name = f'{md_model.title}: Chapter {chapter_data["attributes"]["chapter"]}'
 
     md_model.misc.download_message(0, download_type, name)
 

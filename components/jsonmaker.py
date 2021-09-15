@@ -29,8 +29,8 @@ class JsonBase:
             file_prefix = f'{self.type}_'
             self.route = Path(md_model.directory)
 
-        self.id = data["data"]["id"]
-        self.data = data["data"]["attributes"]
+        self.id = data["id"]
+        self.data = data["attributes"]
         self.route.mkdir(parents=True, exist_ok=True)
         self.json_path = self.route.joinpath(f'{file_prefix}{self.id}_data').with_suffix('.json')
 
@@ -40,9 +40,9 @@ class JsonBase:
     def get_downloaded_chapters(self) -> None:
         self.downloaded_ids = []
         self.chapters = self.data_json.get('chapters', [])
-        self.json_ids = [c["data"]["id"] for c in self.chapters] if self.chapters else []
-        self.chapters_archive = [c["data"]["id"] for c in self.chapters if 'chapters_archive' in c and c["chapters_archive"]] if self.chapters else []
-        self.chapters_folder = [c["data"]["id"] for c in self.chapters if 'chapters_folder' in c and c["chapters_folder"]] if self.chapters else []
+        self.json_ids = [c["id"] for c in self.chapters] if self.chapters else []
+        self.chapters_archive = [c["id"] for c in self.chapters if 'chapters_archive' in c and c["chapters_archive"]] if self.chapters else []
+        self.chapters_folder = [c["id"] for c in self.chapters if 'chapters_folder' in c and c["chapters_folder"]] if self.chapters else []
 
         if self.md_model.args.folder_download:
             self.downloaded_ids.extend(self.chapters_folder)
@@ -60,6 +60,11 @@ class JsonBase:
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
+    def add_chapter_data(self, chapter_id: str, chapter_data: dict) -> None:
+        """Add the chapter data to the json."""
+        self.chapters.append(chapter_data)
+        self.downloaded_ids.append(chapter_id)
+
     def add_exporter_type(self, chapter_data_json: dict) -> dict:
         """Add the type of exporter used for the chapter download."""
         if self.md_model.args.folder_download:
@@ -69,40 +74,32 @@ class JsonBase:
         return chapter_data_json
 
     def add_chapter(self, chapter_data: dict) -> None:
-        """Add the chapter data to the json."""
-        # self.data_json = self.check_json_exist()
-        # self.get_downloaded_chapters()
+        """Check if chapter data already in json."""
 
-        chapter_id = chapter_data["data"]["id"]
+        chapter_id = chapter_data["id"]
         chapter_data = self.add_exporter_type(chapter_data)
 
         if chapter_id not in self.downloaded_ids:
-            self.chapters.append(chapter_data)
-            self.downloaded_ids.append(chapter_id)
+            self.add_chapter_data(chapter_id, chapter_data)
         else:
-            chapter_data_json = [c for c in self.chapters if c["data"]["id"] == chapter_id]
+            chapter_data_json = [c for c in self.chapters if c["id"] == chapter_id]
 
             # Update the chapter data if it exists
             for chapter in chapter_data_json:
-                if "chapters_archive" in chapter:
-                    chapter_data.update({"chapters_archive": True})
-                elif "chapters_folder" in chapter:
-                    chapter_data.update({"chapters_folder": True})
-                self.chapters[self.chapters.index(chapter)] = self.add_exporter_type(chapter_data)
-        # self.core()
+                if chapter["hash"] == chapter_data["hash"]:
+                    self.chapters[self.chapters.index(chapter)] = self.add_exporter_type(chapter)
+                else:
+                    self.add_chapter_data(chapter_id, chapter_data)
 
     def remove_chapter(self, chapter_data: dict) -> None:
         """Remove the chapter data from the data json."""
-        # self.data_json = self.check_json_exist()
-        # self.get_downloaded_chapters()
 
-        chapter_id = chapter_data["data"]["id"]
+        chapter_id = chapter_data["id"]
         self.downloaded_ids.remove(chapter_id)
 
-        chapter_data_json = [c for c in self.chapters if c["data"]["id"] == chapter_id]
+        chapter_data_json = [c for c in self.chapters if c["id"] == chapter_id]
         for chapter in chapter_data_json:
             self.chapters.remove(chapter)
-        # self.core()
 
     def save_json(self) -> None:
         """Save the json."""
@@ -186,8 +183,7 @@ class TitleJson(JsonBase):
                 formats[l]["url"] = formats[l]["url"].format(newl)
                 json_links.update({l: formats[l]})
             else:
-                json_links.update(
-                    {l: {"name": l, "url": newl}})
+                json_links.update({l: {"name": l, "url": newl}})
         return json_links
 
     def download_covers(self, cover_name: str) -> None:
@@ -213,7 +209,7 @@ class TitleJson(JsonBase):
 
         if covers:
             for cover in covers:
-                cover_name = cover["data"]["attributes"]["fileName"]
+                cover_name = cover["attributes"]["fileName"]
                 self.download_covers(cover_name)
 
     def get_covers(self) -> dict:
@@ -231,7 +227,7 @@ class TitleJson(JsonBase):
                 print("Couldn't get the covers data.")
                 return
 
-            covers = data.get('results', [])
+            covers = data.get('data', [])
             self.md_model.cache.save_cache(cache_json.get("cache_date", datetime.now()), self.id, cache_json.get("data", []), cache_json.get("chapters", []), covers)
 
         return covers

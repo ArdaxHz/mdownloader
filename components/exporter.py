@@ -19,9 +19,9 @@ class ExporterBase:
         self.md_model = md_model
         self.series_title = md_model.title
         self.orig_chapter_data = md_model.chapter_data
-        self.chapter_id = md_model.chapter_data["data"]["id"]
-        self.chapter_data = md_model.chapter_data["data"]["attributes"]
-        self.relationships = md_model.chapter_data["data"]["relationships"]
+        self.chapter_id = md_model.chapter_data["id"]
+        self.chapter_data = md_model.chapter_data["attributes"]
+        self.relationships = md_model.chapter_data["relationships"]
         self.chapter_prefix = md_model.prefix
         self.naming_scheme = md_model.args.naming_scheme
         self.process_data()
@@ -122,13 +122,10 @@ class ExporterBase:
                     group_data = self.md_model.api.convert_to_json(group_id, 'chapter-group', group_response)
                     self.md_model.cache.save_cache(datetime.now(), group_id, group_data)
 
-                group_data = group_data["data"]["attributes"]
+                group_data = group_data["attributes"]
             else:
                 if refresh_cache:
-                    cache_group_data = cache_json.get('data', {})
-                    if cache_group_data:
-                        cache_group_data = {"data": group}
-                    self.md_model.cache.save_cache(cache_json.get('cache_date', ''), download_id=group_id, data=cache_group_data, chapters=cache_json.get('chapters', []), covers=cache_json.get('covers', []))
+                    self.md_model.cache.save_cache(cache_json.get('cache_date', ''), download_id=group_id, data=group, chapters=cache_json.get('chapters', []), covers=cache_json.get('covers', []))
 
             name = group_data["name"]
             group_names.append(name)

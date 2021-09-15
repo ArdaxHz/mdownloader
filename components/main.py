@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import argparse
-from typing import Type
 import os
+from typing import Type
 
 from .downloader import bulk_download, manga_download, follows_download, chapter_download
 from .constants import ImpVar
@@ -34,7 +34,7 @@ def check_type(md_model: MDownloader) -> None:
         md_model.type_id = 3
         follows_download(md_model)
     else:
-        raise MDownloaderError('Please enter a manga/chapter/group/user/list id. For non-manga downloads, you must add the argument "--type [chapter|user|group|list]".')
+        raise MDownloaderError('Please enter a manga/chapter/group/user/list id. For non-chapter downloads, you must add the argument "--type [manga|user|group|list]".')
 
 
 def file_downloader(md_model: MDownloader) -> None:

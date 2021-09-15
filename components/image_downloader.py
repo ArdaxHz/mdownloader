@@ -38,9 +38,7 @@ def report_image(
     }
 
     response = md_model.api.post_data(md_model.report_url, data)
-
-    if md_model.debug: print(f'Reporting image {str(success)}.')
-
+    # if md_model.debug: print(f'Reporting image {str(success)}.')
     # data = md_model.api.convertJson(md_mode.chapter_id, 'image-report', response)
 
 
@@ -130,7 +128,7 @@ def chapter_downloader(md_model: MDownloader) -> None:
     chapter_id = md_model.chapter_id
     data = md_model.chapter_data
     title = md_model.title
-    chapter_data = data["data"]["attributes"]
+    chapter_data = data["attributes"]
     md_model.prefix = md_model.chapter_prefix_dict.get(chapter_data["volume"], 'c')
 
     print(f'Downloading {title} | Volume: {chapter_data["volume"]} | Chapter: {chapter_data["chapter"]} | Title: {chapter_data["title"]}')

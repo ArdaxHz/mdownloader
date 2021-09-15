@@ -20,11 +20,11 @@ def convert_ids(md_model: MDownloader, download_type: str, ids_to_convert: list)
     }
 
     response = md_model.api.post_data(md_model.legacy_url, post_data=data)
-    data = md_model.api.convert_to_json(md_model.id, f'{download_type}-legacy', response)
+    mapping_data = md_model.api.convert_to_json(md_model.id, f'{download_type}-legacy', response)
 
-    for legacy in data:
-        old_id = legacy["data"]["attributes"]["legacyId"]
-        new_id = legacy["data"]["attributes"]["newId"]
+    for map_data in mapping_data["data"]:
+        old_id = map_data["attributes"]["legacyId"]
+        new_id = map_data["attributes"]["newId"]
         ids_dict = {"old_id": old_id, "new_id": new_id}
         new_ids.append(ids_dict)
 
