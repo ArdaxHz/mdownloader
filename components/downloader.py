@@ -169,6 +169,7 @@ def bulk_download(md_model: MDownloader) -> None:
 
         # Order the chapters descending by the order they're released to read
         md_model.params.update({"order[createdAt]": "desc"})
+        md_model.data = data
         download_id = md_model.id
         url = f'{md_model.api_url}/{download_type}/{md_model.id}'
     else:
