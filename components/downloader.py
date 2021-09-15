@@ -12,12 +12,11 @@ def download_chapters(md_model: MDownloader, chapters: list, chapters_data: list
     """Loop chapters and call the baseDownloader function.
 
     Args:
-        md_model (MDownloader): The base class this program runs on.
         chapters (list): The chapters to download.
         chapters_data (list): The ids of the downloaded chapters from the data json.
     """
     for chapter in chapters:
-        chapter_id = chapter["data"]["id"]
+        chapter_id = chapter["id"]
         md_model.chapter_id = chapter_id
         md_model.chapter_data = chapter
 
@@ -28,7 +27,7 @@ def download_chapters(md_model: MDownloader, chapters: list, chapters_data: list
         try:
             if chapter_id not in chapters_data:
                 chapter_downloader(md_model)
-                md_model.wait()
+                md_model.wait(1)
         except MDownloaderError as e:
             if e: print(e)
 
@@ -37,7 +36,6 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
     """Go through each page in the api to get all the chapters.
 
     Args:
-        md_model (MDownloader): The base class this program runs on.
         url (str): Request url.
 
     Returns:
@@ -49,7 +47,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
     pages = 1
     iteration = 1
 
-    parameters = {}
+    parameters = {"translatedLanguage[]": md_model.args.language}
     parameters.update(md_model.params)
 
     while True:
@@ -60,10 +58,10 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
         })
 
         # Call the api and get the json data
-        chapters_response = md_model.api.request_data(url, 1, **parameters)
-        data = md_model.api.convert_to_json(md_model.id, f'{md_model.download_type}-chapters', chapters_response)
+        chapters_response = md_model.api.request_data(url, True, **parameters)
+        chapters_response_data = md_model.api.convert_to_json(md_model.id, f'{md_model.download_type}-chapters', chapters_response)
 
-        chapters.extend(data["results"])
+        chapters.extend(chapters_response_data["data"])
         offset += limit
 
         if md_model.type_id == 3:
@@ -72,7 +70,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
 
         # Finds how many pages needed to be called
         if pages == 1:
-            chapters_count = md_model.misc.check_for_chapters(data)
+            chapters_count = md_model.misc.check_for_chapters(chapters_response_data)
             if chapters_count > limit:
                 pages = math.ceil(chapters_count / limit)
 
@@ -87,7 +85,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
 
         # End the loop when all the pages have been gone through
         # Offset 10000 is the highest you can go, any higher returns an error
-        if iteration == pages or offset == 10000 or not data["results"]:
+        if iteration == pages or offset == 10000 or not chapters_response_data["data"]:
             break
 
         iteration += 1
@@ -98,11 +96,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
 
 
 def manga_download(md_model: MDownloader) -> None:
-    """Download manga.
-
-    Args:
-        md_model (MDownloader): The base class this program runs on.
-    """
+    """Download manga."""
     manga_id = md_model.manga_id
     download_type = md_model.download_type
 
@@ -131,7 +125,7 @@ def manga_download(md_model: MDownloader) -> None:
 
         if not chapters:
             # Call the api and filter out languages other than the selected
-            md_model.params = {"translatedLanguage[]": md_model.args.language, "order[chapter]": "desc", "order[volume]": "desc"}
+            md_model.params = {"order[chapter]": "desc", "order[volume]": "desc"}
             url = f'{md_model.manga_api_url}/{md_model.id}'
             chapters = get_chapters(md_model, url)
             md_model.cache.save_cache(datetime.now(), manga_id, data=manga_data, chapters=chapters)
@@ -158,11 +152,7 @@ def manga_download(md_model: MDownloader) -> None:
 
 
 def bulk_download(md_model: MDownloader) -> None:
-    """Download group, user and list chapters.
-
-    Args:
-        md_model (MDownloader): The base class this program runs on.
-    """
+    """Download group, user and list chapters."""
     download_type = md_model.download_type
 
     if md_model.type_id == 2:
@@ -187,7 +177,7 @@ def bulk_download(md_model: MDownloader) -> None:
         url = f'{md_model.user_api_url}/follows/manga'
         cache_json = md_model.cache_json
 
-    name_path = md_model.data["data"]["attributes"]
+    name_path = md_model.data["attributes"]
     md_model.params.update({"includes[]": ["manga"]})
 
     if download_type == 'group':
@@ -199,7 +189,7 @@ def bulk_download(md_model: MDownloader) -> None:
         md_model.params.update({"uploader": md_model.id})
         md_model.chapter_limit = 100
     elif download_type == 'list':
-        owner = [u for u in md_model.data["data"]["relationships"] if u["type"] == 'user'][0]
+        owner = [u for u in md_model.data["relationships"] if u["type"] == 'user'][0]
         owner = owner["attributes"]["username"]
         md_model.name = f"{owner}'s Custom List"
     else:
@@ -223,7 +213,7 @@ def bulk_download(md_model: MDownloader) -> None:
 
         titles = {}
         for chapter in chapters:
-            manga_id = [c["id"] for c in chapter["data"]["relationships"] if c["type"] == 'manga'][0]
+            manga_id = [c["id"] for c in chapter["relationships"] if c["type"] == 'manga'][0]
             if manga_id in titles:
                 titles[manga_id]["chapters"].append(chapter)
             else:
@@ -254,33 +244,23 @@ def bulk_download(md_model: MDownloader) -> None:
 
 
 def follows_download(md_model: MDownloader) -> None:
-    """Download logged in user follows.
-
-    Args:
-        md_model (MDownloader): The base class this program runs on.
-    """
+    """Download logged in user follows."""
     if not md_model.auth.successful_login:
         raise NotLoggedInError('You need to be logged in to download your follows.')
 
     download_type = md_model.download_type
     response = md_model.api.request_data(f'{md_model.user_api_url}/me', **{"order[createdAt]": "desc"})
-    data = md_model.api.convert_to_json('User', download_type, response)
+    md_model.data = md_model.api.convert_to_json('follows-user', download_type, response)
     md_model.wait()
 
-    user_id = data["data"]["id"]
-    md_model.id = user_id
-    md_model.data = data
-    md_model.cache_json = {"cache_date": datetime.now(), "data": data, "chapters": [], "covers": []}
+    md_model.id = md_model.data["id"]
+    md_model.cache_json = {"cache_date": datetime.now(), "data": md_model.data, "chapters": [], "covers": []}
 
     bulk_download(md_model)
 
 
 def chapter_download(md_model: MDownloader) -> None:
-    """Get the chapter data for download.
-
-    Args:
-        md_model (MDownloader): The base class this program runs on.
-    """
+    """Get the chapter data for download."""
     # Connect to API and get chapter info
     chapter_id = md_model.chapter_id
     download_type = md_model.download_type
@@ -292,19 +272,12 @@ def chapter_download(md_model: MDownloader) -> None:
     if refresh_cache or not chapter_data:
         response = md_model.api.request_data(f'{md_model.chapter_api_url}/{chapter_id}', **{"includes[]": ["manga", "scanlation_group"]})
         chapter_data = md_model.api.convert_to_json(chapter_id, download_type, response)
-
-        # Make sure only downloadable chapters are downloaded
-        if chapter_data["result"] not in ('ok'):
-            return
-
         md_model.cache.save_cache(datetime.now(), chapter_id, data=chapter_data)
-        manga_data = md_model.misc.check_manga_data(chapter_data)
-    else:
-        manga_data = md_model.misc.check_manga_data(chapter_data)
 
+    manga_data = md_model.misc.check_manga_data(chapter_data)
     md_model.formatter.format_title(manga_data)
     md_model.chapter_data = chapter_data
-    name = f'{md_model.title}: Chapter {chapter_data["data"]["attributes"]["chapter"]}'
+    name = f'{md_model.title}: Chapter {chapter_data["attributes"]["chapter"]}'
 
     md_model.misc.download_message(0, download_type, name)
 

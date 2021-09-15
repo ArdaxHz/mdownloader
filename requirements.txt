@@ -1,5 +1,11 @@
-tqdm
+# Core modules, program cannot run without them
 aiohttp
-requests
-protobuf
 python-dotenv
+requests
+tqdm
+
+# Needed for MangaPlus downloader
+protobuf
+
+# Needed for ComiKey downloader
+cloudscraper
