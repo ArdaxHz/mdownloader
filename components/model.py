@@ -2,9 +2,11 @@ import getpass
 import gzip
 import html
 import json
+import multiprocessing
 import os
 import re
 import time
+import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Tuple, Union, TYPE_CHECKING
@@ -41,6 +43,7 @@ class MDownloaderBase:
 
         self.data = {}
         self.manga_data = {}
+        self.manga_titles = []
         self.chapters = []
         self.chapters_data = []
         self.chapter_data = {}
@@ -111,7 +114,7 @@ class ApiMD(ModelsBase):
         if self.model.debug: print(response.url)
         return response
 
-    def check_response_error(self, download_id: str, download_type: str, response: Response, data: dict) -> None:
+    def check_response_error(self, download_id: str, download_type: str, response: Response, data: dict={}) -> None:
         """Check if the response status code is 200 or not."""
         if response.status_code != 200:
             raise MDRequestError(download_id, download_type, response, data)
@@ -253,6 +256,7 @@ class ProcessArgs(ModelsBase):
         self.cover_download = bool()
         self.save_chapter_data = bool()
         self.range_download = bool()
+        self.rename_files = bool()
         self.search_manga = False
         self.download_in_order = False
         self.naming_scheme_options = ["default", "original", "number"]
@@ -273,6 +277,7 @@ class ProcessArgs(ModelsBase):
         self.cover_download = bool(args_dict["covers"])
         self.save_chapter_data = bool(args_dict["json"])
         self.range_download = bool(args_dict["range"])
+        self.rename_files = bool(args_dict["rename"])
         self.download_in_order = bool(args_dict["order"])
         if args_dict["login"]: self.model.auth.login()
         if args_dict["search"]:
@@ -360,11 +365,147 @@ class ExistChecker(ModelsBase):
 
 class DataFormatter(ModelsBase):
 
+    def check_downloaded_files(self):
+        """Check if folders using other manga titles exist."""
+        new_title = self.model.title
+        available_titles = [self.strip_illegal_characters(x) for x in self.model.manga_titles if self.strip_illegal_characters(x) in [route for route in os.listdir(self.model.directory) if os.path.isdir(os.path.join(self.model.directory, route))]]
+        if not available_titles:
+            return
+
+        print(f"Renaming files and folders with {new_title}'s other titles.")
+
+        if new_title in available_titles:
+            available_titles.remove(new_title)
+
+        processes = []
+        for title in available_titles:
+            process = multiprocessing.Process(target=self.title_rename, args=(new_title, title))
+            process.start()
+            processes.append(process)
+
+        for process in processes:
+            process.join()
+
+        print(f"Finished renaming all the old titles.")
+
+    def title_rename(self, new_title: str, title: str):
+        """Go through the files and folders in the directory and rename to use the new title."""
+        from .jsonmaker import TitleJson
+        new_title_path = Path(self.model.route)
+        new_title_path.mkdir(parents=True, exist_ok=True)
+        old_title_path = Path(os.path.join(self.model.directory, title))
+        old_title_files = os.listdir(old_title_path)
+        new_title_route = self.model.route
+
+        archive_downloads = [route for route in old_title_files if os.path.isfile(old_title_path.joinpath(route))]
+        folder_downloads = [route for route in old_title_files if os.path.isdir(old_title_path.joinpath(route))]
+        archive_downloads.reverse()
+        folder_downloads.reverse()
+
+        process = multiprocessing.Process(target=self.renaming_process, args=(new_title, new_title_path, old_title_path, archive_downloads, folder_downloads))
+        process.start()
+        process.join()
+
+        self.model.route = old_title_path
+        old_title_json = TitleJson(self.model)
+        self.model.route = new_title_route
+        new_title_json = TitleJson(self.model)
+
+        for chapter in old_title_json.chapters:
+            new_title_json.add_chapter(chapter)
+
+        new_title_json.core()
+
+        for cover in os.listdir(old_title_json.cover_route):
+            old_cover_path = old_title_json.cover_route.joinpath(cover)
+            if cover not in os.listdir(new_title_json.cover_route):
+                new_cover_path = new_title_json.cover_route.joinpath(cover)
+                old_cover_path.rename(new_cover_path)
+            else:
+                old_cover_path.unlink()
+
+        old_title_json.cover_route.rmdir()
+        old_title_json.json_path.unlink()
+        del old_title_json
+        del new_title_json
+        old_title_path.rmdir()
+
+    def renaming_process(self, new_title, new_title_path, old_title_path, archive_downloads, folder_downloads):
+        pool = multiprocessing.Pool()
+        pools = []
+
+        for folder_download in folder_downloads:
+            p = pool.apply(self.folder_rename, args=(new_title, new_title_path, old_title_path, folder_download))
+            pools.append(p)
+
+        for archive_download in archive_downloads:
+            p = pool.apply(self.archive_rename, args=(new_title, new_title_path, old_title_path, archive_download))
+            pools.append(p)
+
+        for pool in pools:
+            if pool is not None:
+                pool.close()
+                pool.join()
+
+    def archive_rename(self, new_title: str, new_title_path: 'Path', old_title_path: 'Path', archive_download: str):
+        """Rename the downloaded archives from the old title into the new title."""
+        old_file_name_match = re.match(ImpVar.FILE_NAME_REGEX, archive_download)
+        if not old_file_name_match:
+            return
+
+        old_archive_path = old_title_path.joinpath(archive_download)
+        old_zipfile = zipfile.ZipFile(old_archive_path, mode="r", compression=zipfile.ZIP_DEFLATED)
+        old_zipfile_files = old_zipfile.infolist()
+
+        old_name = old_file_name_match.group('title')
+        file_extension = old_file_name_match.group('extension')
+
+        new_archive_path = new_title_path.joinpath(archive_download.replace(old_name, new_title)).with_suffix(f'.{file_extension}')
+        new_zipfile = zipfile.ZipFile(new_archive_path, mode="a", compression=zipfile.ZIP_DEFLATED)
+        new_zipfile.comment = old_zipfile.comment
+
+        for old_image_name in old_zipfile_files:
+            new_image = old_image_name.filename.replace(old_name, new_title)
+            if new_image not in new_zipfile.namelist():
+                new_zipfile.writestr(new_image, old_zipfile.read(old_image_name))
+
+        # Close the archives and delete the old file
+        old_zipfile.close()
+        new_zipfile.close()
+        old_archive_path.unlink()
+
+    def folder_rename(self, new_title: str, new_title_path: 'Path', old_title_path: 'Path', folder_download: str):
+        """Rename the downloaded folders from the old title into the new title."""
+        old_file_name_match = re.match(ImpVar.FILE_NAME_REGEX, folder_download)
+        if not old_file_name_match:
+            return
+        old_folder_path = old_title_path.joinpath(folder_download)
+        old_name = old_file_name_match.group('title')
+
+        new_name = folder_download.replace(old_name, new_title)
+        new_folder_path = new_title_path.joinpath(new_name)
+        new_folder_path.mkdir(parents=True, exist_ok=True)
+
+        for old_image_name in os.listdir(old_folder_path):
+            new_image_name = old_image_name.replace(old_name, new_title)
+            old_page_path = Path(old_folder_path.joinpath(old_image_name))
+            if new_image_name not in os.listdir(new_folder_path):
+                extension = os.path.splitext(old_page_path)[1]
+                new_page_path = Path(new_folder_path.joinpath(new_image_name)).with_suffix(f'{extension}')
+                old_page_path.rename(new_page_path)
+            else:
+                old_page_path.unlink()
+
+        # Delete old folder after moving
+        old_folder_path.rmdir()
+
     def get_title(self, data: dict) -> str:
         """Get the title from the manga data, looks for other languages if English is not available."""
         attributes = data["attributes"]
         title_dict = attributes["title"]
         orig_lang = attributes["originalLanguage"]
+        self.model.manga_titles = list(title_dict.values())
+        self.model.manga_titles.extend([title_dict[key] for title_dict in attributes["altTitles"] for key in title_dict])
 
         if 'en' in title_dict:
             title = title_dict["en"]
@@ -376,23 +517,24 @@ class DataFormatter(ModelsBase):
 
         return title
 
-    def strip_illegal(self, name: str) -> str:
+    def strip_illegal_characters(self, name: str) -> str:
         """Remove illegal characters from the specified name."""
-        return re.sub(ImpVar.CHARA_REGEX, '_', html.unescape(name))
+        return re.sub(ImpVar.CHARA_REGEX, '_', html.unescape(name)).rstrip(' .')
 
-    def format_route(self) -> None:
-        """The route files will be saved to."""
+    def format_save_route(self) -> None:
+        """The location files will be saved to."""
         self.model.route = os.path.join(self.model.directory, self.model.title)
 
     def format_title(self, data: dict) -> str:
         """Remove illegal characters from the manga title."""
         title = self.get_title(data)
-        title = self.strip_illegal(title).rstrip(' .')
+        title = self.strip_illegal_characters(title)
         self.model.title = title
-        self.format_route()
+        self.format_save_route()
+        if self.model.args.rename_files: self.check_downloaded_files()
         return title
 
-    def id_from_url(self, url: str) -> Tuple[str, str]:
+    def id_from_url(self, url: str) -> Tuple[str]:
         """Get the id and download type from url."""
         if ImpVar.MD_URL.match(url):
             input_url = ImpVar.MD_URL.match(url)

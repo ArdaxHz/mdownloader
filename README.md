@@ -51,7 +51,9 @@ Pass the `-r` parameter to download a range of chapters for manga download. You 
 - -s --search (optional. **NEEDED** to search for manga. Wrap multiple words in quotation marks, e.g. "Please Put These On, Takamine-san". Default: False)
 - -o --order (optional. Download group, user, follows and custom list chapters without grouping them by manga. *This will not create a manga json.*. Default: False)
 - --login (optional. Login to MangaDex. Default: False)
-- --force (optional. Force refresh the downloaded cache. Default: False)
+- --refresh (optional. Force refresh the downloaded cache. Default: False)
+- --update (optional. Skip looking for an application update. Default: False)
+- --rename (optional. Skip renaming downloaded files if the title is wrong. Default: True)
 
 ## Blacklisting and Whitelisting
 ***Whitelisting takes priority with group filtering taking priority over user filtering.***

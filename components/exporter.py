@@ -133,7 +133,7 @@ class ExporterBase:
         if len(group_names) == 0:
             group_names.append('no group')
 
-        return self.md_model.formatter.strip_illegal(', '.join(group_names))
+        return self.md_model.formatter.strip_illegal_characters(', '.join(group_names))
 
     def suffix_name(self) -> str:
         """Formats the groups as the suffix of the file name."""
@@ -142,7 +142,7 @@ class ExporterBase:
             chapter_title = ''
 
         chapter_title = f'{chapter_title[:31]}...' if len(chapter_title) > 30 else chapter_title
-        title = f'[{self.md_model.formatter.strip_illegal(chapter_title)}] ' if len(chapter_title) > 0 else ''
+        title = f'[{self.md_model.formatter.strip_illegal_characters(chapter_title)}] ' if len(chapter_title) > 0 else ''
         oneshot_prefix = '[Oneshot] '
         group_suffix = f'[{self.groups}]'
 
