@@ -372,10 +372,12 @@ class DataFormatter(ModelsBase):
         if not available_titles:
             return
 
-        print(f"Renaming files and folders with {new_title}'s other titles.")
-
         if new_title in available_titles:
             available_titles.remove(new_title)
+            if not available_titles:
+                return
+
+        print(f"Renaming files and folders with {new_title}'s other titles.")
 
         processes = []
         for title in available_titles:
@@ -658,9 +660,8 @@ class Filtering(ModelsBase):
         if self.group_whitelist or self.user_whitelist:
             if self.group_whitelist:
                 chapters = [c for c in chapters if [g for g in c["relationships"] if g["type"] == 'scanlation_group' and g["id"] in self.group_whitelist]]
-            else:
-                if self.user_whitelist:
-                    chapters = [c for c in chapters if [u for u in c["relationships"] if u["type"] == 'user' and u["id"] in self.user_whitelist]]
+            if self.user_whitelist:
+                chapters = [c for c in chapters if [u for u in c["relationships"] if u["type"] == 'user' and u["id"] in self.user_whitelist]]
         else:
             chapters = [c for c in chapters if 
                 (([g for g in c["relationships"] if g["type"] == 'scanlation_group' and g["id"] not in self.group_blacklist]) 
