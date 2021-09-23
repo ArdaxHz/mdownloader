@@ -145,6 +145,7 @@ if __name__ == "__main__":
     parser.add_argument('--refresh', default=False, const=True, nargs='?', help='Force refresh the cache.')
     parser.add_argument('--login', default=False, const=True, nargs='?', help='Login to MangaDex.')
     parser.add_argument('--update', default=False, const=True, nargs='?', help='Skip looking for an application update.')
+    parser.add_argument('--rename', default=True, const=False, nargs='?', help='Skip renaming downloaded files if the title is wrong.')
     parser.add_argument('id', help='ID to download. Can be chapter, manga, group, user, list, link/id or file.')
 
     args = parser.parse_args()

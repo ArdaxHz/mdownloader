@@ -1,8 +1,8 @@
 #!/usr/bin/python3
-from datetime import datetime
 import json
 import os
 import re
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -14,10 +14,11 @@ from .model import MDownloader
 class JsonBase:
 
     def __init__(self, md_model: MDownloader) -> None:
-        self.md_model: MDownloader = md_model
+        self.md_model = md_model
         self.type = md_model.download_type
         self.domain = ImpVar.MANGADEX_URL
         self.api_url = ImpVar.MANGADEX_API_URL
+        self.downloaded_ids = []
         self.new_data = {}
 
         if self.md_model.type_id == 1 or self.md_model.manga_download:
@@ -35,10 +36,9 @@ class JsonBase:
         self.json_path = self.route.joinpath(f'{file_prefix}{self.id}_data').with_suffix('.json')
 
         self.data_json = self.check_json_exist()
-        self.get_downloaded_chapters()
+        self.__get_downloaded_chapters()
 
-    def get_downloaded_chapters(self) -> None:
-        self.downloaded_ids = []
+    def __get_downloaded_chapters(self) -> None:
         self.chapters = self.data_json.get('chapters', [])
         self.json_ids = [c["id"] for c in self.chapters] if self.chapters else []
         self.chapters_archive = [c["id"] for c in self.chapters if 'chapters_archive' in c and c["chapters_archive"]] if self.chapters else []
@@ -60,12 +60,12 @@ class JsonBase:
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
-    def add_chapter_data(self, chapter_id: str, chapter_data: dict) -> None:
+    def __add_chapter_data(self, chapter_id: str, chapter_data: dict) -> None:
         """Add the chapter data to the json."""
         self.chapters.append(chapter_data)
         self.downloaded_ids.append(chapter_id)
 
-    def add_exporter_type(self, chapter_data_json: dict) -> dict:
+    def __add_exporter_type(self, chapter_data_json: dict) -> dict:
         """Add the type of exporter used for the chapter download."""
         if self.md_model.args.folder_download:
             chapter_data_json.update({"chapters_folder": True})
@@ -77,17 +77,17 @@ class JsonBase:
         """Check if chapter data already in json."""
 
         chapter_id = chapter_data["id"]
-        chapter_data = self.add_exporter_type(chapter_data)
+        chapter_data = self.__add_exporter_type(chapter_data)
 
         if chapter_id not in self.downloaded_ids:
-            self.add_chapter_data(chapter_id, chapter_data)
+            self.__add_chapter_data(chapter_id, chapter_data)
         else:
             chapter_data_json = [c for c in self.chapters if c["id"] == chapter_id]
 
             # Update the chapter data if it exists
             for chapter in chapter_data_json:
-                if chapter["hash"] == chapter_data["hash"]:
-                    self.chapters[self.chapters.index(chapter)] = self.add_exporter_type(chapter)
+                if chapter["attributes"]["hash"] == chapter_data["attributes"]["hash"]:
+                    self.chapters[self.chapters.index(chapter)] = self.__add_exporter_type(chapter)
                 else:
                     self.add_chapter_data(chapter_id, chapter_data)
 
@@ -101,7 +101,7 @@ class JsonBase:
         for chapter in chapter_data_json:
             self.chapters.remove(chapter)
 
-    def save_json(self) -> None:
+    def __save_json(self) -> None:
         """Save the json."""
         with open(self.json_path, 'w', encoding='utf8') as json_file:
             json.dump(self.new_data, json_file, indent=4, ensure_ascii=False)
@@ -118,12 +118,12 @@ class JsonBase:
             self.new_data["covers"] = self.covers
 
             if save_type and self.save_covers:
-                self.saveCovers()
+                self.download_covers()
         else:
             self.new_data = self.bulk_data
 
         self.new_data["chapters"] = self.chapters
-        self.save_json()
+        self.__save_json()
 
 
 
@@ -141,7 +141,6 @@ class TitleJson(JsonBase):
             self.cover_route.mkdir(parents=True, exist_ok=True)
 
         self.links = self.format_links()
-        # self.social = self.getSocials()
         self.covers = self.get_covers()
         self.title_json = self.title()
 
@@ -186,31 +185,32 @@ class TitleJson(JsonBase):
                 json_links.update({l: {"name": l, "url": newl}})
         return json_links
 
-    def download_covers(self, cover_name: str) -> None:
+    def download_covers(self) -> None:
         """Downloads the cover."""
-        cover_response = self.md_model.api.request_data(f'{self.md_model.cover_cdn_url}/{self.id}/{cover_name}')
-        self.md_model.api.check_response_error(cover_response)
-
-        if cover_response.status_code != 200:
-            print(f'Could not save {cover_name}...')
-            return
-
-        cover_response = cover_response.content
-
-        if not os.path.exists(os.path.join(self.cover_route, cover_name)):
-            print(f'Saving cover {cover_name}...')
-            with open(os.path.join(self.cover_route, cover_name), 'wb') as file:
-                file.write(cover_response)
-
-    def save_covers(self) -> None:
-        """Get the covers to download."""
         json_covers = self.covers
-        covers = json_covers["covers"]
+        covers = json_covers
 
         if covers:
+            print('Downloading covers.')
+
             for cover in covers:
                 cover_name = cover["attributes"]["fileName"]
-                self.download_covers(cover_name)
+                cover_response = self.md_model.api.request_data(f'{self.md_model.cover_cdn_url}/{self.id}/{cover_name}')
+                self.md_model.api.check_response_error(cover_response, 'cover', cover_response)
+
+                if cover_response.status_code != 200:
+                    print(f'Could not save {cover_name}.')
+                    continue
+
+                cover_response = cover_response.content
+                cover_path = os.path.join(self.cover_route, cover_name)
+
+                if not os.path.exists(cover_path):
+                    print(f'Saving cover {cover_name}.')
+                    with open(cover_path, 'wb') as file:
+                        file.write(cover_response)
+
+            print('Finished downloadng covers.')
 
     def get_covers(self) -> dict:
         """Fetches a dict of the manga's covers."""

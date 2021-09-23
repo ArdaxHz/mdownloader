@@ -163,7 +163,6 @@ def chapter_downloader(md_model: MDownloader) -> None:
         return
 
     pages = chapter_data["data"]
-
     if not pages:
         raise MDownloaderError('This chapter has no pages.')
 
@@ -183,7 +182,7 @@ def chapter_downloader(md_model: MDownloader) -> None:
 
     # Download images
     for image in pages:
-        task = asyncio.ensure_future(image_download(md_model, url, fallback_url, image, pages, exporter))
+        task = loop.create_task(image_download(md_model, url, fallback_url, image, pages, exporter))
         tasks.append(task)
 
     runner = display_progress(tasks)
