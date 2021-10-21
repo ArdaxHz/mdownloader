@@ -133,6 +133,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--language', '-l', default='en', help='Specify the language to download. NEEDED to download non-English chapters on manga downloads.')
     parser.add_argument('--type', '-t', default='chapter', nargs='?', const='manga', help='Type of id to download, manga, chapter, group, user, list or follows.')
+    parser.add_argument('--directory', '-d', default=None, help='Directory where to download chapters, takes priority over whats in the env file.')
     parser.add_argument('--folder', '-f', default=False, const=True, nargs='?', help='Download into a folder instead of an archive.')
     parser.add_argument('--covers', '-c', default=False, const=True, nargs='?', help='Download the covers of the manga. Works only with manga downloads.')
     parser.add_argument('--json', '-j', default=True, const=False, nargs='?', help='Add the chapter data as a json in the chapter archive/folder.')

@@ -35,10 +35,10 @@ class JsonBase:
         self.route.mkdir(parents=True, exist_ok=True)
         self.json_path = self.route.joinpath(f'{file_prefix}{self.id}_data').with_suffix('.json')
 
-        self.data_json = self.check_json_exist()
-        self.__get_downloaded_chapters()
+        self.data_json = self._check_json_exist()
+        self._get_downloaded_chapters()
 
-    def __get_downloaded_chapters(self) -> None:
+    def _get_downloaded_chapters(self) -> None:
         self.chapters = self.data_json.get('chapters', [])
         self.json_ids = [c["id"] for c in self.chapters] if self.chapters else []
         self.chapters_archive = [c["id"] for c in self.chapters if 'chapters_archive' in c and c["chapters_archive"]] if self.chapters else []
@@ -51,7 +51,7 @@ class JsonBase:
 
         self.downloaded_ids = list(set(self.downloaded_ids))
 
-    def check_json_exist(self) -> dict:
+    def _check_json_exist(self) -> dict:
         """Loads the json if it exists."""
         try:
             with open(self.json_path, 'r', encoding='utf8') as file:
@@ -60,12 +60,12 @@ class JsonBase:
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
-    def __add_chapter_data(self, chapter_id: str, chapter_data: dict) -> None:
+    def _add_chapter_data(self, chapter_id: str, chapter_data: dict) -> None:
         """Add the chapter data to the json."""
         self.chapters.append(chapter_data)
         self.downloaded_ids.append(chapter_id)
 
-    def __add_exporter_type(self, chapter_data_json: dict) -> dict:
+    def _add_exporter_type(self, chapter_data_json: dict) -> dict:
         """Add the type of exporter used for the chapter download."""
         if self.md_model.args.folder_download:
             chapter_data_json.update({"chapters_folder": True})
@@ -77,17 +77,17 @@ class JsonBase:
         """Check if chapter data already in json."""
 
         chapter_id = chapter_data["id"]
-        chapter_data = self.__add_exporter_type(chapter_data)
+        chapter_data = self._add_exporter_type(chapter_data)
 
         if chapter_id not in self.downloaded_ids:
-            self.__add_chapter_data(chapter_id, chapter_data)
+            self._add_chapter_data(chapter_id, chapter_data)
         else:
             chapter_data_json = [c for c in self.chapters if c["id"] == chapter_id]
 
             # Update the chapter data if it exists
             for chapter in chapter_data_json:
                 if chapter["attributes"]["hash"] == chapter_data["attributes"]["hash"]:
-                    self.chapters[self.chapters.index(chapter)] = self.__add_exporter_type(chapter)
+                    self.chapters[self.chapters.index(chapter)] = self._add_exporter_type(chapter)
                 else:
                     self.add_chapter_data(chapter_id, chapter_data)
 
@@ -101,29 +101,19 @@ class JsonBase:
         for chapter in chapter_data_json:
             self.chapters.remove(chapter)
 
-    def __save_json(self) -> None:
+    def _save_json(self) -> None:
         """Save the json."""
         with open(self.json_path, 'w', encoding='utf8') as json_file:
             json.dump(self.new_data, json_file, indent=4, ensure_ascii=False)
 
-    def core(self, save_type: int=0) -> None:
+    def _core(self, save_type: int=0) -> None:
         """Format the json for exporting.
 
         Args:
             save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
         """
-        if self.md_model.type_id == 1 or self.md_model.manga_download:
-            self.new_data = self.title_json
-            self.new_data["externalLinks"] = self.links
-            self.new_data["covers"] = self.covers
-
-            if save_type and self.save_covers:
-                self.download_covers()
-        else:
-            self.new_data = self.bulk_data
-
         self.new_data["chapters"] = self.chapters
-        self.__save_json()
+        self._save_json()
 
 
 
@@ -134,17 +124,11 @@ class TitleJson(JsonBase):
         self.download_type = md_model.download_type
         self.save_covers = md_model.args.cover_download
         self.regex = re.compile(ImpVar.CHARA_REGEX)
+        self.links = self._format_links()
+        self.covers = self._get_covers()
+        self.title_json = self._title()
 
-        # Make the covers folder in the manga folder
-        if self.save_covers:
-            self.cover_route = self.route.joinpath('!covers')
-            self.cover_route.mkdir(parents=True, exist_ok=True)
-
-        self.links = self.format_links()
-        self.covers = self.get_covers()
-        self.title_json = self.title()
-
-    def format_links(self) -> dict:
+    def _format_links(self) -> dict:
         """Formats the manga's external links by name and url."""
         if self.data["links"] is None:
             return {}
@@ -185,16 +169,22 @@ class TitleJson(JsonBase):
                 json_links.update({l: {"name": l, "url": newl}})
         return json_links
 
-    def download_covers(self) -> None:
-        """Downloads the cover."""
+    def _download_covers(self) -> None:
+        """Download the covers."""
         json_covers = self.covers
         covers = json_covers
 
         if covers:
-            print('Downloading covers.')
+            # Make the covers folder in the manga folder
+            if self.save_covers:
+                self.cover_route = self.route.joinpath('!covers')
+                self.cover_route.mkdir(parents=True, exist_ok=True)
 
+            print('Downloading covers.')
             for cover in covers:
                 cover_name = cover["attributes"]["fileName"]
+                cover_volume = cover["attributes"]["volume"]
+                cover_volume = cover_volume if cover_volume is not None else '0'
                 cover_response = self.md_model.api.request_data(f'{self.md_model.cover_cdn_url}/{self.id}/{cover_name}')
                 self.md_model.api.check_response_error(cover_response, 'cover', cover_response)
 
@@ -202,17 +192,20 @@ class TitleJson(JsonBase):
                     print(f'Could not save {cover_name}.')
                     continue
 
+                downloaded_cover_name = f'v{cover_volume.zfill(2)}_{cover_name}'
                 cover_response = cover_response.content
-                cover_path = os.path.join(self.cover_route, cover_name)
+                cover_path = os.path.join(self.cover_route, downloaded_cover_name)
 
                 if not os.path.exists(cover_path):
-                    print(f'Saving cover {cover_name}.')
+                    print(f'Saving cover {downloaded_cover_name}.')
                     with open(cover_path, 'wb') as file:
                         file.write(cover_response)
 
             print('Finished downloadng covers.')
+        else:
+            print('This title has no covers to download.')
 
-    def get_covers(self) -> dict:
+    def _get_covers(self) -> dict:
         """Fetches a dict of the manga's covers."""
         cache_json = self.md_model.cache.load_cache(self.id)
         refresh_cache = self.md_model.cache.check_cache_time(cache_json)
@@ -232,7 +225,7 @@ class TitleJson(JsonBase):
 
         return covers
 
-    def format_socials(self) -> dict:
+    def _format_socials(self) -> dict:
         """The social data of the manga."""
         json_social = {"views": self.data["views"]}
         json_social["follows"] = self.data["follows"]
@@ -240,7 +233,7 @@ class TitleJson(JsonBase):
         json_social["rating"] = self.data["rating"]
         return json_social
 
-    def title(self) -> dict:
+    def _title(self) -> dict:
         """General manga information."""
         data_copy = self.data.copy()
         data_copy.pop('links', None)
@@ -250,17 +243,41 @@ class TitleJson(JsonBase):
         # json_title["social"] = self.social
         return json_title
 
+    def core(self, save_type: int=0) -> None:
+        """Format the json for exporting.
+
+        Args:
+            save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
+        """
+        self.new_data = self.title_json
+        self.new_data["externalLinks"] = self.links
+        self.new_data["covers"] = self.covers
+
+        if save_type and self.save_covers:
+            self._download_covers()
+
+        super()._core(save_type)
+
 
 
 class BulkJson(JsonBase):
 
     def __init__(self, md_model: MDownloader) -> None:
         super().__init__(md_model)
-        self.bulk_data = self.format_bulk_data()
+        self.bulk_data = self._format_bulk_data()
 
-    def format_bulk_data(self) -> dict:
+    def _format_bulk_data(self) -> dict:
         """Get the download type's data and name."""
         json_account = {"id": self.id}
         json_account["link"] = f'{self.domain}/{self.type}/{self.id}'
         json_account["attributes"] = self.data
         return json_account
+
+    def core(self, save_type: int=0) -> None:
+        """Format the json for exporting.
+
+        Args:
+            save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
+        """
+        self.new_data = self.bulk_data
+        super()._core(save_type)
