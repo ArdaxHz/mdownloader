@@ -422,10 +422,14 @@ class DataFormatter(ModelsBase):
             new_title_json.add_chapter(chapter)
 
         new_title_json.core()
+        old_cover_route = old_title_json.cover_route
+        new_cover_route = new_title_json.cover_route
+        old_cover_route.mkdir(parents=True, exist_ok=True)
+        new_cover_route.mkdir(parents=True, exist_ok=True)
 
-        for cover in os.listdir(old_title_json.cover_route):
+        for cover in os.listdir(old_cover_route):
             old_cover_path = old_title_json.cover_route.joinpath(cover)
-            if cover not in os.listdir(new_title_json.cover_route):
+            if cover not in os.listdir(new_cover_route):
                 new_cover_path = new_title_json.cover_route.joinpath(cover)
                 old_cover_path.rename(new_cover_path)
             else:

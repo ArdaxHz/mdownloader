@@ -124,6 +124,7 @@ class TitleJson(JsonBase):
         self.download_type = md_model.download_type
         self.save_covers = md_model.args.cover_download
         self.regex = re.compile(ImpVar.CHARA_REGEX)
+        self.cover_route = self.route.joinpath('!covers')
         self.links = self._format_links()
         self.covers = self._get_covers()
         self.title_json = self._title()
@@ -176,10 +177,7 @@ class TitleJson(JsonBase):
 
         if covers:
             # Make the covers folder in the manga folder
-            if self.save_covers:
-                self.cover_route = self.route.joinpath('!covers')
-                self.cover_route.mkdir(parents=True, exist_ok=True)
-
+            self.cover_route.mkdir(parents=True, exist_ok=True)
             print('Downloading covers.')
             for cover in covers:
                 cover_name = cover["attributes"]["fileName"]
