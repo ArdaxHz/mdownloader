@@ -58,6 +58,8 @@ class ExporterBase:
             return 1
         elif self.chapter_number is None and self.volume_number is None:
             return 2
+        elif self.chapter_number == '0' and self.chapter_title is None:
+            return 1
         return 0
 
     def _format_chapter_number(self) -> str:
@@ -141,7 +143,7 @@ class ExporterBase:
         if chapter_title is None:
             chapter_title = ''
 
-        chapter_title = f'{chapter_title[:31]}...' if len(chapter_title) > 30 else chapter_title
+        chapter_title = f'{chapter_title[:21]}...' if len(chapter_title) > 30 else chapter_title
         title = f'[{self.md_model.formatter.strip_illegal_characters(chapter_title)}] ' if len(chapter_title) > 0 else ''
         oneshot_prefix = '[Oneshot] '
         group_suffix = f'[{self.groups}]'

@@ -47,7 +47,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
     pages = 1
     iteration = 1
 
-    parameters = {"translatedLanguage[]": md_model.args.language}
+    parameters = {"translatedLanguage[]": md_model.args.language, "contentRating[]": ["safe","suggestive","erotica", "pornographic"]}
     parameters.update(md_model.params)
 
     while True:
