@@ -159,16 +159,16 @@ class AuthMD(ModelsBase):
         self.token_file = Path('').joinpath(ImpVar.TOKEN_FILE)
         self.auth_url = f'{self.model.api_url}/auth'    
 
-    def save_session(self, token: dict) -> None:
+    def _save_session(self, token: dict) -> None:
         """Save the session and refresh tokens."""
         with open(self.token_file, 'w') as login_file:
             login_file.write(json.dumps(token, indent=4))
 
-    def update_headers(self, session_token: str) -> None:
+    def _update_headers(self, session_token: str) -> None:
         """Update the session headers to include the auth token."""
         self.model.api.session.headers = {"Authorization": f"Bearer {session_token}"}
 
-    def refresh_token(self, token: dict) -> bool:
+    def _refresh_token(self, token: dict) -> bool:
         """Use the refresh token to get a new session token.
 
         Returns:
@@ -179,17 +179,17 @@ class AuthMD(ModelsBase):
         if refresh_response.status_code == 200:
             refresh_data = refresh_response.json()["token"]
 
-            self.update_headers(token["session"])
-            self.save_session(refresh_data)
+            self._update_headers(token["session"])
+            self._save_session(refresh_data)
             return True
         elif refresh_response.status_code in (401, 403):
             print("Couldn't login using refresh token, login using your account.")
-            return self.login_using_details()
+            return self._login_using_details()
         else:
             print("Couldn't refresh token.")
             return False
 
-    def check_login(self, token: dict) -> bool:
+    def _check_login(self, token: dict) -> bool:
         """Try login using saved session token.
 
         Returns:
@@ -203,9 +203,9 @@ class AuthMD(ModelsBase):
             if auth_data["isAuthenticated"]:
                 return True
             else:
-                return self.refresh_token(token)
+                return self._refresh_token(token)
 
-    def login_using_details(self) -> bool:
+    def _login_using_details(self) -> bool:
         """Login using account details.
 
         Returns:
@@ -219,8 +219,8 @@ class AuthMD(ModelsBase):
         
         if post.status_code == 200:
             token = post.json()["token"]
-            self.update_headers(token["session"])
-            self.save_session(token)
+            self._update_headers(token["session"])
+            self._save_session(token)
             return True
         return False
 
@@ -232,11 +232,11 @@ class AuthMD(ModelsBase):
             with open(self.token_file, 'r') as login_file:
                 token = json.load(login_file)
 
-            self.update_headers(token["session"])
-            logged_in = self.check_login(token)
+            self._update_headers(token["session"])
+            logged_in = self._check_login(token)
         except (FileNotFoundError, json.JSONDecodeError):
             print("Couldn't find the file, trying to login using your account.")
-            logged_in = self.login_using_details()
+            logged_in = self._login_using_details()
 
         if logged_in:
             self.successful_login = True
@@ -270,9 +270,10 @@ class ProcessArgs(ModelsBase):
         self.model.debug = bool(args_dict["debug"])
         self.model.force_refresh = bool(args_dict["refresh"])
         self.model.download_type = str(args_dict["type"])
+        self.model.directory = str(args_dict["directory"]) if args_dict["directory"] is not None else self.model.directory
         self.language = get_lang_md(args_dict["language"])
         self.archive_extension = ImpVar.ARCHIVE_EXTENSION
-        self.check_archive_extension(self.archive_extension)
+        self._check_archive_extension(self.archive_extension)
         self.folder_download = bool(args_dict["folder"])
         self.cover_download = bool(args_dict["covers"])
         self.save_chapter_data = bool(args_dict["json"])
@@ -282,9 +283,9 @@ class ProcessArgs(ModelsBase):
         if args_dict["login"]: self.model.auth.login()
         if args_dict["search"]:
             self.search_manga = True
-            self.find_manga(self.model.id)
+            self._find_manga(self.model.id)
 
-    def check_archive_extension(self, archive_extension: str) -> str:
+    def _check_archive_extension(self, archive_extension: str) -> str:
         """Check if the file extension is an accepted format. Default: cbz.
 
         Raises:
@@ -293,7 +294,7 @@ class ProcessArgs(ModelsBase):
         if archive_extension not in ('zip', 'cbz'):
             raise MDownloaderError("This archive save format is not allowed.")
 
-    def find_manga(self, search_term: str) -> None:
+    def _find_manga(self, search_term: str) -> None:
         """Search for a manga by title."""
         manga_response = self.model.api.request_data(f'{self.model.manga_api_url}', **{"title": search_term, "limit": 100, "includes[]": ["artist", "author", "cover"]})
         search_results = self.model.api.convert_to_json(search_term, 'manga-search', manga_response)
@@ -334,7 +335,7 @@ class ExistChecker(ModelsBase):
             return True
         return False
 
-    def save_json(self) -> None:
+    def _save_json(self) -> None:
         """Save the chapter data to the data json and save the json."""
         if self.model.type_id in (1,):
             self.model.title_json.core()
@@ -348,7 +349,7 @@ class ExistChecker(ModelsBase):
         """Skip chapter if its already downloaded."""
         if exists:
             # Add chapter data to the json for title, group or user downloads
-            self.save_json()
+            self._save_json()
             self.model.exporter.close()
             raise MDownloaderError('File already downloaded.')
 
@@ -356,7 +357,7 @@ class ExistChecker(ModelsBase):
         """Save json if all the images were downloaded and close the archive."""
         # If all the images are downloaded, save the json file with the latest downloaded chapter
         if downloaded_all:
-            self.save_json() 
+            self._save_json() 
 
         # Close the archive
         self.model.exporter.close()
@@ -365,7 +366,11 @@ class ExistChecker(ModelsBase):
 
 class DataFormatter(ModelsBase):
 
-    def check_downloaded_files(self):
+    def __init__(self, model: 'MDownloader') -> None:
+        super().__init__(model)
+        self.file_name_regex = re.compile(ImpVar.FILE_NAME_REGEX, re.IGNORECASE)
+
+    def _check_downloaded_files(self):
         """Check if folders using other manga titles exist."""
         new_title = self.model.title
         available_titles = [self.strip_illegal_characters(x) for x in self.model.manga_titles if self.strip_illegal_characters(x) in [route for route in os.listdir(self.model.directory) if os.path.isdir(os.path.join(self.model.directory, route))]]
@@ -381,7 +386,7 @@ class DataFormatter(ModelsBase):
 
         processes = []
         for title in available_titles:
-            process = multiprocessing.Process(target=self.title_rename, args=(new_title, title))
+            process = multiprocessing.Process(target=self._title_rename, args=(new_title, title))
             process.start()
             processes.append(process)
 
@@ -390,7 +395,7 @@ class DataFormatter(ModelsBase):
 
         print(f"Finished renaming all the old titles.")
 
-    def title_rename(self, new_title: str, title: str):
+    def _title_rename(self, new_title: str, title: str):
         """Go through the files and folders in the directory and rename to use the new title."""
         from .jsonmaker import TitleJson
         new_title_path = Path(self.model.route)
@@ -404,7 +409,7 @@ class DataFormatter(ModelsBase):
         archive_downloads.reverse()
         folder_downloads.reverse()
 
-        process = multiprocessing.Process(target=self.renaming_process, args=(new_title, new_title_path, old_title_path, archive_downloads, folder_downloads))
+        process = multiprocessing.Process(target=self._renaming_process, args=(new_title, new_title_path, old_title_path, archive_downloads, folder_downloads))
         process.start()
         process.join()
 
@@ -417,10 +422,14 @@ class DataFormatter(ModelsBase):
             new_title_json.add_chapter(chapter)
 
         new_title_json.core()
+        old_cover_route = old_title_json.cover_route
+        new_cover_route = new_title_json.cover_route
+        old_cover_route.mkdir(parents=True, exist_ok=True)
+        new_cover_route.mkdir(parents=True, exist_ok=True)
 
-        for cover in os.listdir(old_title_json.cover_route):
+        for cover in os.listdir(old_cover_route):
             old_cover_path = old_title_json.cover_route.joinpath(cover)
-            if cover not in os.listdir(new_title_json.cover_route):
+            if cover not in os.listdir(new_cover_route):
                 new_cover_path = new_title_json.cover_route.joinpath(cover)
                 old_cover_path.rename(new_cover_path)
             else:
@@ -432,26 +441,24 @@ class DataFormatter(ModelsBase):
         del new_title_json
         old_title_path.rmdir()
 
-    def renaming_process(self, new_title, new_title_path, old_title_path, archive_downloads, folder_downloads):
+    def _renaming_process(self, new_title, new_title_path, old_title_path, archive_downloads, folder_downloads):
         pool = multiprocessing.Pool()
-        pools = []
+        pool_processes = []
 
         for folder_download in folder_downloads:
-            p = pool.apply(self.folder_rename, args=(new_title, new_title_path, old_title_path, folder_download))
-            pools.append(p)
+            p = pool.apply(self._folder_rename, args=(new_title, new_title_path, old_title_path, folder_download))
+            pool_processes.append(p)
 
         for archive_download in archive_downloads:
-            p = pool.apply(self.archive_rename, args=(new_title, new_title_path, old_title_path, archive_download))
-            pools.append(p)
+            p = pool.apply(self._archive_rename, args=(new_title, new_title_path, old_title_path, archive_download))
+            pool_processes.append(p)
 
-        for pool in pools:
-            if pool is not None:
-                pool.close()
-                pool.join()
+        pool.close()
+        pool.join()
 
-    def archive_rename(self, new_title: str, new_title_path: 'Path', old_title_path: 'Path', archive_download: str):
+    def _archive_rename(self, new_title: str, new_title_path: 'Path', old_title_path: 'Path', archive_download: str):
         """Rename the downloaded archives from the old title into the new title."""
-        old_file_name_match = re.match(ImpVar.FILE_NAME_REGEX, archive_download)
+        old_file_name_match = self.file_name_regex.match(archive_download)
         if not old_file_name_match:
             return
 
@@ -476,9 +483,9 @@ class DataFormatter(ModelsBase):
         new_zipfile.close()
         old_archive_path.unlink()
 
-    def folder_rename(self, new_title: str, new_title_path: 'Path', old_title_path: 'Path', folder_download: str):
+    def _folder_rename(self, new_title: str, new_title_path: 'Path', old_title_path: 'Path', folder_download: str):
         """Rename the downloaded folders from the old title into the new title."""
-        old_file_name_match = re.match(ImpVar.FILE_NAME_REGEX, folder_download)
+        old_file_name_match = self.file_name_regex.match(folder_download)
         if not old_file_name_match:
             return
         old_folder_path = old_title_path.joinpath(folder_download)
@@ -523,7 +530,7 @@ class DataFormatter(ModelsBase):
         """Remove illegal characters from the specified name."""
         return re.sub(ImpVar.CHARA_REGEX, '_', html.unescape(name)).rstrip(' .')
 
-    def format_save_route(self) -> None:
+    def _format_save_route(self) -> None:
         """The location files will be saved to."""
         self.model.route = os.path.join(self.model.directory, self.model.title)
 
@@ -532,8 +539,9 @@ class DataFormatter(ModelsBase):
         title = self.get_title(data)
         title = self.strip_illegal_characters(title)
         self.model.title = title
-        self.format_save_route()
-        if self.model.args.rename_files: self.check_downloaded_files()
+        self._format_save_route()
+        if self.model.args.rename_files:
+            self._check_downloaded_files()
         return title
 
     def id_from_url(self, url: str) -> Tuple[str]:
@@ -641,12 +649,12 @@ class Filtering(ModelsBase):
         self._user_blacklist_file = self.root.joinpath(ImpVar.USER_BLACKLIST_FILE)
         self._user_userlist_file = self.root.joinpath(ImpVar.USER_WHITELIST_FILE)
 
-        self.group_blacklist = self.read_file(self._group_blacklist_file)
-        self.group_whitelist = self.read_file(self._group_whitelist_file)
-        self.user_blacklist = self.read_file(self._user_blacklist_file)
-        self.user_whitelist = self.read_file(self._user_userlist_file)
+        self.group_blacklist = self._read_file(self._group_blacklist_file)
+        self.group_whitelist = self._read_file(self._group_whitelist_file)
+        self.user_blacklist = self._read_file(self._user_blacklist_file)
+        self.user_whitelist = self._read_file(self._user_userlist_file)
 
-    def read_file(self, file_path: str) -> list:
+    def _read_file(self, file_path: str) -> list:
         """Opens the text file and loads the ids to filter."""
         try:
             with open(file_path, 'r') as fp:
@@ -767,7 +775,7 @@ class MDownloaderMisc(ModelsBase):
             Optional[str]: The external url if available.
         """
         external = False
-        url = ''
+        url = None
 
         if 'externalUrl' in chapter_data:
             if chapter_data["externalUrl"] is not None and chapter_data["externalUrl"] != '':
@@ -777,6 +785,9 @@ class MDownloaderMisc(ModelsBase):
         if not external and bool(ImpVar.URL_RE.match(chapter_data["data"][0])):
             url = chapter_data["data"][0]
             external = True
+
+        if len(chapter_data["data"]) > 1:
+            external = False
 
         if external:
             if any(s in url for s in ('mangaplus', 'comikey')):
@@ -835,7 +846,7 @@ class TitleDownloaderMisc(ModelsBase):
                 chapter_prefix_dict.update({volume: vol_prefix})
         return chapter_prefix_dict
 
-    def natsort(self, x) -> Union[float, str]:
+    def _natsort(self, x) -> Union[float, str]:
         """Sort the chapter numbers naturally."""
         try:
             return float(x)
@@ -844,7 +855,7 @@ class TitleDownloaderMisc(ModelsBase):
         except ValueError:
             return x
 
-    def get_chapters_range(self, chapters_list: list, chap_list: list) -> list:
+    def _get_chapters_range(self, chapters_list: list, chap_list: list) -> list:
         """Loop through the lists and get the chapters between the upper and lower bounds.
 
         Args:
@@ -893,7 +904,7 @@ class TitleDownloaderMisc(ModelsBase):
         chapters_list = [c["attributes"]["chapter"] for c in chapters]
         chapters_list_str = ['oneshot' if c is None else c for c in chapters_list]
         chapters_list = list(set(chapters_list))
-        chapters_list.sort(key=self.natsort)
+        chapters_list.sort(key=self._natsort)
         remove_chapters = []
 
         if not chapters_list:
@@ -911,12 +922,12 @@ class TitleDownloaderMisc(ModelsBase):
 
         # Find which chapters to download
         if 'all' not in chap_list:
-            chapters_to_download = self.get_chapters_range(chapters_list, chap_list)
+            chapters_to_download = self._get_chapters_range(chapters_list, chap_list)
         else:
             chapters_to_download = chapters_list
 
         # Get the chapters to remove from the download list
-        remove_chapters = self.get_chapters_range(chapters_list, chapters_to_remove)
+        remove_chapters = self._get_chapters_range(chapters_list, chapters_to_remove)
 
         for i in remove_chapters:
             chapters_to_download.remove(i)

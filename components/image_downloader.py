@@ -133,8 +133,6 @@ def chapter_downloader(md_model: MDownloader) -> None:
 
     print(f'Downloading {title} | Volume: {chapter_data["volume"]} | Chapter: {chapter_data["chapter"]} | Title: {chapter_data["title"]}')
 
-    external = md_model.misc.check_external(chapter_data)
-
     # Make the files
     if md_model.args.folder_download:
         exporter = FolderExporter(md_model)
@@ -150,6 +148,7 @@ def chapter_downloader(md_model: MDownloader) -> None:
         md_model.bulk_json.add_chapter(data)
 
     # External chapters
+    external = md_model.misc.check_external(chapter_data)
     if external is not None:
         from .external import MangaPlus, ComiKey
         if 'mangaplus' in external:
