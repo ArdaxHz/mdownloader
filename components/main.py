@@ -78,7 +78,7 @@ def file_downloader(md_model: MDownloader) -> None:
     print(f'All the ids in {filename} have been downloaded')
 
 
-def main(args: Type[argparse.ArgumentParser.parse_args]) -> None:
+def main(vargs: dict) -> None:
     """Initialise the MDownloader class and call the respective functions.
 
     Args:
@@ -89,7 +89,7 @@ def main(args: Type[argparse.ArgumentParser.parse_args]) -> None:
         MDownloaderError: Couldn't find the file to download from.
     """
     md_model = MDownloader()
-    md_model.args.format_args(args)
+    md_model.args.format_args(vargs)
     series_id = md_model.id
 
     # Check the id is valid number

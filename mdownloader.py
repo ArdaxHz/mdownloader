@@ -25,8 +25,9 @@ def check_for_update(args) -> None:
     """
     excluded = ['components', '.env.example']
     components_path = Path('components')
+    vargs = vars(args)
 
-    if not vars(args)["update"]:
+    if not vargs["update"]:
         print('Looking for program update.')
         # Call GitHub api to check if there are missing local files
         root_response = requests.get('https://api.github.com/repos/Rudoal/mdownloader/contents')
@@ -111,17 +112,17 @@ def check_for_update(args) -> None:
                 else:
                     print('Skipping update, this might result in program errors.')
 
-        # Get announcement messages that can be added at any time
-        announcement_response = requests.get('https://raw.githubusercontent.com/Rudoal/misc/main/mdl_msgs.txt')
+    # Get announcement messages that can be added at any time
+    announcement_response = requests.get('https://raw.githubusercontent.com/Rudoal/misc/main/mdl_msgs.txt')
 
-        if announcement_response.status_code == 200:
-            announcement_message = (announcement_response.content).decode()
-            announcement_message = announcement_message.rstrip('\n')
+    if announcement_response.status_code == 200:
+        announcement_message = (announcement_response.content).decode()
+        announcement_message = announcement_message.rstrip('\n')
 
-            if len(announcement_message) > 0:
-                print(announcement_message.capitalize())
+        if len(announcement_message) > 0:
+            print(announcement_message.capitalize())
 
-    main(args)
+    main(vargs)
 
 
 if __name__ == "__main__":

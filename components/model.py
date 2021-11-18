@@ -262,9 +262,9 @@ class ProcessArgs(ModelsBase):
         self.naming_scheme_options = ["default", "original", "number"]
         self.naming_scheme = "default"
 
-    def format_args(self, args) -> None:
+    def format_args(self, vargs: dict) -> None:
         """Format the command line arguments into readable data."""
-        args_dict = vars(args)
+        args_dict = vargs
 
         self.model.id = str(args_dict["id"])
         self.model.debug = bool(args_dict["debug"])
@@ -296,7 +296,7 @@ class ProcessArgs(ModelsBase):
 
     def _find_manga(self, search_term: str) -> None:
         """Search for a manga by title."""
-        manga_response = self.model.api.request_data(f'{self.model.manga_api_url}', **{"title": search_term, "limit": 100, "includes[]": ["artist", "author", "cover"]})
+        manga_response = self.model.api.request_data(f'{self.model.manga_api_url}', **{"title": search_term, "limit": 100, "includes[]": ["artist", "author", "cover"], "contentRating[]": ["safe","suggestive","erotica", "pornographic"]})
         search_results = self.model.api.convert_to_json(search_term, 'manga-search', manga_response)
 
         for count, manga in enumerate(search_results["data"], start=1):
@@ -790,7 +790,7 @@ class MDownloaderMisc(ModelsBase):
             external = False
 
         if external:
-            if any(s in url for s in ('mangaplus', 'comikey')):
+            if any(s in url for s in ('mangaplus',)):
                 return url
             else:
                 raise MDownloaderError('Chapter external to MangaDex, unable to download. Skipping...')
