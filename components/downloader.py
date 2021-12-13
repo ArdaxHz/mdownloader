@@ -275,6 +275,7 @@ def chapter_download(md_model: MDownloader) -> None:
         md_model.cache.save_cache(datetime.now(), chapter_id, data=chapter_data)
 
     manga_data = md_model.misc.check_manga_data(chapter_data)
+    md_model.data = md_model.manga_data = manga_data
     md_model.formatter.format_title(manga_data)
     md_model.chapter_data = chapter_data
     name = f'{md_model.title}: Chapter {chapter_data["attributes"]["chapter"]}'

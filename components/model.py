@@ -262,9 +262,9 @@ class ProcessArgs(ModelsBase):
         self.naming_scheme_options = ["default", "original", "number"]
         self.naming_scheme = "default"
 
-    def format_args(self, args) -> None:
+    def format_args(self, vargs: dict) -> None:
         """Format the command line arguments into readable data."""
-        args_dict = vars(args)
+        args_dict = vargs
 
         self.model.id = str(args_dict["id"])
         self.model.debug = bool(args_dict["debug"])
@@ -296,22 +296,29 @@ class ProcessArgs(ModelsBase):
 
     def _find_manga(self, search_term: str) -> None:
         """Search for a manga by title."""
-        manga_response = self.model.api.request_data(f'{self.model.manga_api_url}', **{"title": search_term, "limit": 100, "includes[]": ["artist", "author", "cover"]})
+        manga_response = self.model.api.request_data(
+            f'{self.model.manga_api_url}',
+            **{"title": search_term, 
+               "limit": 100,
+               "includes[]": ["artist", "author", "cover"],
+               "contentRating[]": ["safe","suggestive","erotica", "pornographic"],
+               "order[relevance]": "desc"})
         search_results = self.model.api.convert_to_json(search_term, 'manga-search', manga_response)
+        search_results_data = search_results["data"]
 
-        for count, manga in enumerate(search_results["data"], start=1):
+        for count, manga in enumerate(search_results_data, start=1):
             title = self.model.formatter.get_title(manga)
-            print(f'{count}: {title}')
+            print(f'{count}: {title} | {ImpVar.MANGADEX_URL}/manga/{manga["id"]}')
 
         try:
             manga_to_use_num = int(input(f'Choose a number matching the position of the manga you want to download: '))
         except ValueError:
             raise MDownloaderError("That's not a number.")
 
-        if manga_to_use_num not in range(1, (len(search_results) + 1)):
+        if manga_to_use_num not in range(1, (len(search_results_data) + 1)):
             raise MDownloaderError("Not a valid option.")
 
-        manga_to_use = search_results[(manga_to_use_num - 1)]
+        manga_to_use = search_results_data[manga_to_use_num - 1]
 
         self.model.id = manga_to_use["id"]
         self.model.download_type = 'manga'
@@ -373,12 +380,16 @@ class DataFormatter(ModelsBase):
     def _check_downloaded_files(self):
         """Check if folders using other manga titles exist."""
         new_title = self.model.title
-        available_titles = [self.strip_illegal_characters(x) for x in self.model.manga_titles if self.strip_illegal_characters(x) in [route for route in os.listdir(self.model.directory) if os.path.isdir(os.path.join(self.model.directory, route))]]
+        available_titles = [self.strip_illegal_characters(x) for x in self.model.manga_titles if self.strip_illegal_characters(x) in [
+            route for route in os.listdir(self.model.directory) if os.path.isdir(os.path.join(self.model.directory, route))]]
         if not available_titles:
             return
 
         if new_title in available_titles:
-            available_titles.remove(new_title)
+            for title in reversed(available_titles):
+                if title == new_title:
+                    available_titles.remove(title)
+
             if not available_titles:
                 return
 
@@ -409,7 +420,9 @@ class DataFormatter(ModelsBase):
         archive_downloads.reverse()
         folder_downloads.reverse()
 
-        process = multiprocessing.Process(target=self._renaming_process, args=(new_title, new_title_path, old_title_path, archive_downloads, folder_downloads))
+        process = multiprocessing.Process(
+            target=self._renaming_process,
+            args=(new_title, new_title_path, old_title_path, archive_downloads, folder_downloads))
         process.start()
         process.join()
 
@@ -790,7 +803,7 @@ class MDownloaderMisc(ModelsBase):
             external = False
 
         if external:
-            if any(s in url for s in ('mangaplus', 'comikey')):
+            if any(s in url for s in ('mangaplus',)):
                 return url
             else:
                 raise MDownloaderError('Chapter external to MangaDex, unable to download. Skipping...')

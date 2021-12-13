@@ -133,7 +133,7 @@ class ExporterBase:
             group_names.append(name)
 
         if len(group_names) == 0:
-            group_names.append('no group')
+            group_names.append('No Group')
 
         return self.md_model.formatter.strip_illegal_characters(', '.join(group_names))
 

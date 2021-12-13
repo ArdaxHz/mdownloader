@@ -150,15 +150,16 @@ def chapter_downloader(md_model: MDownloader) -> None:
     # External chapters
     external = md_model.misc.check_external(chapter_data)
     if external is not None:
-        from .external import MangaPlus, ComiKey
         if 'mangaplus' in external:
+            from .external import MangaPlus
             # Call MangaPlus downloader
             print('External chapter. Connecting to MangaPlus to download.')
             MangaPlus(md_model, external).download_mplus_chap()
-        elif 'comikey' in external:
-            # Call ComiKey downloader
-            print('External chapter. Connecting to ComiKey to download.')
-            ComiKey(md_model, external).download_comikey_chap()
+        # elif 'comikey' in external:
+        #     from .external import ComiKey
+        #     # Call ComiKey downloader
+        #     print('External chapter. Connecting to ComiKey to download.')
+        #     ComiKey(md_model, external).download_comikey_chap()
         return
 
     pages = chapter_data["data"]

@@ -25,8 +25,9 @@ def check_for_update(args) -> None:
     """
     excluded = ['components', '.env.example']
     components_path = Path('components')
+    vargs = vars(args)
 
-    if not vars(args)["update"]:
+    if not vargs["update"]:
         print('Looking for program update.')
         # Call GitHub api to check if there are missing local files
         root_response = requests.get('https://api.github.com/repos/Rudoal/mdownloader/contents')
@@ -111,17 +112,17 @@ def check_for_update(args) -> None:
                 else:
                     print('Skipping update, this might result in program errors.')
 
-        # Get announcement messages that can be added at any time
-        announcement_response = requests.get('https://raw.githubusercontent.com/Rudoal/misc/main/mdl_msgs.txt')
+    # Get announcement messages that can be added at any time
+    announcement_response = requests.get('https://raw.githubusercontent.com/Rudoal/misc/main/mdl_msgs.txt')
 
-        if announcement_response.status_code == 200:
-            announcement_message = (announcement_response.content).decode()
-            announcement_message = announcement_message.rstrip('\n')
+    if announcement_response.status_code == 200:
+        announcement_message = (announcement_response.content).decode()
+        announcement_message = announcement_message.rstrip('\n')
 
-            if len(announcement_message) > 0:
-                print(announcement_message.capitalize())
+        if len(announcement_message) > 0:
+            print(announcement_message.capitalize())
 
-    main(args)
+    main(vargs)
 
 
 if __name__ == "__main__":
@@ -137,7 +138,7 @@ if __name__ == "__main__":
     parser.add_argument('--folder', '-f', default=False, const=True, nargs='?', help='Download into a folder instead of an archive.')
     parser.add_argument('--covers', '-c', default=False, const=True, nargs='?', help='Download the covers of the manga. Works only with manga downloads.')
     parser.add_argument('--json', '-j', default=True, const=False, nargs='?', help='Add the chapter data as a json in the chapter archive/folder.')
-    parser.add_argument('--range', '-r', default=True, const=False, nargs='?',
+    parser.add_argument('--range', '-r', default=False, const=True, nargs='?',
         help='Download a range of chapters, or all while excluding some. Put "!" in front of the chapters you want to exclude.')
     parser.add_argument('--search', '-s', default=False, const=True, nargs='?', 
         help='Search for the manga specified. Wrap multiple words in quotation marks, e.g. "Please Put These On, Takamine-san"')
