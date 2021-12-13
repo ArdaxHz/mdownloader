@@ -138,7 +138,7 @@ if __name__ == "__main__":
     parser.add_argument('--folder', '-f', default=False, const=True, nargs='?', help='Download into a folder instead of an archive.')
     parser.add_argument('--covers', '-c', default=False, const=True, nargs='?', help='Download the covers of the manga. Works only with manga downloads.')
     parser.add_argument('--json', '-j', default=True, const=False, nargs='?', help='Add the chapter data as a json in the chapter archive/folder.')
-    parser.add_argument('--range', '-r', default=True, const=False, nargs='?',
+    parser.add_argument('--range', '-r', default=False, const=True, nargs='?',
         help='Download a range of chapters, or all while excluding some. Put "!" in front of the chapters you want to exclude.')
     parser.add_argument('--search', '-s', default=False, const=True, nargs='?', 
         help='Search for the manga specified. Wrap multiple words in quotation marks, e.g. "Please Put These On, Takamine-san"')
