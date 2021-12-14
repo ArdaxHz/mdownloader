@@ -46,6 +46,7 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
     offset = 0
     pages = 1
     iteration = 1
+    created_at_since_time = '2000-01-01T00:00:00'
 
     parameters = {"translatedLanguage[]": md_model.args.language, "contentRating[]": ["safe","suggestive","erotica", "pornographic"]}
     parameters.update(md_model.params)
@@ -54,7 +55,8 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
         # Update the parameters with the new offset
         parameters.update({
             "limit": limit,
-            "offset": offset
+            "offset": offset,
+            'createdAtSince': created_at_since_time
         })
 
         # Call the api and get the json data
@@ -74,9 +76,6 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
             if chapters_count > limit:
                 pages = math.ceil(chapters_count / limit)
 
-            if chapters_count >= 10000:
-                print('Due to api limits, a maximum of 10000 chapters can be downloaded.')
-
             print(f"{pages} page(s) to go through.")
 
         # Wait every 5 pages
@@ -84,8 +83,18 @@ def get_chapters(md_model: MDownloader, url: str) -> list:
             md_model.wait(3)
 
         # End the loop when all the pages have been gone through
-        # Offset 10000 is the highest you can go, any higher returns an error
+        # Offset 10000 is the highest you can go,
+        # reset offset and get next 10k batch using
+        # the last available chapter's created at date
         if iteration == pages or offset == 10000 or not chapters_response_data["data"]:
+            if chapters_count >= 10000 and offset == 10000:
+                print('Reached 10k chapters, looping over next 10k.')
+                created_at_since_time = chapters[-1]["attributes"]["createdAt"].split('+')[0]
+                offset = 0
+                pages = 1
+                iteration = 1
+                md_model.wait(5)
+                continue
             break
 
         iteration += 1
