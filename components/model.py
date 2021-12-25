@@ -791,16 +791,9 @@ class MDownloaderMisc(ModelsBase):
         url = None
 
         if 'externalUrl' in chapter_data:
-            if chapter_data["externalUrl"] is not None and chapter_data["externalUrl"] != '':
+            if chapter_data["externalUrl"] is not None:
                 url = chapter_data["externalUrl"]
                 external = True
-
-        if not external and bool(ImpVar.URL_RE.match(chapter_data["data"][0])):
-            url = chapter_data["data"][0]
-            external = True
-
-        if len(chapter_data["data"]) > 1:
-            external = False
 
         if external:
             if any(s in url for s in ('mangaplus',)):
