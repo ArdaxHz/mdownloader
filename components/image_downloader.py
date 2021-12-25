@@ -2,7 +2,7 @@
 import asyncio
 import time
 from datetime import datetime
-from typing import Type, Union
+from typing import Tuple, Type, Union
 
 from aiohttp import ClientSession, ClientError
 from tqdm import tqdm
@@ -42,11 +42,13 @@ def report_image(
     # data = md_model.api.convertJson(md_mode.chapter_id, 'image-report', response)
 
 
-def get_server(md_model: MDownloader) -> str:
+def get_server(md_model: MDownloader) -> Tuple[Union[str, list]]:
     """Get the MD@H node to download images from."""
     server_response = md_model.api.request_data(f'{md_model.mdh_url}/{md_model.chapter_id}')
     server_data = md_model.api.convert_to_json(md_model.chapter_id, 'chapter-server', server_response)
-    return server_data["baseUrl"]
+    hash = server_data["chapter"]["hash"]
+    url = f'{server_data["baseUrl"]}/data/{hash}/'
+    return (url, hash, server_data["chapter"]["data"])
 
 
 async def display_progress(tasks: list) -> None:
@@ -60,7 +62,6 @@ async def display_progress(tasks: list) -> None:
 async def image_download(
         md_model: MDownloader,
         url: str,
-        fallback_url: str,
         image: str,
         pages: list,
         exporter: Type[Union[ArchiveExporter, FolderExporter]]) -> None:
@@ -75,6 +76,7 @@ async def image_download(
     """
     retry = 0
     fallback_retry = 0
+    fallback_url = ''
     retry_max_times = ImpVar.RETRY_MAX_TIMES
     time_to_sleep = ImpVar.TIME_TO_SLEEP
 
@@ -106,10 +108,11 @@ async def image_download(
 
                 if retry == retry_max_times:
 
-                    if fallback_url != '' and fallback_retry == 0:
+                    if fallback_url == '' and fallback_retry == 0:
                         retry = 0
                         fallback_retry = 1
-                        url = fallback_url
+
+                        url, hash, pages = get_server(md_model)
                         if md_model.debug: print(f'Retrying with the fallback url.')
                     else:
                         print(f'Could not download image {image_link} after {retry} times.')
@@ -162,7 +165,7 @@ def chapter_downloader(md_model: MDownloader) -> None:
         #     ComiKey(md_model, external).download_comikey_chap()
         return
 
-    pages = chapter_data["data"]
+    url, hash, pages = get_server(md_model)
     if not pages:
         raise MDownloaderError('This chapter has no pages.')
 
@@ -170,19 +173,13 @@ def chapter_downloader(md_model: MDownloader) -> None:
     exists = md_model.exist.check_exist(pages)
     md_model.exist.before_download(exists)
 
-    server = get_server(md_model)
-    fallback_server = get_server(md_model)
-
-    url = f'{server}/data/{chapter_data["hash"]}/'
-    fallback_url = f'{fallback_server}/data/{chapter_data["hash"]}/'
-
     # ASYNC FUNCTION
     loop  = asyncio.get_event_loop()
     tasks = []
 
     # Download images
     for image in pages:
-        task = loop.create_task(image_download(md_model, url, fallback_url, image, pages, exporter))
+        task = loop.create_task(image_download(md_model, url, image, pages, exporter))
         tasks.append(task)
 
     runner = display_progress(tasks)
