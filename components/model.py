@@ -157,7 +157,7 @@ class AuthMD(ModelsBase):
         super().__init__(model)
         self.successful_login = False
         self.token_file = Path('').joinpath(ImpVar.TOKEN_FILE)
-        self.auth_url = f'{self.model.api_url}/auth'    
+        self.auth_url = f'{self.model.api_url}/auth'
 
     def _save_session(self, token: dict) -> None:
         """Save the session and refresh tokens."""
@@ -216,7 +216,7 @@ class AuthMD(ModelsBase):
 
         credentials = {"username": username, "password": password}
         post = self.model.api.post_data(f'{self.auth_url}/login', post_data=credentials)
-        
+
         if post.status_code == 200:
             token = post.json()["token"]
             self._update_headers(token["session"])
@@ -298,7 +298,7 @@ class ProcessArgs(ModelsBase):
         """Search for a manga by title."""
         manga_response = self.model.api.request_data(
             f'{self.model.manga_api_url}',
-            **{"title": search_term, 
+            **{"title": search_term,
                "limit": 100,
                "includes[]": ["artist", "author", "cover"],
                "contentRating[]": ["safe","suggestive","erotica", "pornographic"],
@@ -364,7 +364,7 @@ class ExistChecker(ModelsBase):
         """Save json if all the images were downloaded and close the archive."""
         # If all the images are downloaded, save the json file with the latest downloaded chapter
         if downloaded_all:
-            self._save_json() 
+            self._save_json()
 
         # Close the archive
         self.model.exporter.close()
@@ -684,8 +684,8 @@ class Filtering(ModelsBase):
             if self.user_whitelist:
                 chapters = [c for c in chapters if [u for u in c["relationships"] if u["type"] == 'user' and u["id"] in self.user_whitelist]]
         else:
-            chapters = [c for c in chapters if 
-                (([g for g in c["relationships"] if g["type"] == 'scanlation_group' and g["id"] not in self.group_blacklist]) 
+            chapters = [c for c in chapters if
+                (([g for g in c["relationships"] if g["type"] == 'scanlation_group' and g["id"] not in self.group_blacklist])
                     or [u for u in c["relationships"] if u["type"] == 'user' and u["id"] not in self.user_blacklist])]
         return chapters
 
@@ -698,7 +698,7 @@ class MDownloaderMisc(ModelsBase):
         return bool(ImpVar.MD_URL.match(url) or ImpVar.MD_IMAGE_URL.match(url) or ImpVar.MD_FOLLOWS_URL.match(url))
 
     def check_for_links(self, links: list, error_message: str) -> None:
-        """Check the file has any MangaDex urls or ids. 
+        """Check the file has any MangaDex urls or ids.
 
         Args:
             links (list): Array of urls and ids.

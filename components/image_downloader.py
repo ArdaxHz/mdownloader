@@ -48,7 +48,7 @@ def get_server(md_model: MDownloader) -> Tuple[Union[str, list]]:
     server_data = md_model.api.convert_to_json(md_model.chapter_id, 'chapter-server', server_response)
     hash = server_data["chapter"]["hash"]
     url = f'{server_data["baseUrl"]}/data/{hash}/'
-    return (url, hash, server_data["chapter"]["data"])
+    return (server_data["chapter"], url, hash, server_data["chapter"]["data"])
 
 
 async def display_progress(tasks: list) -> None:
@@ -112,7 +112,7 @@ async def image_download(
                         retry = 0
                         fallback_retry = 1
 
-                        url, hash, pages = get_server(md_model)
+                        _, url, _, pages = get_server(md_model)
                         if md_model.debug: print(f'Retrying with the fallback url.')
                     else:
                         print(f'Could not download image {image_link} after {retry} times.')
@@ -136,6 +136,13 @@ def chapter_downloader(md_model: MDownloader) -> None:
 
     print(f'Downloading {title} | Volume: {chapter_data["volume"]} | Chapter: {chapter_data["chapter"]} | Title: {chapter_data["title"]}')
 
+    page_data, url, hash, pages = get_server(md_model)
+    if not pages:
+        raise MDownloaderError('This chapter has no pages.')
+
+    chapter_data.update(page_data)
+    data["attributes"].update(page_data)
+
     # Make the files
     if md_model.args.folder_download:
         exporter = FolderExporter(md_model)
@@ -143,6 +150,12 @@ def chapter_downloader(md_model: MDownloader) -> None:
         exporter = ArchiveExporter(md_model)
 
     md_model.exporter = exporter
+
+    if md_model.type_id == 0:
+        cache_json = md_model.cache.load_cache(chapter_id)
+        cache_data = cache_json.get('data', {})
+        cache_data.get('attributes', {}).update(page_data)
+        md_model.cache.save_cache(cache_json["cache_date"], download_id=chapter_id, data=cache_data, chapters=cache_json["chapters"], covers=cache_json["covers"])
 
     # Add chapter data to the json for title, group or user downloads
     if md_model.type_id in (1,):
@@ -158,23 +171,14 @@ def chapter_downloader(md_model: MDownloader) -> None:
             # Call MangaPlus downloader
             print('External chapter. Connecting to MangaPlus to download.')
             MangaPlus(md_model, external).download_mplus_chap()
-        # elif 'comikey' in external:
-        #     from .external import ComiKey
-        #     # Call ComiKey downloader
-        #     print('External chapter. Connecting to ComiKey to download.')
-        #     ComiKey(md_model, external).download_comikey_chap()
         return
-
-    url, hash, pages = get_server(md_model)
-    if not pages:
-        raise MDownloaderError('This chapter has no pages.')
 
     # Check if the chapter has been downloaded already
     exists = md_model.exist.check_exist(pages)
     md_model.exist.before_download(exists)
 
     # ASYNC FUNCTION
-    loop  = asyncio.get_event_loop()
+    loop = asyncio.get_event_loop()
     tasks = []
 
     # Download images
