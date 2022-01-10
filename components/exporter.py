@@ -176,7 +176,7 @@ class ExporterBase:
 
         Returns:
             str: The formatted page name.
-        """        
+        """
         if self.naming_scheme == 'default' or orig_name == '':
             return f'{self.prefix} - p{page_no:0>3} {self.suffix}.{ext}'
         elif self.naming_scheme == 'number':
@@ -193,7 +193,7 @@ class ArchiveExporter(ExporterBase):
         self.archive_extension = md_model.args.archive_extension
         self.archive_path = os.path.join(self.destination, f'{self.folder_name}.{self.archive_extension}')
         self.archive = self._check_zip()
- 
+
     def _make_zip(self) -> zipfile.ZipFile:
         """Make a zipfile, if it exists, open it instead.
 
@@ -205,7 +205,7 @@ class ArchiveExporter(ExporterBase):
             zipfile.ZipFile: A ZipFile object of the open archive.
         """
         try:
-            return zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED) 
+            return zipfile.ZipFile(self.archive_path, mode="a", compression=zipfile.ZIP_DEFLATED)
         except zipfile.BadZipFile:
             raise MDownloaderError('Error creating archive')
         except PermissionError:

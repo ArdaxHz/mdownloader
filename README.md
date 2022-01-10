@@ -9,7 +9,7 @@ This is a MangaDex specific downloader, other sites will not be supported.
 
 You'll need to rename `.env.example` to `.env` and change the values to whatever would suit you best, if you don't know what it's for, leave the values as they are.
 
-## Excecute 
+## Excecute
 `python3 mdownloader.py link/id [options]`
 
 ### Parameters

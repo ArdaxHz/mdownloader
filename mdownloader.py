@@ -31,7 +31,7 @@ def check_for_update(args) -> None:
         print('Looking for program update.')
         # Call GitHub api to check if there are missing local files
         root_response = requests.get('https://api.github.com/repos/Rudoal/mdownloader/contents')
-        components_response = requests.get('https://api.github.com/repos/Rudoal/mdownloader/contents/components')    
+        components_response = requests.get('https://api.github.com/repos/Rudoal/mdownloader/contents/components')
 
         if root_response.status_code == 200 and components_response.status_code == 200:
             root_data = root_response.json()
@@ -44,12 +44,12 @@ def check_for_update(args) -> None:
             except FileNotFoundError:
                 components_path.mkdir(parents=True, exist_ok=True)
                 missing_components = [f for f in components_data if f["name"] not in os.listdir('./components')]
-            
+
             if len(missing_root) > 0 or len(missing_components) > 0:
                 download_missing = input("Do you want to download the missing required files? 'y' or 'n' ")
-                
+
                 if download_missing.lower() == 'y':
-                    
+
                     if len(missing_root) > 0:
                         for f in missing_root:
                             response = requests.get(f["download_url"])
@@ -57,7 +57,7 @@ def check_for_update(args) -> None:
 
                             with open(os.path.join('.', f["name"]), 'wb') as file:
                                 file.write(contents)
-                    
+
                     if len(missing_components) > 0:
                         for f in missing_components:
                             response = requests.get(f["download_url"])
@@ -65,7 +65,7 @@ def check_for_update(args) -> None:
 
                             with open(components_path.joinpath(f["name"]), 'wb') as file:
                                 file.write(contents)
-                
+
                     print('Downloaded the missing files and exiting.')
                     return
                 else:
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     parser.add_argument('--json', '-j', default=True, const=False, nargs='?', help='Add the chapter data as a json in the chapter archive/folder.')
     parser.add_argument('--range', '-r', default=False, const=True, nargs='?',
         help='Download a range of chapters, or all while excluding some. Put "!" in front of the chapters you want to exclude.')
-    parser.add_argument('--search', '-s', default=False, const=True, nargs='?', 
+    parser.add_argument('--search', '-s', default=False, const=True, nargs='?',
         help='Search for the manga specified. Wrap multiple words in quotation marks, e.g. "Please Put These On, Takamine-san"')
     parser.add_argument('--order', '-o', default=False, const=True, nargs='?', help='Download chapters in descending order instead of grouping by manga.')
     parser.add_argument('--debug', default=False, const=True, nargs='?', help=argparse.SUPPRESS)
