@@ -6,6 +6,3 @@ tqdm
 
 # Needed for MangaPlus downloader
 protobuf
-
-# Needed for ComiKey downloader
-cloudscraper
