@@ -5,7 +5,7 @@ import json
 import os
 import re
 import shutil
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -28,7 +28,7 @@ class ExporterBase:
     def __init__(self, **kwargs) -> None:
         self._args: 'ProcessArgs' = kwargs["args"]
         self._chapter_args_obj: 'MDArgs' = kwargs["chapter_args_obj"]
-        self._page_data: hondana.ChapterAtHome = kwargs["page_data"]
+        self._at_home_data: hondana.ChapterAtHome = kwargs["at_home_data"]
         self._chapter_obj: hondana.Chapter = self._chapter_args_obj.data
         self._series_title: str = kwargs["manga_title"]
         self._download_path: Path = kwargs["download_path"]
@@ -40,7 +40,7 @@ class ExporterBase:
         self.chapter = self._format_chapter_number()
         self.volume = self._format_volume_number()
         self.language = self._format_language()
-        self.groups = asyncio.run(self.get_groups())
+        self.groups = self.get_groups()
         self.prefix = self._prefix_name()
         self.suffix = self._suffix_name()
         self.folder_name = self._folder_name()
@@ -116,7 +116,7 @@ class ExporterBase:
         """The formatted prefix name."""
         return f'{self._series_title}{self.language} - {self.chapter}{self.volume}'
 
-    async def get_groups(self) -> str:
+    def get_groups(self) -> str:
         """The scanlation groups that worked on the chapter."""
         _group_ids = [g["id"] for g in self._chapter_obj._relationships if g["type"] == 'scanlation_group']
         groups = self._chapter_obj.scanlator_groups
@@ -128,8 +128,12 @@ class ExporterBase:
                 group_cache_obj = CacheRead(self._args, cache_id=_group_id, cache_type='group')
                 refresh_cache = group_cache_obj.check_cache_time()
                 if refresh_cache or not bool(group_cache_obj.cache.data):
-                    group_response = await self._args._hondana_client.get_scanlation_group(_group_id)
-                    group_cache_obj.save_cache(cache_time=datetime.now(), data=group_response)
+                    group_response_coro = asyncio.create_task(self._args._hondana_client.get_scanlation_group(_group_id))
+                    try:
+                        group_response = group_response_coro.set_result()
+                    except (asyncio.InvalidStateError, asyncio.CancelledError):
+                        pass
+                    group_cache_obj.save_cache(cache_time=datetime.now(), data=group_response_coro.res)
                 else:
                     group_response = hondana.ScanlatorGroup(self._args._hondana_client._http, group_cache_obj.cache.data.copy())
 
@@ -174,7 +178,7 @@ class ExporterBase:
         elif self.naming_scheme == 'original':
             return f'{self._chapter_obj.id}'
 
-    def _format_page_name(self, page_no: int, ext: str, orig_name: str) -> str:
+    def _format_page_name(self, page_no: int, ext: str, orig_name: Optional[str]=None) -> str:
         """Each page name.
 
         Args:
@@ -185,7 +189,7 @@ class ExporterBase:
         Returns:
             str: The formatted page name.
         """
-        if self.naming_scheme == 'default' or orig_name == '':
+        if self.naming_scheme == 'default' or orig_name is None:
             return f'{self.prefix} - p{page_no:0>3} {self.suffix}.{ext}'
         elif self.naming_scheme == 'number':
             return f'{page_no:0>3}.{ext}'
@@ -195,6 +199,7 @@ class ExporterBase:
 
 
 class ArchiveExporter(ExporterBase):
+
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
@@ -227,9 +232,9 @@ class ArchiveExporter(ExporterBase):
         version_no = 1
         self.archive = self._make_zip()
         chapter_hash = self.archive.comment.decode().split('\n')[-1]
-        to_add = f'{self._chapter_obj.id}\n{self._chapter_obj.title}\n{self._page_data.hash}'
+        to_add = f'{self._chapter_obj.id}\n{self._chapter_obj.title}\n{self._at_home_data.hash}'
 
-        if chapter_hash == '' or chapter_hash == self._page_data.hash:
+        if chapter_hash == '' or chapter_hash == self._at_home_data.hash:
             if self.archive.comment.decode() != to_add:
                 self.archive.comment = to_add.encode()
             return self.archive
@@ -245,7 +250,7 @@ class ArchiveExporter(ExporterBase):
                     self.archive_path = self._get_file_path(f'{self.folder_name}{{v{version_no}}}')
                     self.archive = self._make_zip()
                     chapter_hash = self.archive.comment.decode().split('\n')[-1]
-                    if chapter_hash == '' or chapter_hash == self._page_data.hash:
+                    if chapter_hash == '' or chapter_hash == self._at_home_data.hash:
                         break
                     else:
                         self.close()
@@ -265,7 +270,7 @@ class ArchiveExporter(ExporterBase):
         if self.page_name not in self.archive.namelist():
             self._compress_image()
 
-    def add_image(self, response: bytes, page_no: int, ext: str, orig_name: str) -> None:
+    def add_image(self, *, response: bytes, page_no: int, ext: str, orig_name: str) -> None:
         """Format the image name then add to archive.
 
         Args:
@@ -354,7 +359,7 @@ class FolderExporter(ExporterBase):
         if self.page_name not in os.listdir(self._folder_path):
             self._add_to_folder()
 
-    def add_image(self, response: bytes, page_no: int, ext: str, orig_name: str) -> None:
+    def add_image(self, *, response: bytes, page_no: int, ext: str, orig_name: Optional[str]=None) -> None:
         """Format the image name then add to archive.
 
         Args:

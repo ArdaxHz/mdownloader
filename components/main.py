@@ -69,7 +69,7 @@ class ProcessArgs:
             self.login()
 
         self.naming_scheme_options = Literal['default', 'original', 'number']
-        self.naming_scheme = Literal['default']
+        self.naming_scheme = 'default'
 
     async def _check_legacy(self, download_id: str, download_type: str):
         if download_id.isdigit():

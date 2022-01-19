@@ -17,10 +17,6 @@ jobs:
         with:
           python-version: 3.9
 
-      - name: Install Python deps
-        run: |
-          pip install .
-
       - name: Type Coverage
         uses: jakebailey/pyright-action@v1
         with:

@@ -1,37 +1,42 @@
 #!/usr/bin/python3
+from ctypes import Union
 import re
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import requests
 from tqdm import tqdm
 
 from .response_pb2 import Response
-from .model import MDownloader
 
+
+if TYPE_CHECKING:
+    from .image_downloader import ImageDownloader
+    from .main import MDArgs
+    from .exporter import ArchiveExporter, FolderExporter
 
 
 class ExternalBase:
 
-    def __init__(self, md_model: MDownloader) -> None:
-        self.md_model = md_model
-        self.chapter_data = md_model.chapter_data
-        self.type = md_model.download_type
-        self.exporter = md_model.exporter
-        self.extension = 'jpg'
+    def __init__(self, image_downloader_obj: 'ImageDownloader', chapter_args_obj: 'MDArgs', exporter: Union['ArchiveExporter', 'FolderExporter']) -> None:
+        self._image_downloader_obj = image_downloader_obj
+        self._chapter_args_obj = chapter_args_obj
+        self._exporter = exporter
+        self._extension = 'jpg'
 
     def download_chapter(self, pages: list, download_site: str) -> None:
-        exists = self.md_model.exist.check_exist(pages)
-        self.md_model.exist.before_download(exists)
+        exists = self._image_downloader_obj.check_exist(pages)
+        self._image_downloader_obj.before_download(exists)
 
         # Decrypt then save each image
         for page in tqdm(pages, desc=(str(datetime.now(tz=None))[:-7])):
             if download_site == 'mangaplus':
                 image = self.decrypt_image(page.image_url, page.encryption_key)
             page_no = pages.index(page) + 1
-            self.exporter.add_image(image, page_no, self.extension, '')
+            self._exporter.add_image(response=image, page_no=page_no, ext=self._extension, orig_name=None)
 
-        downloaded_all = self.md_model.exist.check_exist(pages)
-        self.md_model.exist.after_download(downloaded_all)
+        downloaded_all = self._image_downloader_obj.check_exist(pages)
+        self._image_downloader_obj.after_download(downloaded_all)
 
 
 
@@ -39,11 +44,10 @@ class MangaPlus(ExternalBase):
 
     def __init__(
             self,
-            md_model: MDownloader,
-            mplus_url: str) -> None:
-        super().__init__(md_model)
+            image_downloader_obj: 'ImageDownloader', chapter_args_obj: 'MDArgs', exporter: Union['ArchiveExporter', 'FolderExporter']) -> None:
+        super().__init__(image_downloader_obj, chapter_args_obj, exporter)
 
-        self.api_url = self.check_id(mplus_url)
+        self.api_url = self.check_id(self._chapter_args_obj.data.external_url)
 
     def check_id(self, mplus_url: str) -> str:
         """Get the MangaPlus id for the api.
@@ -80,7 +84,7 @@ class MangaPlus(ExternalBase):
     def download_mplus_chap(self) -> None:
         """Get the images from the MangaPlus api."""
         response = requests.get(self.api_url)
-        if self.md_model.debug: print(response.url)
+        # if self.md_model.debug: print(response.url)
         viewer = Response.FromString(response.content).success.manga_viewer
         pages = [p.manga_page for p in viewer.pages if p.manga_page.image_url]
         self.download_chapter(pages, 'mangaplus')

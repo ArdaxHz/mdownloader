@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, AsyncGenerator, Tuple, Type, Union
 
 
 import hondana
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 
 from .constants import ImpVar
 
@@ -49,13 +49,13 @@ class ImageDownloader:
         title = self._strip_illegal_characters(self._manga_data.title)
         return title
 
-    def check_exist(self, pages: list, exporter) -> bool:
+    def check_exist(self, pages: list, exporter: Union[ArchiveExporter, FolderExporter]) -> bool:
         """Check if the number of images in the archive or folder match that of the API."""
         # Only image files are counted
         if self._args.folder_download:
             files_path = os.listdir(self._download_route)
         else:
-            files_path = self.model.exporter.archive.namelist()
+            files_path = exporter.archive.namelist()
 
         zip_count = [i for i in files_path if i.endswith(('.png', '.jpg', '.jpeg', '.gif'))]
 
@@ -73,32 +73,31 @@ class ImageDownloader:
             self.model.bulk_json.core()
             self.model.manga_download = True
 
-    def before_download(self, exists: bool) -> None:
+    def _before_download(self, exists: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
         """Skip chapter if its already downloaded."""
         if exists:
             # Add chapter data to the json for title, group or user downloads
-            self._save_json()
-            self.model.exporter.close()
+            # self._save_json()
+            exporter.close()
             raise MDownloaderError('File already downloaded.')
 
-    def after_download(self, downloaded_all: bool) -> None:
+    def _after_download(self, downloaded_all: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
         """Save json if all the images were downloaded and close the archive."""
         # If all the images are downloaded, save the json file with the latest downloaded chapter
-        if downloaded_all:
-            self._save_json()
+        # if downloaded_all:
+        #     self._save_json()
 
         # Close the archive
-        self.model.exporter.close()
+        exporter.close()
 
     async def _pages(
-        self, *, chapter: hondana.Chapter, data_saver: bool, ssl: bool
-    ) -> AsyncGenerator[tuple[bytes, str, str], None]:
-        at_home_data = await chapter.get_at_home(ssl=ssl)
+        self, *, chapter: hondana.Chapter, at_home_data: hondana.chapter.ChapterAtHome, start_page: int=0, data_saver: bool, ssl: bool
+    ) -> AsyncGenerator[tuple[bytes, str], None]:
+        # at_home_data = await chapter.get_at_home(ssl=ssl)
         _at_home_url = at_home_data.base_url
-        print(_at_home_url)
 
         _pages = at_home_data.data_saver if data_saver else at_home_data.data
-        for i, url in enumerate(_pages[0:], start=1):
+        for i, url in enumerate(_pages[start_page:], start=1):
             route = hondana.utils.CustomRoute(
                 "GET",
                 _at_home_url,
@@ -125,12 +124,12 @@ class ImageDownloader:
                 _at_home_url = None
                 break
             else:
-                yield data, url.rsplit(".")[0], url.rsplit(".")[-1]
+                yield data, _pages[_pages.index(url.rsplit('/', 1)[-1])]
 
         else:
             return
 
-        async for page in self._pages(chapter=chapter, data_saver=data_saver, ssl=ssl):
+        async for page in self._pages(chapter=chapter, at_home_data=at_home_data, start_page=i, data_saver=data_saver, ssl=ssl):
             yield page
 
     async def chapter_downloader(self, chapter_args_obj: 'MDArgs'):
@@ -143,20 +142,22 @@ class ImageDownloader:
         """
         chapter_data: hondana.Chapter = chapter_args_obj.data
         chapter_id = chapter_data.id
+        data_saver = False
+        ssl = False
         # md_model.prefix = md_model.chapter_prefix_dict.get(chapter_data.volume, 'c')
 
-        print(f'Downloading {chapter_data.title} | Volume: {chapter_data.volume} | Chapter: {chapter_data.chapter} | Title: {chapter_data.title}')
+        print(f'Downloading {chapter_data.manga.title} | Volume: {chapter_data.volume} | Chapter: {chapter_data.chapter} | Title: {chapter_data.title}')
 
-        page_data = await chapter_data.get_at_home()
-        if not page_data.data:
+        at_home_data = await chapter_data.get_at_home()
+        page_data_to_use = at_home_data.data_saver if data_saver else at_home_data.data
+        if not at_home_data.data or not at_home_data.data_saver:
             raise MDownloaderError('This chapter has no pages.')
 
-        chapter_args_obj.cache.cache.data.update({"at-home": page_data._data})
+        chapter_args_obj.cache.cache.data.update({"at-home": at_home_data._data})
         chapter_args_obj.cache.save_cache()
 
-        {"args": self._args, "chapter_args_obj": chapter_args_obj, "page_data": page_data, "manga_title": self._manga_title, "download_path": self._download_route}
-
-        # exporter = FolderExporter if self._args.folder_download else ArchiveExporter
+        kwargs = {"args": self._args, "chapter_args_obj": chapter_args_obj, "at_home_data": at_home_data, "manga_title": self._manga_title, "download_path": self._download_route}
+        exporter = FolderExporter(**kwargs) if self._args.folder_download else ArchiveExporter(**kwargs)
 
         # Add chapter data to the json for title, group or user downloads
         # if md_model.type_id in (1,):
@@ -164,25 +165,27 @@ class ImageDownloader:
         # if md_model.type_id in (2, 3):
         #     md_model.bulk_json.add_chapter(data)
 
-        # # External chapters
-        # if chapter_data.external_url is not None:
-        #     if 'mangaplus' in chapter_data.external_url:
-        #         from .external import MangaPlus
-        #         # Call MangaPlus downloader
-        #         print('External chapter. Connecting to MangaPlus to download.')
-        #         MangaPlus(md_model, chapter_data.external_url).download_mplus_chap()
-        #         return
-        #     raise MDownloaderError('Chapter external to MangaDex, unable to download. Skipping...')
+        # External chapters
+        if chapter_data.external_url is not None:
+            if 'mangaplus' in chapter_data.external_url:
+                from .external import MangaPlus
+                # Call MangaPlus downloader
+                print('External chapter. Connecting to MangaPlus to download.')
+                MangaPlus(self, chapter_args_obj, exporter).download_mplus_chap()
+                return
+            raise MDownloaderError('Chapter external to MangaDex, unable to download. Skipping...')
 
         # Check if the chapter has been downloaded already
-        exists = self.check_exist(page_data.data)
-        self.before_download(exists)
+        exists = self.check_exist(at_home_data.data, exporter)
+        self._before_download(exists, exporter)
 
-        async for page_data, page_name, page_ext in self._pages(chapter=chapter_data, data_saver=False, ssl=False):
-            print(page_name, page_ext)
+        with tqdm(self._pages(chapter=chapter_data, at_home_data=at_home_data, data_saver=data_saver, ssl=ssl), desc=(str(datetime.now(tz=None))[:-7]), total=len(at_home_data.data)) as images_data:
+            async for page_data, page_name in images_data:
+                _image_index = page_data_to_use.index(page_name) + 1
+                _ext = page_name.rsplit('.', 1)[-1]
+                exporter.add_image(response=page_data, page_no=_image_index, ext=_ext, orig_name=page_name)
 
-        downloaded_all = self.check_exist(page_data.data)
-        self.after_download(downloaded_all)
+        downloaded_all = self.check_exist(at_home_data.data, exporter)
+        self._after_download(downloaded_all, exporter)
 
         await self._hondana_client.close()
-        exit()
