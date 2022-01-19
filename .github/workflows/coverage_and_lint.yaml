@@ -11,11 +11,17 @@ jobs:
     name: Type Coverage and Linting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Setup Python 3.9
-        uses: actions/setup-python@v1
+      # - uses: actions/checkout@v2
+      # - name: Setup Python 3.9
+      #   uses: actions/setup-python@v1
+      #   with:
+      #     python-version: 3.9
+
+      - name: Checkout Code
+        uses: actions/checkout@v2
         with:
-          python-version: 3.9
+          # Full git history is needed to get a proper list of changed files within `super-linter`
+          fetch-depth: 0
 
       # - name: Type Coverage
       #   uses: jakebailey/pyright-action@v1
