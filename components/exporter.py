@@ -19,15 +19,15 @@ from .languages import get_lang_iso
 
 if TYPE_CHECKING:
     from .image_downloader import ImageDownloader
-    from .main import ProcessArgs, MDArgs
+    from .args import ProcessArgs, MDArgs
 
 
 
 class ExporterBase:
 
     def __init__(self, **kwargs) -> None:
-        self._args: 'ProcessArgs' = kwargs["args"]
-        self._chapter_args_obj: 'MDArgs' = kwargs["chapter_args_obj"]
+        self._args: ProcessArgs = kwargs["args"]
+        self._chapter_args_obj: MDArgs = kwargs["chapter_args_obj"]
         self._at_home_data: hondana.ChapterAtHome = kwargs["at_home_data"]
         self._chapter_obj: hondana.Chapter = self._chapter_args_obj.data
         self._series_title: str = kwargs["manga_title"]

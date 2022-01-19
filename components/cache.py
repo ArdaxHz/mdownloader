@@ -5,12 +5,11 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Union
 
+import hondana
 
+from .args import ProcessArgs
 from .constants import ImpVar
-
-if TYPE_CHECKING:
-    from .main import ProcessArgs
-    import hondana
+   
 
 
 @dataclasses.dataclass()
@@ -28,7 +27,7 @@ class Cache:
 
 class CacheRead:
 
-    def __init__(self, args: 'ProcessArgs', *, cache_id: Optional[str]=None, cache_type: str) -> None:
+    def __init__(self, args: ProcessArgs, *, cache_id: Optional[str]=None, cache_type: str) -> None:
         self._args = args
         self._cache_id = cache_id
         self._cache_type = cache_type
@@ -97,10 +96,10 @@ class CacheRead:
             data = self._get_orig_dict(data)
 
         if not isinstance(chapters, list):
-            data = self._get_orig_list(chapters)
+            chapters = self._get_orig_list(chapters)
 
         if not isinstance(covers, list):
-            data = self._get_orig_list(covers)
+            covers = self._get_orig_list(covers)
 
         cache_json = {'id': self._cache_id, 'type': self._cache_type, 'time': str(cache_time), 'data': data, 'chapters': chapters, 'covers': covers}
         with gzip.open(self._cache_path, 'w') as cache_json_fp:

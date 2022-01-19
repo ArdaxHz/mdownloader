@@ -1,36 +1,37 @@
 #!/usr/bin/python3
+import dataclasses
 from datetime import datetime
 import html
 import os
 from pathlib import Path
 import re
 import time
-from typing import TYPE_CHECKING, AsyncGenerator, Tuple, Type, Union
-
+from typing import TYPE_CHECKING, AsyncGenerator, Optional, Union
 
 import hondana
 from tqdm.asyncio import tqdm
 
+from .args import ProcessArgs, MDArgs
+from .cache import Cache, CacheRead
 from .constants import ImpVar
-
 from .errors import MDownloaderError
 from .exporter import ArchiveExporter, FolderExporter
 
 if TYPE_CHECKING:
-    
-    from .main import MDArgs, ProcessArgs
-    from .cache import CacheRead
     from aiohttp import ClientResponse
+    from .jsonmaker import TitleJson, BulkJson
 
 
 class ImageDownloader:
-    
-    def __init__(self, args: 'ProcessArgs', manga_data: 'hondana.Manga') -> None:
+
+    def __init__(self, args: ProcessArgs, manga_data: 'hondana.Manga') -> None:
         self._args = args
         self._hondana_client = args._hondana_client
         self._manga_data = manga_data
         self._manga_title = self._format_title()
         self._download_route = self._format_save_route(self._manga_title)
+
+        self.json_exporter: Optional[Union['TitleJson', 'BulkJson']] = None
         # if self._args.rename_files:
         #     self._check_downloaded_files()
 
@@ -65,27 +66,25 @@ class ImageDownloader:
 
     def _save_json(self) -> None:
         """Save the chapter data to the data json and save the json."""
-        if self.model.type_id in (1,):
-            self.model.title_json.core()
+        if self.json_exporter._manga_args_obj.type in ('manga',):
+            self.json_exporter.core()
 
-        if self.model.type_id in (2, 3):
-            self.model.manga_download = False
-            self.model.bulk_json.core()
-            self.model.manga_download = True
+        if self.json_exporter._manga_args_obj.type in ('group', 'user'):
+            self.json_exporter.core()
 
     def _before_download(self, exists: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
         """Skip chapter if its already downloaded."""
         if exists:
             # Add chapter data to the json for title, group or user downloads
-            # self._save_json()
+            self._save_json()
             exporter.close()
             raise MDownloaderError('File already downloaded.')
 
     def _after_download(self, downloaded_all: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
         """Save json if all the images were downloaded and close the archive."""
         # If all the images are downloaded, save the json file with the latest downloaded chapter
-        # if downloaded_all:
-        #     self._save_json()
+        if downloaded_all:
+            self._save_json()
 
         # Close the archive
         exporter.close()
@@ -132,7 +131,7 @@ class ImageDownloader:
         async for page in self._pages(chapter=chapter, at_home_data=at_home_data, start_page=i, data_saver=data_saver, ssl=ssl):
             yield page
 
-    async def chapter_downloader(self, chapter_args_obj: 'MDArgs'):
+    async def chapter_downloader(self, chapter_args_obj: MDArgs):
         """Use the chapter data for image downloads and file name export.
 
         download_type: 0 = chapter
@@ -145,8 +144,14 @@ class ImageDownloader:
         data_saver = False
         ssl = False
         # md_model.prefix = md_model.chapter_prefix_dict.get(chapter_data.volume, 'c')
+        
+        if chapter_args_obj.cache is None:
+            chapter_cache_obj = CacheRead(self._args, cache_type='chapter')
+            chapter_cache_obj._cache_id = chapter_id
+            chapter_cache_obj.cache = Cache(id=chapter_id, type='chapter', data=chapter_cache_obj._get_orig_dict(chapter_data))
+            chapter_args_obj.cache = chapter_cache_obj
 
-        print(f'Downloading {chapter_data.manga.title} | Volume: {chapter_data.volume} | Chapter: {chapter_data.chapter} | Title: {chapter_data.title}')
+        print(f'Downloading {self._manga_data.title} | Volume: {chapter_data.volume} | Chapter: {chapter_data.chapter} | Title: {chapter_data.title}')
 
         at_home_data = await chapter_data.get_at_home()
         page_data_to_use = at_home_data.data_saver if data_saver else at_home_data.data
@@ -154,16 +159,15 @@ class ImageDownloader:
             raise MDownloaderError('This chapter has no pages.')
 
         chapter_args_obj.cache.cache.data.update({"at-home": at_home_data._data})
-        chapter_args_obj.cache.save_cache()
+        if self._args.args.type == 'chapter':
+            chapter_args_obj.cache.save_cache()
 
         kwargs = {"args": self._args, "chapter_args_obj": chapter_args_obj, "at_home_data": at_home_data, "manga_title": self._manga_title, "download_path": self._download_route}
         exporter = FolderExporter(**kwargs) if self._args.folder_download else ArchiveExporter(**kwargs)
 
         # Add chapter data to the json for title, group or user downloads
-        # if md_model.type_id in (1,):
-        #     md_model.title_json.add_chapter(data)
-        # if md_model.type_id in (2, 3):
-        #     md_model.bulk_json.add_chapter(data)
+        if chapter_args_obj.json_obj is not None:
+            chapter_args_obj.json_obj.add_chapter(chapter_args_obj.cache.cache.data)
 
         # External chapters
         if chapter_data.external_url is not None:
@@ -187,5 +191,3 @@ class ImageDownloader:
 
         downloaded_all = self.check_exist(at_home_data.data, exporter)
         self._after_download(downloaded_all, exporter)
-
-        await self._hondana_client.close()

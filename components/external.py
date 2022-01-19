@@ -12,13 +12,13 @@ from .response_pb2 import Response
 
 if TYPE_CHECKING:
     from .image_downloader import ImageDownloader
-    from .main import MDArgs
+    from .args import MDArgs
     from .exporter import ArchiveExporter, FolderExporter
 
 
 class ExternalBase:
 
-    def __init__(self, image_downloader_obj: 'ImageDownloader', chapter_args_obj: 'MDArgs', exporter: Union['ArchiveExporter', 'FolderExporter']) -> None:
+    def __init__(self, image_downloader_obj: 'ImageDownloader', chapter_args_obj: MDArgs, exporter: Union['ArchiveExporter', 'FolderExporter']) -> None:
         self._image_downloader_obj = image_downloader_obj
         self._chapter_args_obj = chapter_args_obj
         self._exporter = exporter
@@ -44,7 +44,7 @@ class MangaPlus(ExternalBase):
 
     def __init__(
             self,
-            image_downloader_obj: 'ImageDownloader', chapter_args_obj: 'MDArgs', exporter: Union['ArchiveExporter', 'FolderExporter']) -> None:
+            image_downloader_obj: 'ImageDownloader', chapter_args_obj: MDArgs, exporter: Union['ArchiveExporter', 'FolderExporter']) -> None:
         super().__init__(image_downloader_obj, chapter_args_obj, exporter)
 
         self.api_url = self.check_id(self._chapter_args_obj.data.external_url)
