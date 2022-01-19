@@ -280,31 +280,31 @@ if TYPE_CHECKING:
 
 
 
-async def chapter_download(args: 'ProcessArgs', chapter_obj: 'MDArgs') -> None:
+async def chapter_download(args: 'ProcessArgs', chapter_args_obj: 'MDArgs') -> None:
     """Get the chapter data for download."""
     # Connect to API and get chapter info
-    chapter_id = chapter_obj.id
-    download_type = chapter_obj.type
+    chapter_id = chapter_args_obj.id
+    download_type = chapter_args_obj.type
     chapter_cache_obj = CacheRead(args, cache_id=chapter_id, cache_type='chapter')
 
     refresh_cache = chapter_cache_obj.check_cache_time()
     chapter_data = chapter_cache_obj.cache.data
 
-    if refresh_cache or not chapter_data:
+    if refresh_cache or not bool(chapter_data):
         chapter_response = await args._hondana_client.get_chapter(chapter_id, includes=hondana.query.ChapterIncludes(user=False))
         chapter_cache_obj.save_cache(cache_time=datetime.now(), data=chapter_response)
     else:
-        chapter_response = hondana.Chapter(args._hondana_client._http, chapter_data)
+        chapter_response = hondana.Chapter(args._hondana_client._http, chapter_data.copy())
 
     manga_cache_obj = CacheRead(args, cache_type='manga')
     if chapter_response.manga is None:
         manga_id = [m["id"] for m in chapter_response._relationships if m["type"] == "manga"][0]
         manga_cache_obj._cache_id = manga_id
-        manga_cache_obj.update_path()
+        manga_cache_obj.update_cache_obj()
         await chapter_response.get_parent_manga()
-        manga_cache_obj.save_cache(cache_time=datetime.now(), data=chapter_response.manga)
     else:
         manga_cache_obj._cache_id = chapter_response.manga.id
+        manga_cache_obj.update_cache_obj()
 
     manga_cache_obj.save_cache(cache_time=datetime.now(), data=chapter_response.manga)
 
@@ -312,7 +312,7 @@ async def chapter_download(args: 'ProcessArgs', chapter_obj: 'MDArgs') -> None:
 
     # md_model.misc.download_message(0, download_type, name)
 
-    chapter_obj = dataclasses.replace(chapter_obj, **{"data": chapter_response})
-    await ImageDownloader(args, chapter_response.manga).chapter_downloader(chapter_obj)
+    chapter_args_obj = dataclasses.replace(chapter_args_obj, **{"data": chapter_response, "cache": chapter_cache_obj})
+    await ImageDownloader(args, chapter_response.manga).chapter_downloader(chapter_args_obj)
 
     # md_model.misc.download_message(1, download_type, name)

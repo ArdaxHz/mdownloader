@@ -1,0 +1,35 @@
+name: Type Coverage and Linting
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  job:
+    name: Type Coverage and Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python 3.9
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.9
+
+      - name: Install Python deps
+        run: |
+          pip install .
+
+      - name: Type Coverage
+        uses: jakebailey/pyright-action@v1
+        with:
+          python-version: 3.9
+          project: "pyproject.toml"
+
+      - name: Lint
+        uses: github/super-linter@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_PYTHON_BLACK: true
+          VALIDATE_PYTHON_ISORT: true

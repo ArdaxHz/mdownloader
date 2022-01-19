@@ -41,8 +41,11 @@ class CacheRead:
         self.cache: Optional[Cache] = None
 
         if self._cache_id is not None:
-            self._cache_path = self.update_path()
-            self.cache = self.load_cache()
+            self.update_cache_obj()
+
+    def update_cache_obj(self):
+        self._cache_path = self.update_path()
+        self.cache = self.load_cache()
 
     def update_path(self) -> Path:
         return self._root.joinpath(self._cache_id).with_suffix('.json.gz')

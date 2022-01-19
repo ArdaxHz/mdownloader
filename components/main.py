@@ -7,7 +7,7 @@ import inspect
 import os
 from pathlib import Path
 import re
-from typing import Dict, List, Literal, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Type, Union
 
 import hondana
 
@@ -17,12 +17,16 @@ from .errors import MDownloaderError
 
 api_message = ImpVar.API_MESSAGE
 
+if TYPE_CHECKING:
+    from .cache import CacheRead
+
 
 @dataclasses.dataclass()
 class MDArgs:
     id: str
     type: str
     data: Optional[Union[hondana.Manga, hondana.Chapter, hondana.ScanlatorGroup, hondana.User, hondana.CustomList]] = dataclasses.field(default=None)
+    cache: Optional['CacheRead'] = dataclasses.field(default=None)
 
 
 class ProcessArgs:
@@ -60,10 +64,9 @@ class ProcessArgs:
         self.range_download = bool(unparsed_arguments["range"])
         self.rename_files = bool(unparsed_arguments["rename"])
         self.download_in_order = bool(unparsed_arguments["order"])
-        if unparsed_arguments["login"]: self.login()
-        self.search_manga = False
-        if unparsed_arguments["search"]:
-            self.search_manga = True
+        self.search_manga = bool(unparsed_arguments["search"])
+        if unparsed_arguments["login"]:
+            self.login()
 
         self.naming_scheme_options = Literal['default', 'original', 'number']
         self.naming_scheme = Literal['default']
