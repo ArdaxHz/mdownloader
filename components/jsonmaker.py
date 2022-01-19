@@ -4,6 +4,7 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 from .constants import ImpVar
@@ -11,22 +12,25 @@ from .errors import MDRequestError
 from .model import MDownloader
 
 
+if TYPE_CHECKING:
+    from .main import ProcessArgs, MDArgs
+
+
 class JsonBase:
 
-    def __init__(self, md_model: MDownloader) -> None:
-        self.md_model = md_model
-        self.type = md_model.download_type
+    def __init__(self, args: 'ProcessArgs', manga_args_obj: 'MDArgs') -> None:
+        self._args = args
+        self._manga_args_obj = manga_args_obj
         self.domain = ImpVar.MANGADEX_URL
         self.api_url = ImpVar.MANGADEX_API_URL
         self.downloaded_ids = []
         self.new_data = {}
 
-        if self.md_model.type_id == 1 or self.md_model.manga_download:
-            data = md_model.manga_data
+        data = self._manga_args_obj.data
+        if self._manga_args_obj.type == 'manga':
             file_prefix = ''
             self.route = Path(md_model.route)
         else:
-            data = md_model.data
             file_prefix = f'{self.type}_'
             self.route = Path(md_model.directory)
 
@@ -119,8 +123,8 @@ class JsonBase:
 
 class TitleJson(JsonBase):
 
-    def __init__(self, md_model: MDownloader) -> None:
-        super().__init__(md_model)
+    def __init__(self, args: 'ProcessArgs', manga_args_obj: 'MDArgs') -> None:
+        super().__init__(args: 'ProcessArgs', manga_args_obj: 'MDArgs')
         self.download_type = md_model.download_type
         self.save_covers = md_model.args.cover_download
         self.regex = re.compile(ImpVar.CHARA_REGEX)

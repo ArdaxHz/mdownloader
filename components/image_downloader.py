@@ -33,7 +33,7 @@ class ImageDownloader:
         self._download_route = self._format_save_route(self._manga_title)
         # if self._args.rename_files:
         #     self._check_downloaded_files()
-        
+
     def _strip_illegal_characters(self, name: str) -> str:
         """Remove illegal characters from the specified name."""
         return re.sub(ImpVar.CHARA_REGEX, '_', html.unescape(name)).rstrip(' .')

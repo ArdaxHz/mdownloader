@@ -26,6 +26,7 @@ class MDArgs:
     id: str
     type: str
     data: Optional[Union[hondana.Manga, hondana.Chapter, hondana.ScanlatorGroup, hondana.User, hondana.CustomList]] = dataclasses.field(default=None)
+    chapters: Optional[hondana.ChapterFeed] = dataclasses.field(default=None)
     cache: Optional['CacheRead'] = dataclasses.field(default=None)
 
 

@@ -1,0 +1,76 @@
+[tool.poetry]
+name = "MDownloader"
+version = "4.0.0"
+description = "MangaDex downloader using python."
+authors = ["Xunder"]
+
+license = "GPL-3.0"
+readme = "README.md"
+repository = "https://github.com/Rudoal/mdownloader"
+
+keywords = ["mangadex", "manga", "api", "downloader"]
+classifiers = [
+    "License :: OSI Approved :: GPL-3.0 License",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Internet",
+    "Typing :: Typed",
+]
+include = ["LICENSE"]
+
+[tool.poetry.urls]
+"Issue Tracker" = "https://github.com/Rudoal/mdownloader/issues"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+aiohttp = "^3.7.4"
+aiofiles = "^0.7.0"
+sphinx = { version = "^4.0.0", optional = true }
+sphinxcontrib-trio = { version = "*", optional = true }
+furo = { version = "*", optional = true }
+
+[tool.poetry.dev-dependencies]
+black = "^21.6b0"
+poethepoet = "^0.11.0"
+
+[tool.poetry.extras]
+docs = ["sphinx", "sphinxcontrib-trio", "furo"]
+
+[tool.black]
+line-length = 125
+target-version = ["py39"]
+
+[tool.isort]
+profile = "black"
+lines_after_imports = 2
+
+[tool.pyright]
+ignore = ["docs/conf.py"]
+useLibraryCodeForTypes = true
+pythonVersion = "3.9"
+strictListInference = true
+strictDictionaryInference = true
+strictSetInference = true
+strictParameterNoneValue = true
+reportMissingImports = "error"
+reportUnusedImport = "error"
+reportUnusedClass = "error"
+reportUnusedFunction = "error"
+reportUnusedVariable = "error"
+reportGeneralTypeIssues = "error"
+reportFunctionMemberAccess = "error"
+reportDuplicateImport = "error"
+reportUntypedFunctionDecorator = "error"
+
+[tool.poe.tasks]
+spec = "poetry run python _api_dl.py"
+format = "poetry run black ."
+types = "poetry run pyright --ignoreexternal --lib"
+docs = "poetry run sphinx-build -a -E -n -T -W --keep-going docs/ docs/build"
+pre = ["format", "types", "docs", "tags"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
