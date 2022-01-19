@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import argparse
+import asyncio
 import os
 import re
 import shutil
@@ -8,7 +9,7 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 
-from components.main import main
+from components.main import MDParser
 from components.constants import ImpVar
 
 try:
@@ -122,7 +123,7 @@ def check_for_update(args) -> None:
         if len(announcement_message) > 0:
             print(announcement_message.capitalize())
 
-    main(vargs)
+    asyncio.run(MDParser(vargs).main())
 
 
 if __name__ == "__main__":

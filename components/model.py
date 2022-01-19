@@ -21,19 +21,22 @@ from .languages import get_lang_md
 if TYPE_CHECKING:
     from .jsonmaker import TitleJson, BulkJson
     from .exporter import ArchiveExporter, FolderExporter
+    import hondana
 
 
 
 class ModelsBase:
 
-    def __init__(self, model: 'MDownloader') -> None:
+    def __init__(self, model: 'MDownloader', hd_client: 'hondana.Client') -> None:
         self.model = model
+        self.hd_client = hd_client
 
 
 
 class MDownloaderBase:
 
-    def __init__(self) -> None:
+    def __init__(self, hd_client: 'hondana.Client') -> None:
+        self.hd_client = hd_client
         self.id = str()
         self.debug = False
         self.force_refresh = False
@@ -557,22 +560,6 @@ class DataFormatter(ModelsBase):
             self._check_downloaded_files()
         return title
 
-    def id_from_url(self, url: str) -> Tuple[str]:
-        """Get the id and download type from url."""
-        if ImpVar.MD_URL.match(url):
-            input_url = ImpVar.MD_URL.match(url)
-            download_type_from_url = input_url.group(1)
-            id_from_url = input_url.group(2)
-        elif ImpVar.MD_FOLLOWS_URL.match(url):
-            id_from_url = url
-            download_type_from_url = 'follows'
-        else:
-            input_url = ImpVar.MD_IMAGE_URL.match(url)
-            id_from_url = input_url.group(1)
-            download_type_from_url = 'chapter'
-
-        return id_from_url, download_type_from_url
-
 
 
 class CacheRead(ModelsBase):
@@ -943,8 +930,8 @@ class TitleDownloaderMisc(ModelsBase):
 
 class MDownloader(MDownloaderBase):
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, hd_client: hondana.Client) -> None:
+        super().__init__(hd_client)
 
         self.api = ApiMD(self)
         self.auth = AuthMD(self)
