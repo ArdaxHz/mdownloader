@@ -1,43 +1,44 @@
 #!/usr/bin/python3
 import dataclasses
-from datetime import datetime
 import html
 import os
-from pathlib import Path
 import re
 import time
+from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, AsyncGenerator, Optional, Union
 
 import hondana
 from tqdm.asyncio import tqdm
 
-from .args import ProcessArgs, MDArgs
+from .args import MDArgs, ProcessArgs
 from .cache import Cache, CacheRead
 from .constants import ImpVar
 from .errors import MDownloaderError
 from .exporter import ArchiveExporter, FolderExporter
 
+
 if TYPE_CHECKING:
     from aiohttp import ClientResponse
-    from .jsonmaker import TitleJson, BulkJson
+
+    from .jsonmaker import BulkJson, TitleJson
 
 
 class ImageDownloader:
-
-    def __init__(self, args: ProcessArgs, manga_data: 'hondana.Manga') -> None:
+    def __init__(self, args: ProcessArgs, manga_data: "hondana.Manga") -> None:
         self._args = args
         self._hondana_client = args._hondana_client
         self._manga_data = manga_data
         self._manga_title = self._format_title()
         self._download_route = self._format_save_route(self._manga_title)
 
-        self.json_exporter: Optional[Union['TitleJson', 'BulkJson']] = None
+        self.json_exporter: Optional[Union["TitleJson", "BulkJson"]] = None
         # if self._args.rename_files:
         #     self._check_downloaded_files()
 
     def _strip_illegal_characters(self, name: str) -> str:
         """Remove illegal characters from the specified name."""
-        return re.sub(ImpVar.CHARA_REGEX, '_', html.unescape(name)).rstrip(' .')
+        return re.sub(ImpVar.CHARA_REGEX, "_", html.unescape(name)).rstrip(" .")
 
     def _format_save_route(self, title: str) -> Path:
         """The location files will be saved to."""
@@ -58,7 +59,7 @@ class ImageDownloader:
         else:
             files_path = exporter.archive.namelist()
 
-        zip_count = [i for i in files_path if i.endswith(('.png', '.jpg', '.jpeg', '.gif'))]
+        zip_count = [i for i in files_path if i.endswith((".png", ".jpg", ".jpeg", ".gif"))]
 
         if len(pages) == len(zip_count):
             return True
@@ -66,10 +67,10 @@ class ImageDownloader:
 
     def _save_json(self) -> None:
         """Save the chapter data to the data json and save the json."""
-        if self.json_exporter._manga_args_obj.type in ('manga',):
+        if self.json_exporter._manga_args_obj.type in ("manga",):
             self.json_exporter.core()
 
-        if self.json_exporter._manga_args_obj.type in ('group', 'user'):
+        if self.json_exporter._manga_args_obj.type in ("group", "user"):
             self.json_exporter.core()
 
     def _before_download(self, exists: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
@@ -78,7 +79,7 @@ class ImageDownloader:
             # Add chapter data to the json for title, group or user downloads
             self._save_json()
             exporter.close()
-            raise MDownloaderError('File already downloaded.')
+            raise MDownloaderError("File already downloaded.")
 
     def _after_download(self, downloaded_all: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
         """Save json if all the images were downloaded and close the archive."""
@@ -90,7 +91,13 @@ class ImageDownloader:
         exporter.close()
 
     async def _pages(
-        self, *, chapter: hondana.Chapter, at_home_data: hondana.chapter.ChapterAtHome, start_page: int=0, data_saver: bool, ssl: bool
+        self,
+        *,
+        chapter: hondana.Chapter,
+        at_home_data: hondana.chapter.ChapterAtHome,
+        start_page: int = 0,
+        data_saver: bool,
+        ssl: bool,
     ) -> AsyncGenerator[tuple[bytes, str], None]:
         # at_home_data = await chapter.get_at_home(ssl=ssl)
         _at_home_url = at_home_data.base_url
@@ -104,7 +111,7 @@ class ImageDownloader:
             )
             # LOGGER.debug("Attempting to download: %s", route.url)
             _start = time.monotonic()
-            response: tuple[bytes, 'ClientResponse'] = await chapter._http.request(route)
+            response: tuple[bytes, "ClientResponse"] = await chapter._http.request(route)
             data, page_resp = response
             _end = time.monotonic()
             _total = _end - _start
@@ -123,12 +130,14 @@ class ImageDownloader:
                 _at_home_url = None
                 break
             else:
-                yield data, _pages[_pages.index(url.rsplit('/', 1)[-1])]
+                yield data, _pages[_pages.index(url.rsplit("/", 1)[-1])]
 
         else:
             return
 
-        async for page in self._pages(chapter=chapter, at_home_data=at_home_data, start_page=i, data_saver=data_saver, ssl=ssl):
+        async for page in self._pages(
+            chapter=chapter, at_home_data=at_home_data, start_page=i, data_saver=data_saver, ssl=ssl
+        ):
             yield page
 
     async def chapter_downloader(self, chapter_args_obj: MDArgs):
@@ -144,25 +153,35 @@ class ImageDownloader:
         data_saver = False
         ssl = False
         # md_model.prefix = md_model.chapter_prefix_dict.get(chapter_data.volume, 'c')
-        
+
         if chapter_args_obj.cache is None:
-            chapter_cache_obj = CacheRead(self._args, cache_type='chapter')
+            chapter_cache_obj = CacheRead(self._args, cache_type="chapter")
             chapter_cache_obj._cache_id = chapter_id
-            chapter_cache_obj.cache = Cache(id=chapter_id, type='chapter', data=chapter_cache_obj._get_orig_dict(chapter_data))
+            chapter_cache_obj.cache = Cache(
+                id=chapter_id, type="chapter", data=chapter_cache_obj._get_orig_dict(chapter_data)
+            )
             chapter_args_obj.cache = chapter_cache_obj
 
-        print(f'Downloading {self._manga_data.title} | Volume: {chapter_data.volume} | Chapter: {chapter_data.chapter} | Title: {chapter_data.title}')
+        print(
+            f"Downloading {self._manga_data.title} | Volume: {chapter_data.volume} | Chapter: {chapter_data.chapter} | Title: {chapter_data.title}"
+        )
 
         at_home_data = await chapter_data.get_at_home()
         page_data_to_use = at_home_data.data_saver if data_saver else at_home_data.data
         if not at_home_data.data or not at_home_data.data_saver:
-            raise MDownloaderError('This chapter has no pages.')
+            raise MDownloaderError("This chapter has no pages.")
 
         chapter_args_obj.cache.cache.data.update({"at-home": at_home_data._data})
-        if self._args.args.type == 'chapter':
+        if self._args.args.type == "chapter":
             chapter_args_obj.cache.save_cache()
 
-        kwargs = {"args": self._args, "chapter_args_obj": chapter_args_obj, "at_home_data": at_home_data, "manga_title": self._manga_title, "download_path": self._download_route}
+        kwargs = {
+            "args": self._args,
+            "chapter_args_obj": chapter_args_obj,
+            "at_home_data": at_home_data,
+            "manga_title": self._manga_title,
+            "download_path": self._download_route,
+        }
         exporter = FolderExporter(**kwargs) if self._args.folder_download else ArchiveExporter(**kwargs)
 
         # Add chapter data to the json for title, group or user downloads
@@ -171,22 +190,27 @@ class ImageDownloader:
 
         # External chapters
         if chapter_data.external_url is not None:
-            if 'mangaplus' in chapter_data.external_url:
+            if "mangaplus" in chapter_data.external_url:
                 from .external import MangaPlus
+
                 # Call MangaPlus downloader
-                print('External chapter. Connecting to MangaPlus to download.')
+                print("External chapter. Connecting to MangaPlus to download.")
                 MangaPlus(self, chapter_args_obj, exporter).download_mplus_chap()
                 return
-            raise MDownloaderError('Chapter external to MangaDex, unable to download. Skipping...')
+            raise MDownloaderError("Chapter external to MangaDex, unable to download. Skipping...")
 
         # Check if the chapter has been downloaded already
         exists = self.check_exist(at_home_data.data, exporter)
         self._before_download(exists, exporter)
 
-        with tqdm(self._pages(chapter=chapter_data, at_home_data=at_home_data, data_saver=data_saver, ssl=ssl), desc=(str(datetime.now(tz=None))[:-7]), total=len(at_home_data.data)) as images_data:
+        with tqdm(
+            self._pages(chapter=chapter_data, at_home_data=at_home_data, data_saver=data_saver, ssl=ssl),
+            desc=(str(datetime.now(tz=None))[:-7]),
+            total=len(at_home_data.data),
+        ) as images_data:
             async for page_data, page_name in images_data:
                 _image_index = page_data_to_use.index(page_name) + 1
-                _ext = page_name.rsplit('.', 1)[-1]
+                _ext = page_name.rsplit(".", 1)[-1]
                 exporter.add_image(response=page_data, page_no=_image_index, ext=_ext, orig_name=page_name)
 
         downloaded_all = self.check_exist(at_home_data.data, exporter)

@@ -7,10 +7,10 @@ import shutil
 from pathlib import Path
 
 import requests
-from dotenv import load_dotenv
 
-from components.main import MDParser
 from components.constants import ImpVar
+from components.main import MDParser
+
 
 try:
     from components.__version__ import __version__
@@ -24,6 +24,7 @@ def check_for_update(args) -> None:
     Args:
         args (argparse.ArgumentParser.parse_args): Command line arguments to parse.
     """
+    root_path = Path('.')
     excluded = ["components", ".env.example"]
     components_path = Path("components")
     vargs = vars(args)
@@ -131,9 +132,6 @@ def check_for_update(args) -> None:
 
 
 if __name__ == "__main__":
-
-    os.system("")
-    load_dotenv()
 
     parser = argparse.ArgumentParser()
 

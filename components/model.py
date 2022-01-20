@@ -9,7 +9,7 @@ import time
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Tuple, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Tuple, Union
 
 import requests
 from requests.models import Response
@@ -18,24 +18,22 @@ from .constants import ImpVar
 from .errors import MDownloaderError, MDRequestError, NoChaptersError
 from .languages import get_lang_md
 
+
 if TYPE_CHECKING:
-    from .jsonmaker import TitleJson, BulkJson
-    from .exporter import ArchiveExporter, FolderExporter
     import hondana
 
+    from .exporter import ArchiveExporter, FolderExporter
+    from .jsonmaker import BulkJson, TitleJson
 
 
 class ModelsBase:
-
-    def __init__(self, model: 'MDownloader', hd_client: 'hondana.Client') -> None:
+    def __init__(self, model: "MDownloader", hd_client: "hondana.Client") -> None:
         self.model = model
         self.hd_client = hd_client
 
 
-
 class MDownloaderBase:
-
-    def __init__(self, hd_client: 'hondana.Client') -> None:
+    def __init__(self, hd_client: "hondana.Client") -> None:
         self.hd_client = hd_client
         self.id = str()
         self.debug = False
@@ -50,10 +48,10 @@ class MDownloaderBase:
         self.chapters = []
         self.chapters_data = []
         self.chapter_data = {}
-        self.title_json: 'TitleJson' = None
-        self.bulk_json: 'BulkJson' = None
+        self.title_json: "TitleJson" = None
+        self.bulk_json: "BulkJson" = None
         self.chapter_prefix_dict = {}
-        self.exporter: Union['ArchiveExporter', 'FolderExporter'] = None
+        self.exporter: Union["ArchiveExporter", "FolderExporter"] = None
         self.params = {}
         self.cache_json = {}
         self.chapters_archive = []
@@ -72,21 +70,19 @@ class MDownloaderBase:
         self.manga_download = False
 
         self.api_url = ImpVar.MANGADEX_API_URL
-        self.mdh_url = f'{self.api_url}/at-home/server'
-        self.chapter_api_url = f'{self.api_url}/chapter'
-        self.manga_api_url = f'{self.api_url}/manga'
-        self.group_api_url = f'{self.api_url}/group'
-        self.user_api_url = f'{self.api_url}/user'
-        self.list_api_url = f'{self.api_url}/list'
-        self.cover_api_url = f'{self.api_url}/cover'
-        self.legacy_url = f'{self.api_url}/legacy/mapping'
-        self.report_url = 'https://api.mangadex.network/report'
-        self.cover_cdn_url = f'{ImpVar.MANGADEX_CDN_URL}/covers'
-
+        self.mdh_url = f"{self.api_url}/at-home/server"
+        self.chapter_api_url = f"{self.api_url}/chapter"
+        self.manga_api_url = f"{self.api_url}/manga"
+        self.group_api_url = f"{self.api_url}/group"
+        self.user_api_url = f"{self.api_url}/user"
+        self.list_api_url = f"{self.api_url}/list"
+        self.cover_api_url = f"{self.api_url}/cover"
+        self.legacy_url = f"{self.api_url}/legacy/mapping"
+        self.report_url = "https://api.mangadex.network/report"
+        self.cover_cdn_url = f"{ImpVar.MANGADEX_CDN_URL}/covers"
 
 
 class ApiMD(ModelsBase):
-
     def __init__(self, model) -> None:
         super().__init__(model)
         self.session = requests.Session()
@@ -97,7 +93,7 @@ class ApiMD(ModelsBase):
         # if self.model.debug: print(response.url)
         return response
 
-    def request_data(self, url: str, get_chapters: bool=False, **params: dict) -> Response:
+    def request_data(self, url: str, get_chapters: bool = False, **params: dict) -> Response:
         """Connect to the API and get the response.
 
         Args:
@@ -108,16 +104,17 @@ class ApiMD(ModelsBase):
             Response: The response of the resquest.
         """
         if get_chapters:
-            if self.model.download_type in ('group', 'user'):
+            if self.model.download_type in ("group", "user"):
                 url = self.model.chapter_api_url
             else:
-                url = f'{url}/feed'
+                url = f"{url}/feed"
 
         response = self.session.get(url, params=params)
-        if self.model.debug: print(response.url)
+        if self.model.debug:
+            print(response.url)
         return response
 
-    def check_response_error(self, download_id: str, download_type: str, response: Response, data: dict={}) -> None:
+    def check_response_error(self, download_id: str, download_type: str, response: Response, data: dict = {}) -> None:
         """Check if the response status code is 200 or not."""
         if response.status_code != 200:
             raise MDRequestError(download_id, download_type, response, data)
@@ -131,11 +128,16 @@ class ApiMD(ModelsBase):
 
         self.check_response_error(download_id, download_type, response, data)
 
-        if 'result' in data and data["result"].lower() not in ('ok',):
-            raise MDRequestError(download_id, download_type, response, data={"result": "error", "errors": [{"status": 200, "detail": f"Result returned `{data['result']}`."}]})
+        if "result" in data and data["result"].lower() not in ("ok",):
+            raise MDRequestError(
+                download_id,
+                download_type,
+                response,
+                data={"result": "error", "errors": [{"status": 200, "detail": f"Result returned `{data['result']}`."}]},
+            )
 
-        if 'response' in data:
-            if data["response"] == 'entity':
+        if "response" in data:
+            if data["response"] == "entity":
                 data = data["data"]
 
         return data
@@ -149,22 +151,22 @@ class ApiMD(ModelsBase):
         Returns:
             dict: The manga's data.
         """
-        manga_response = self.request_data(f'{self.model.manga_api_url}/{self.model.manga_id}', **{"includes[]": ["artist", "author", "cover"]})
+        manga_response = self.request_data(
+            f"{self.model.manga_api_url}/{self.model.manga_id}", **{"includes[]": ["artist", "author", "cover"]}
+        )
         return self.convert_to_json(self.model.manga_id, download_type, manga_response)
 
 
-
 class AuthMD(ModelsBase):
-
     def __init__(self, model) -> None:
         super().__init__(model)
         self.successful_login = False
-        self.token_file = Path('').joinpath(ImpVar.TOKEN_FILE)
-        self.auth_url = f'{self.model.api_url}/auth'
+        self.token_file = Path("").joinpath(ImpVar.TOKEN_FILE)
+        self.auth_url = f"{self.model.api_url}/auth"
 
     def _save_session(self, token: dict) -> None:
         """Save the session and refresh tokens."""
-        with open(self.token_file, 'w') as login_file:
+        with open(self.token_file, "w") as login_file:
             login_file.write(json.dumps(token, indent=4))
 
     def _update_headers(self, session_token: str) -> None:
@@ -177,7 +179,7 @@ class AuthMD(ModelsBase):
         Returns:
             bool: If login using the refresh token or account was successful.
         """
-        refresh_response = self.model.api.post_data(f'{self.auth_url}/refresh', post_data={"token": token["refresh"]})
+        refresh_response = self.model.api.post_data(f"{self.auth_url}/refresh", post_data={"token": token["refresh"]})
 
         if refresh_response.status_code == 200:
             refresh_data = refresh_response.json()["token"]
@@ -198,7 +200,7 @@ class AuthMD(ModelsBase):
         Returns:
             bool: If login using the session token successful.
         """
-        auth_check_response = self.model.api.session.get(f'{self.auth_url}/check')
+        auth_check_response = self.model.api.session.get(f"{self.auth_url}/check")
 
         if auth_check_response.status_code == 200:
             auth_data = auth_check_response.json()
@@ -214,11 +216,11 @@ class AuthMD(ModelsBase):
         Returns:
             bool: If login was successful.
         """
-        username = input('Your username: ')
-        password = getpass.getpass(prompt='Your password: ', stream=None)
+        username = input("Your username: ")
+        password = getpass.getpass(prompt="Your password: ", stream=None)
 
         credentials = {"username": username, "password": password}
-        post = self.model.api.post_data(f'{self.auth_url}/login', post_data=credentials)
+        post = self.model.api.post_data(f"{self.auth_url}/login", post_data=credentials)
 
         if post.status_code == 200:
             token = post.json()["token"]
@@ -229,10 +231,10 @@ class AuthMD(ModelsBase):
 
     def login(self) -> None:
         """Login to MD account using details or saved token."""
-        print('Trying to login through the .mdauth file.')
+        print("Trying to login through the .mdauth file.")
 
         try:
-            with open(self.token_file, 'r') as login_file:
+            with open(self.token_file, "r") as login_file:
                 token = json.load(login_file)
 
             self._update_headers(token["session"])
@@ -243,14 +245,12 @@ class AuthMD(ModelsBase):
 
         if logged_in:
             self.successful_login = True
-            print('Login successful!')
+            print("Login successful!")
         else:
-            print('Login unsuccessful, continuing without being logged in.')
-
+            print("Login unsuccessful, continuing without being logged in.")
 
 
 class ProcessArgs(ModelsBase):
-
     def __init__(self, model) -> None:
         super().__init__(model)
         self.language = str()
@@ -283,7 +283,8 @@ class ProcessArgs(ModelsBase):
         self.range_download = bool(args_dict["range"])
         self.rename_files = bool(args_dict["rename"])
         self.download_in_order = bool(args_dict["order"])
-        if args_dict["login"]: self.model.auth.login()
+        if args_dict["login"]:
+            self.model.auth.login()
         if args_dict["search"]:
             self.search_manga = True
             self._find_manga(self.model.id)
@@ -294,19 +295,22 @@ class ProcessArgs(ModelsBase):
         Raises:
             MDownloaderError: The extension chosen isn't allowed.
         """
-        if archive_extension not in ('zip', 'cbz'):
+        if archive_extension not in ("zip", "cbz"):
             raise MDownloaderError("This archive save format is not allowed.")
 
     def _find_manga(self, search_term: str) -> None:
         """Search for a manga by title."""
         manga_response = self.model.api.request_data(
-            f'{self.model.manga_api_url}',
-            **{"title": search_term,
-               "limit": 100,
-               "includes[]": ["artist", "author", "cover"],
-               "contentRating[]": ["safe","suggestive","erotica", "pornographic"],
-               "order[relevance]": "desc"})
-        search_results = self.model.api.convert_to_json(search_term, 'manga-search', manga_response)
+            f"{self.model.manga_api_url}",
+            **{
+                "title": search_term,
+                "limit": 100,
+                "includes[]": ["artist", "author", "cover"],
+                "contentRating[]": ["safe", "suggestive", "erotica", "pornographic"],
+                "order[relevance]": "desc",
+            },
+        )
+        search_results = self.model.api.convert_to_json(search_term, "manga-search", manga_response)
         search_results_data = search_results["data"]
 
         for count, manga in enumerate(search_results_data, start=1):
@@ -314,7 +318,7 @@ class ProcessArgs(ModelsBase):
             print(f'{count}: {title} | {ImpVar.MANGADEX_URL}/manga/{manga["id"]}')
 
         try:
-            manga_to_use_num = int(input(f'Choose a number matching the position of the manga you want to download: '))
+            manga_to_use_num = int(input(f"Choose a number matching the position of the manga you want to download: "))
         except ValueError:
             raise MDownloaderError("That's not a number.")
 
@@ -324,22 +328,28 @@ class ProcessArgs(ModelsBase):
         manga_to_use = search_results_data[manga_to_use_num - 1]
 
         self.model.id = manga_to_use["id"]
-        self.model.download_type = 'manga'
+        self.model.download_type = "manga"
         self.model.manga_data = manga_to_use
 
 
-
 class DataFormatter(ModelsBase):
-
-    def __init__(self, model: 'MDownloader') -> None:
+    def __init__(self, model: "MDownloader") -> None:
         super().__init__(model)
         self.file_name_regex = re.compile(ImpVar.FILE_NAME_REGEX, re.IGNORECASE)
 
     def _check_downloaded_files(self):
         """Check if folders using other manga titles exist."""
         new_title = self.model.title
-        available_titles = [self.strip_illegal_characters(x) for x in self.model.manga_titles if self.strip_illegal_characters(x) in [
-            route for route in os.listdir(self.model.directory) if os.path.isdir(os.path.join(self.model.directory, route))]]
+        available_titles = [
+            self.strip_illegal_characters(x)
+            for x in self.model.manga_titles
+            if self.strip_illegal_characters(x)
+            in [
+                route
+                for route in os.listdir(self.model.directory)
+                if os.path.isdir(os.path.join(self.model.directory, route))
+            ]
+        ]
         if not available_titles:
             return
 
@@ -367,6 +377,7 @@ class DataFormatter(ModelsBase):
     def _title_rename(self, new_title: str, title: str):
         """Go through the files and folders in the directory and rename to use the new title."""
         from .jsonmaker import TitleJson
+
         new_title_path = Path(self.model.route)
         new_title_path.mkdir(parents=True, exist_ok=True)
         old_title_path = Path(os.path.join(self.model.directory, title))
@@ -380,7 +391,8 @@ class DataFormatter(ModelsBase):
 
         process = multiprocessing.Process(
             target=self._renaming_process,
-            args=(new_title, new_title_path, old_title_path, archive_downloads, folder_downloads))
+            args=(new_title, new_title_path, old_title_path, archive_downloads, folder_downloads),
+        )
         process.start()
         process.join()
 
@@ -427,7 +439,7 @@ class DataFormatter(ModelsBase):
         pool.close()
         pool.join()
 
-    def _archive_rename(self, new_title: str, new_title_path: 'Path', old_title_path: 'Path', archive_download: str):
+    def _archive_rename(self, new_title: str, new_title_path: "Path", old_title_path: "Path", archive_download: str):
         """Rename the downloaded archives from the old title into the new title."""
         old_file_name_match = self.file_name_regex.match(archive_download)
         if not old_file_name_match:
@@ -437,10 +449,12 @@ class DataFormatter(ModelsBase):
         old_zipfile = zipfile.ZipFile(old_archive_path, mode="r", compression=zipfile.ZIP_DEFLATED)
         old_zipfile_files = old_zipfile.infolist()
 
-        old_name = old_file_name_match.group('title')
-        file_extension = old_file_name_match.group('extension')
+        old_name = old_file_name_match.group("title")
+        file_extension = old_file_name_match.group("extension")
 
-        new_archive_path = new_title_path.joinpath(archive_download.replace(old_name, new_title)).with_suffix(f'.{file_extension}')
+        new_archive_path = new_title_path.joinpath(archive_download.replace(old_name, new_title)).with_suffix(
+            f".{file_extension}"
+        )
         new_zipfile = zipfile.ZipFile(new_archive_path, mode="a", compression=zipfile.ZIP_DEFLATED)
         new_zipfile.comment = old_zipfile.comment
 
@@ -454,13 +468,13 @@ class DataFormatter(ModelsBase):
         new_zipfile.close()
         old_archive_path.unlink()
 
-    def _folder_rename(self, new_title: str, new_title_path: 'Path', old_title_path: 'Path', folder_download: str):
+    def _folder_rename(self, new_title: str, new_title_path: "Path", old_title_path: "Path", folder_download: str):
         """Rename the downloaded folders from the old title into the new title."""
         old_file_name_match = self.file_name_regex.match(folder_download)
         if not old_file_name_match:
             return
         old_folder_path = old_title_path.joinpath(folder_download)
-        old_name = old_file_name_match.group('title')
+        old_name = old_file_name_match.group("title")
 
         new_name = folder_download.replace(old_name, new_title)
         new_folder_path = new_title_path.joinpath(new_name)
@@ -471,7 +485,7 @@ class DataFormatter(ModelsBase):
             old_page_path = Path(old_folder_path.joinpath(old_image_name))
             if new_image_name not in os.listdir(new_folder_path):
                 extension = os.path.splitext(old_page_path)[1]
-                new_page_path = Path(new_folder_path.joinpath(new_image_name)).with_suffix(f'{extension}')
+                new_page_path = Path(new_folder_path.joinpath(new_image_name)).with_suffix(f"{extension}")
                 old_page_path.rename(new_page_path)
             else:
                 old_page_path.unlink()
@@ -481,7 +495,6 @@ class DataFormatter(ModelsBase):
 
 
 class Filtering(ModelsBase):
-
     def __init__(self, model) -> None:
         super().__init__(model)
         self.root = Path("")
@@ -498,8 +511,8 @@ class Filtering(ModelsBase):
     def _read_file(self, file_path: str) -> list:
         """Opens the text file and loads the ids to filter."""
         try:
-            with open(file_path, 'r') as fp:
-                filter_list = [line.rstrip('\n') for line in fp.readlines()]
+            with open(file_path, "r") as fp:
+                filter_list = [line.rstrip("\n") for line in fp.readlines()]
                 return filter_list
         except FileNotFoundError:
             return []
@@ -508,19 +521,36 @@ class Filtering(ModelsBase):
         """Filters the chapters according to the selected filters."""
         if self.group_whitelist or self.user_whitelist:
             if self.group_whitelist:
-                chapters = [c for c in chapters if [g for g in c["relationships"] if g["type"] == 'scanlation_group' and g["id"] in self.group_whitelist]]
+                chapters = [
+                    c
+                    for c in chapters
+                    if [g for g in c["relationships"] if g["type"] == "scanlation_group" and g["id"] in self.group_whitelist]
+                ]
             if self.user_whitelist:
-                chapters = [c for c in chapters if [u for u in c["relationships"] if u["type"] == 'user' and u["id"] in self.user_whitelist]]
+                chapters = [
+                    c
+                    for c in chapters
+                    if [u for u in c["relationships"] if u["type"] == "user" and u["id"] in self.user_whitelist]
+                ]
         else:
-            chapters = [c for c in chapters if
-                (([g for g in c["relationships"] if g["type"] == 'scanlation_group' and g["id"] not in self.group_blacklist])
-                    or [u for u in c["relationships"] if u["type"] == 'user' and u["id"] not in self.user_blacklist])]
+            chapters = [
+                c
+                for c in chapters
+                if (
+                    (
+                        [
+                            g
+                            for g in c["relationships"]
+                            if g["type"] == "scanlation_group" and g["id"] not in self.group_blacklist
+                        ]
+                    )
+                    or [u for u in c["relationships"] if u["type"] == "user" and u["id"] not in self.user_blacklist]
+                )
+            ]
         return chapters
 
 
-
 class MDownloaderMisc(ModelsBase):
-
     def check_url(self, url: str) -> bool:
         """Check if the url given is a MangaDex one."""
         return bool(ImpVar.MD_URL.match(url) or ImpVar.MD_IMAGE_URL.match(url) or ImpVar.MD_FOLLOWS_URL.match(url))
@@ -549,9 +579,9 @@ class MDownloaderMisc(ModelsBase):
             download_type (str): What type of data is being downloaded, chapter, manga, group, user, or list.
             name (str): Name of the chosen download.
         """
-        message = 'Downloading'
+        message = "Downloading"
         if status:
-            message = f'Finished {message}'
+            message = f"Finished {message}"
 
         print(f'{"-"*69}\n{message} {download_type.title()}: {name}\n{"-"*69}')
 
@@ -564,20 +594,22 @@ class MDownloaderMisc(ModelsBase):
         Returns:
             int: The amount of chapters found.
         """
-        count = data.get('total', 0)
+        count = data.get("total", 0)
 
         if not data["data"]:
             count = 0
 
         if self.model.type_id == 1:
-            download_type = 'manga'
+            download_type = "manga"
             name = self.model.title
         else:
             download_type = self.model.download_type
             name = self.model.name
 
         if count == 0:
-            raise NoChaptersError(f'{download_type.title()}: {self.model.id} - {name} has no chapters. Possibly because of the language chosen or because there are no uploads.')
+            raise NoChaptersError(
+                f"{download_type.title()}: {self.model.id} - {name} has no chapters. Possibly because of the language chosen or because there are no uploads."
+            )
         return count
 
     def check_manga_data(self, chapter_data: dict) -> dict:
@@ -586,19 +618,20 @@ class MDownloaderMisc(ModelsBase):
         Returns:
             dict: The manga data to use.
         """
-        manga = dict([c for c in chapter_data["relationships"] if c["type"] == 'manga'][0])
+        manga = dict([c for c in chapter_data["relationships"] if c["type"] == "manga"][0])
         manga_id = manga["id"]
         self.model.manga_id = manga_id
-        manga_data = manga.get('attributes', {})
+        manga_data = manga.get("attributes", {})
 
         if not manga_data:
             cache_json = self.model.cache.load_cache(manga_id)
             refresh_cache = self.model.cache.check_cache_time(cache_json)
-            manga_data = cache_json.get('data', {})
+            manga_data = cache_json.get("data", {})
 
             if refresh_cache or not manga_data:
-                if self.model.debug: print('Calling api for manga data from chapter download.')
-                manga_data = self.model.api.get_manga_data('chapter-manga')
+                if self.model.debug:
+                    print("Calling api for manga data from chapter download.")
+                manga_data = self.model.api.get_manga_data("chapter-manga")
                 self.model.cache.save_cache(datetime.now(), manga_id, data=manga_data)
         else:
             manga_data = manga
@@ -618,22 +651,21 @@ class MDownloaderMisc(ModelsBase):
         external = False
         url = None
 
-        if 'externalUrl' in chapter_data:
+        if "externalUrl" in chapter_data:
             if chapter_data["externalUrl"] is not None:
                 url = chapter_data["externalUrl"]
                 external = True
 
         if external:
-            if any(s in url for s in ('mangaplus',)):
+            if any(s in url for s in ("mangaplus",)):
                 return url
             else:
-                raise MDownloaderError('Chapter external to MangaDex, unable to download. Skipping...')
+                raise MDownloaderError("Chapter external to MangaDex, unable to download. Skipping...")
 
         return None
 
 
 class TitleDownloaderMisc(ModelsBase):
-
     def get_prefixes(self, chapters: list) -> dict:
         """Assign each volume a prefix, default: c.
 
@@ -653,12 +685,12 @@ class TitleDownloaderMisc(ModelsBase):
                 volume_dict[volume_no] = [c["chapter"]]
 
         list_volume_dict = list(reversed(list(volume_dict)))
-        prefix = 'b'
+        prefix = "b"
 
         # Loop over the volume dict list and
         # check if the current iteration has the same chapter numbers as the volume before and after
         for volume in list_volume_dict:
-            if volume is None or volume == '':
+            if volume is None or volume == "":
                 continue
 
             next_volume_index = list_volume_dict.index(volume) + 1
@@ -672,11 +704,11 @@ class TitleDownloaderMisc(ModelsBase):
                 previous_volume = list_volume_dict[previous_volume_index]
                 result = any(elem in volume_dict[previous_volume] for elem in volume_dict[volume])
 
-            if volume is not None or volume != '':
+            if volume is not None or volume != "":
                 if result:
                     vol_prefix = chr(ord(prefix) + next_volume_index)
                 else:
-                    vol_prefix = 'c'
+                    vol_prefix = "c"
                 chapter_prefix_dict.update({volume: vol_prefix})
         return chapter_prefix_dict
 
@@ -685,7 +717,7 @@ class TitleDownloaderMisc(ModelsBase):
         try:
             return float(x)
         except TypeError:
-            return '0'
+            return "0"
         except ValueError:
             return x
 
@@ -703,28 +735,28 @@ class TitleDownloaderMisc(ModelsBase):
 
         for chapter in chap_list:
             if "-" in chapter:
-                chapter_range = chapter.split('-')
-                chapter_range = [None if v == 'oneshot' else v for v in chapter]
+                chapter_range = chapter.split("-")
+                chapter_range = [None if v == "oneshot" else v for v in chapter]
                 lower_bound = chapter_range[0].strip()
                 upper_bound = chapter_range[1].strip()
                 try:
                     lower_bound_i = chapters_list.index(lower_bound)
                 except ValueError:
-                    print(f'Chapter lower bound {lower_bound} does not exist. Skipping {chapter}.')
+                    print(f"Chapter lower bound {lower_bound} does not exist. Skipping {chapter}.")
                     continue
                 try:
                     upper_bound_i = chapters_list.index(upper_bound)
                 except ValueError:
-                    print(f'Chapter upper bound {upper_bound} does not exist. Skipping {chapter}.')
+                    print(f"Chapter upper bound {upper_bound} does not exist. Skipping {chapter}.")
                     continue
-                chapter = chapters_list[lower_bound_i:upper_bound_i+1]
+                chapter = chapters_list[lower_bound_i : upper_bound_i + 1]
             else:
-                if chapter == 'oneshot':
+                if chapter == "oneshot":
                     chapter = None
                 try:
                     chapter = [chapters_list[chapters_list.index(chapter)]]
                 except ValueError:
-                    print(f'Chapter {chapter} does not exist. Skipping.')
+                    print(f"Chapter {chapter} does not exist. Skipping.")
                     continue
             chapters_range.extend(chapter)
         return chapters_range
@@ -736,7 +768,7 @@ class TitleDownloaderMisc(ModelsBase):
             list: The chapters to download.
         """
         chapters_list = [c["attributes"]["chapter"] for c in chapters]
-        chapters_list_str = ['oneshot' if c is None else c for c in chapters_list]
+        chapters_list_str = ["oneshot" if c is None else c for c in chapters_list]
         chapters_list = list(set(chapters_list))
         chapters_list.sort(key=self._natsort)
         remove_chapters = []
@@ -748,14 +780,14 @@ class TitleDownloaderMisc(ModelsBase):
         chap_list = input("\nEnter the chapter(s) to download: ").strip()
 
         if not chap_list:
-            raise MDownloaderError('No chapter(s) chosen.')
+            raise MDownloaderError("No chapter(s) chosen.")
 
-        chap_list = [c.strip() for c in chap_list.split(',')]
-        chapters_to_remove = [c.strip('!') for c in chap_list if '!' in c]
-        chap_list = [c for c in chap_list if '!' not in c]
+        chap_list = [c.strip() for c in chap_list.split(",")]
+        chapters_to_remove = [c.strip("!") for c in chap_list if "!" in c]
+        chap_list = [c for c in chap_list if "!" not in c]
 
         # Find which chapters to download
-        if 'all' not in chap_list:
+        if "all" not in chap_list:
             chapters_to_download = self._get_chapters_range(chapters_list, chap_list)
         else:
             chapters_to_download = chapters_list
@@ -768,9 +800,7 @@ class TitleDownloaderMisc(ModelsBase):
         return [c for c in chapters if c["attributes"]["chapter"] in chapters_to_download]
 
 
-
 class MDownloader(MDownloaderBase):
-
     def __init__(self, hd_client: hondana.Client) -> None:
         super().__init__(hd_client)
 
@@ -784,7 +814,7 @@ class MDownloader(MDownloaderBase):
         self.misc = MDownloaderMisc(self)
         self.title_misc = TitleDownloaderMisc(self)
 
-    def wait(self, time_to_wait: int=ImpVar.GLOBAL_TIME_TO_WAIT, print_message: bool=False) -> None:
+    def wait(self, time_to_wait: int = ImpVar.GLOBAL_TIME_TO_WAIT, print_message: bool = False) -> None:
         """Wait a certain amount of time before continuing.
 
         Args:

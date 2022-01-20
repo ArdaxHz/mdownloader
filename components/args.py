@@ -1,31 +1,34 @@
 import dataclasses
 import getpass
-from pathlib import Path
 import re
-import hondana
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Optional, Tuple, Union
 
+import hondana
 
 from .constants import ImpVar
 from .errors import MDownloaderError
+from .languages import get_lang_md
+
 
 if TYPE_CHECKING:
     from .cache import CacheRead
-    from .jsonmaker import TitleJson, BulkJson
+    from .jsonmaker import BulkJson, TitleJson
 
 
 @dataclasses.dataclass()
 class MDArgs:
     id: str
     type: str
-    data: Optional[Union[hondana.Manga, hondana.Chapter, hondana.ScanlatorGroup, hondana.User, hondana.CustomList]] = dataclasses.field(default=None)
+    data: Optional[
+        Union[hondana.Manga, hondana.Chapter, hondana.ScanlatorGroup, hondana.User, hondana.CustomList]
+    ] = dataclasses.field(default=None)
     chapters: Optional[hondana.ChapterFeed] = dataclasses.field(default=None)
-    cache: Optional['CacheRead'] = dataclasses.field(default=None)
-    json_obj: Optional[Union['TitleJson', 'BulkJson']] = dataclasses.field(default=None)
+    cache: Optional["CacheRead"] = dataclasses.field(default=None)
+    json_obj: Optional[Union["TitleJson", "BulkJson"]] = dataclasses.field(default=None)
 
 
 class ProcessArgs:
-
     def __init__(self, unparsed_arguments, hondana_client: hondana.Client) -> None:
         self._hondana_client = hondana_client
         self._unparsed_arguments = unparsed_arguments
@@ -34,8 +37,12 @@ class ProcessArgs:
         self.args: Optional[MDArgs] = None
         self.debug = bool(unparsed_arguments["debug"])
         self.force_refresh = bool(unparsed_arguments["refresh"])
-        self.directory: Path = Path(unparsed_arguments["directory"]) if unparsed_arguments["directory"] is not None else Path(ImpVar.DOWNLOAD_PATH)
-        self.language = 'en' #get_lang_md(unparsed_arguments["language"])
+        self.directory: Path = (
+            Path(unparsed_arguments["directory"])
+            if unparsed_arguments["directory"] is not None
+            else Path(ImpVar.DOWNLOAD_PATH)
+        )
+        self.language = get_lang_md(unparsed_arguments["language"])
         self.archive_extension = ImpVar.ARCHIVE_EXTENSION
         self._check_archive_extension(self.archive_extension)
         self.folder_download = bool(unparsed_arguments["folder"])
@@ -48,8 +55,8 @@ class ProcessArgs:
         if unparsed_arguments["login"]:
             self.login()
 
-        self.naming_scheme_options = Literal['default', 'original', 'number']
-        self.naming_scheme = 'default'
+        self.naming_scheme_options = Literal["default", "original", "number"]
+        self.naming_scheme = "default"
 
     async def _check_legacy(self, download_id: str, download_type: str):
         if download_id.isdigit():
@@ -58,7 +65,9 @@ class ProcessArgs:
 
     async def _map_single_legacy_uuid(self, download_id: int, download_type: str) -> str:
         download_id = int(download_id)
-        response: hondana.LegacyMappingCollection = await self._hondana_client.legacy_id_mapping(download_type, item_ids=[download_id])
+        response: hondana.LegacyMappingCollection = await self._hondana_client.legacy_id_mapping(
+            download_type, item_ids=[download_id]
+        )
         return response.legacy_mappings[0].obj_new_id
 
     def check_url(self, url: str) -> Optional[re.Match[str]]:
@@ -74,8 +83,8 @@ class ProcessArgs:
         download_type_from_url = md_url_match.group(1)
         id_from_url = md_url_match.group(2)
 
-        if download_type_from_url == 'title':
-            download_type_from_url = 'manga'
+        if download_type_from_url == "title":
+            download_type_from_url = "manga"
 
         return id_from_url, download_type_from_url
 
@@ -102,8 +111,8 @@ class ProcessArgs:
         return to_return_id, to_return_type
 
     def login(self):
-        username = input('Your username: ')
-        password = getpass.getpass(prompt='Your password: ', stream=None)
+        username = input("Your username: ")
+        password = getpass.getpass(prompt="Your password: ", stream=None)
         self._hondana_client.login(username=username, password=password)
 
     def _check_archive_extension(self, archive_extension: str) -> str:
@@ -112,7 +121,7 @@ class ProcessArgs:
         Raises:
             MDownloaderError: The extension chosen isn't allowed.
         """
-        if archive_extension not in ('zip', 'cbz'):
+        if archive_extension not in ("zip", "cbz"):
             raise MDownloaderError("This archive save format is not allowed.")
 
     async def find_manga(self, search_term: str) -> hondana.Manga:
@@ -120,10 +129,10 @@ class ProcessArgs:
         manga_response = await self._hondana_client.manga_list(title=search_term)
 
         for count, manga in enumerate(manga_response.manga, start=1):
-            print(f'{count}: {manga.title} | {manga.url}')
+            print(f"{count}: {manga.title} | {manga.url}")
 
         try:
-            manga_to_use_num = int(input(f'Choose a number matching the position of the manga you want to download: '))
+            manga_to_use_num = int(input(f"Choose a number matching the position of the manga you want to download: "))
         except ValueError:
             raise MDownloaderError("That's not a number.")
 
@@ -133,14 +142,14 @@ class ProcessArgs:
         manga_to_use = manga_response.manga[manga_to_use_num - 1]
         return manga_to_use
 
-    async def process_args(self, download_id: str=None, _download_type: str=None) -> MDArgs:
+    async def process_args(self, download_id: str = None, _download_type: str = None) -> MDArgs:
         if _download_type is None:
             _download_type = self._arg_type
-        
+
         if self.search_manga:
             found_manga = await self.find_manga(download_id)
-            self._arg_type = 'manga'
-            obj = MDArgs(id=found_manga.id, type='manga', data=found_manga)
+            self._arg_type = "manga"
+            obj = MDArgs(id=found_manga.id, type="manga", data=found_manga)
             self.args = obj
             return obj
 

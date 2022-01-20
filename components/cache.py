@@ -1,7 +1,7 @@
 import dataclasses
-from datetime import datetime, timedelta
 import gzip
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Union
 
@@ -9,7 +9,6 @@ import hondana
 
 from .args import ProcessArgs
 from .constants import ImpVar
-   
 
 
 @dataclasses.dataclass()
@@ -25,9 +24,9 @@ class Cache:
         if isinstance(self.time, str) or self.time is None:
             self.time = datetime.strptime(self.time, "%Y-%m-%d %H:%M:%S.%f")
 
-class CacheRead:
 
-    def __init__(self, args: ProcessArgs, *, cache_id: Optional[str]=None, cache_type: str) -> None:
+class CacheRead:
+    def __init__(self, args: ProcessArgs, *, cache_id: Optional[str] = None, cache_type: str) -> None:
         self._args = args
         self._cache_id = cache_id
         self._cache_type = cache_type
@@ -47,15 +46,27 @@ class CacheRead:
         self.cache = self.load_cache()
 
     def update_path(self) -> Path:
-        return self._root.joinpath(self._cache_id).with_suffix('.json.gz')
+        return self._root.joinpath(self._cache_id).with_suffix(".json.gz")
 
-    def _get_orig_dict(self, data: Union['hondana.Manga', 'hondana.Chapter', 'hondana.User', 'hondana.ScanlatorGroup', 'hondana.CustomList', 'hondana.Cover']) -> dict:
+    def _get_orig_dict(
+        self,
+        data: Union[
+            "hondana.Manga",
+            "hondana.Chapter",
+            "hondana.User",
+            "hondana.ScanlatorGroup",
+            "hondana.CustomList",
+            "hondana.Cover",
+        ],
+    ) -> dict:
         _data = {}
         _data.update(data._data)
         _data.update({"relationships": data._relationships})
         return _data
 
-    def _get_orig_list(self, data: Union['hondana.CoverCollection', 'hondana.ChapterFeed']) -> List[Union['hondana.Cover', 'hondana.Chapter']]:
+    def _get_orig_list(
+        self, data: Union["hondana.CoverCollection", "hondana.ChapterFeed"]
+    ) -> List[Union["hondana.Cover", "hondana.Chapter"]]:
         data_list = []
         if isinstance(data, hondana.CoverCollection):
             data_list = data.covers
@@ -65,12 +76,25 @@ class CacheRead:
         return [self._get_orig_dict(x) for x in data_list]
 
     def save_cache(
-            self,
-            *,
-            cache_time: Optional[Union[str, datetime]]=None,
-            data: Optional[Union[dict, Union['hondana.Manga', 'hondana.Chapter', 'hondana.User', 'hondana.ScanlatorGroup', 'hondana.CustomList', 'hondana.Cover']]]=None,
-            chapters: Optional[Union[list, 'hondana.ChapterFeed']]=None,
-            covers: Optional[Union[list, 'hondana.CoverCollection']]=None) -> Cache:
+        self,
+        *,
+        cache_time: Optional[Union[str, datetime]] = None,
+        data: Optional[
+            Union[
+                dict,
+                Union[
+                    "hondana.Manga",
+                    "hondana.Chapter",
+                    "hondana.User",
+                    "hondana.ScanlatorGroup",
+                    "hondana.CustomList",
+                    "hondana.Cover",
+                ],
+            ]
+        ] = None,
+        chapters: Optional[Union[list, "hondana.ChapterFeed"]] = None,
+        covers: Optional[Union[list, "hondana.CoverCollection"]] = None,
+    ) -> Cache:
         """Save the data to the cache.
 
         Args:
@@ -79,7 +103,7 @@ class CacheRead:
             data (dict, optional): The data to cache. Defaults to {}.
             chapters (list, optional): The chapters to cache. Defaults to [].
             covers (list, optional): The covers of the manga. Defaults to [].
-        """       
+        """
         if cache_time is None:
             cache_time = self.cache.time
 
@@ -101,9 +125,16 @@ class CacheRead:
         if not isinstance(covers, list):
             covers = self._get_orig_list(covers)
 
-        cache_json = {'id': self._cache_id, 'type': self._cache_type, 'time': str(cache_time), 'data': data, 'chapters': chapters, 'covers': covers}
-        with gzip.open(self._cache_path, 'w') as cache_json_fp:
-            cache_json_fp.write(json.dumps(cache_json, indent=4, ensure_ascii=False).encode('utf-8'))
+        cache_json = {
+            "id": self._cache_id,
+            "type": self._cache_type,
+            "time": str(cache_time),
+            "data": data,
+            "chapters": chapters,
+            "covers": covers,
+        }
+        with gzip.open(self._cache_path, "w") as cache_json_fp:
+            cache_json_fp.write(json.dumps(cache_json, indent=4, ensure_ascii=False).encode("utf-8"))
 
         cache_obj = Cache(**cache_json)
         self.cache = cache_obj
@@ -119,8 +150,8 @@ class CacheRead:
             dict: The cache's data.
         """
         try:
-            with gzip.open(self._cache_path, 'r') as cache_json_fp:
-                cache_json = json.loads(cache_json_fp.read().decode('utf-8'))
+            with gzip.open(self._cache_path, "r") as cache_json_fp:
+                cache_json = json.loads(cache_json_fp.read().decode("utf-8"))
             return Cache(**cache_json)
         except (FileNotFoundError, json.JSONDecodeError, gzip.BadGzipFile):
             return Cache(id=self._cache_id, type=self._cache_type)
