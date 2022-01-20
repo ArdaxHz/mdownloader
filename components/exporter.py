@@ -7,6 +7,7 @@ import re
 import shutil
 import zipfile
 from datetime import datetime
+from optparse import Option
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
 
@@ -39,7 +40,7 @@ class ExporterBase:
         self.chapter = self._format_chapter_number()
         self.volume = self._format_volume_number()
         self.language = self._format_language()
-        self.groups = self.get_groups()
+        self.groups: Optional[str] = None
         self.prefix = self._prefix_name()
         self.suffix = self._suffix_name()
         self.folder_name = self._folder_name()
@@ -115,7 +116,7 @@ class ExporterBase:
         """The formatted prefix name."""
         return f"{self._series_title}{self.language} - {self.chapter}{self.volume}"
 
-    def get_groups(self) -> str:
+    async def get_groups(self) -> str:
         """The scanlation groups that worked on the chapter."""
         _group_ids = [g["id"] for g in self._chapter_obj._relationships if g["type"] == "scanlation_group"]
         groups = self._chapter_obj.scanlator_groups
@@ -127,12 +128,8 @@ class ExporterBase:
                 group_cache_obj = CacheRead(self._args, cache_id=_group_id, cache_type="group")
                 refresh_cache = group_cache_obj.check_cache_time()
                 if refresh_cache or not bool(group_cache_obj.cache.data):
-                    group_response_coro = asyncio.create_task(self._args._hondana_client.get_scanlation_group(_group_id))
-                    try:
-                        group_response = (group_response_coro.set_result())
-                    except (asyncio.InvalidStateError, asyncio.CancelledError, RuntimeError):
-                        pass
-                    group_cache_obj.save_cache(cache_time=datetime.now(), data=group_response_coro.result())
+                    group_response = await self._args._hondana_client.get_scanlation_group(_group_id)
+                    group_cache_obj.save_cache(cache_time=datetime.now(), data=group_response)
                 else:
                     group_response = hondana.ScanlatorGroup(
                         self._args._hondana_client._http, group_cache_obj.cache.data.copy()
@@ -207,7 +204,7 @@ class ArchiveExporter(ExporterBase):
         self.archive = self._check_zip()
 
     def _get_file_path(self, name: str) -> Path:
-        return os.path.join(self._download_path, f'{name}.{self.archive_extension}')
+        return os.path.join(self._download_path, f"{name}.{self.archive_extension}")
 
     def _make_zip(self) -> zipfile.ZipFile:
         """Make a zipfile, if it exists, open it instead.

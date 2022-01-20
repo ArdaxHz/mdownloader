@@ -1,16 +1,17 @@
 #!/usr/bin/python3
 import asyncio
-import aiohttp
-from copy import copy
 import json
 import os
 import re
-import hondana
-import requests
+from copy import copy
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
 from urllib.parse import quote
+
+import aiohttp
+import hondana
+import requests
 
 from .args import MDArgs, ProcessArgs
 from .constants import ImpVar
@@ -116,7 +117,7 @@ class JsonBase:
         with open(self.json_path, "w", encoding="utf8") as json_file:
             json.dump(self.new_data, json_file, indent=4, ensure_ascii=False)
 
-    def _core(self, save_type: int = 0) -> None:
+    async def _core(self, save_type: int = 0) -> None:
         """Format the json for exporting.
 
         Args:
@@ -132,8 +133,7 @@ class TitleJson(JsonBase):
         self._regex = re.compile(ImpVar.CHARA_REGEX)
         self._cover_route = self._route.joinpath("!covers")
         self._links = self._format_links()
-        self._cover_task = None
-        self._covers = self._get_covers()
+        self._covers: Optional[List[hondana.Cover]] = None
         self._title_json = self._title()
 
     def _format_links(self) -> dict:
@@ -178,7 +178,7 @@ class TitleJson(JsonBase):
                 json_links.update({l: {"name": l, "url": newl}})
         return json_links
 
-    def _download_covers(self) -> None:
+    async def _download_covers(self) -> None:
         """Download the covers."""
         covers = self._covers
 
@@ -211,20 +211,14 @@ class TitleJson(JsonBase):
         else:
             print("This title has no covers to download.")
 
-    def _update_cover_cache(self, task: asyncio.Task[hondana.CoverCollection]):
-        if task.done():
-            self._covers = task.result().covers
-            self._manga_args_obj.cache.save_cache(covers=copy(task.result()))
-
-    def _get_covers(self) -> List[hondana.Cover]:
+    async def _get_covers(self) -> List[hondana.Cover]:
         """Fetches a dict of the manga's covers."""
         refresh_cache = self._manga_args_obj.cache.check_cache_time()
 
         if refresh_cache or not bool(self._manga_args_obj.cache.cache.covers):
-            cover_response_coro = asyncio.ensure_future(self._args._hondana_client.cover_art_list(limit=None, manga=[self._manga_args_obj.id]))
-
-            self._cover_task = cover_response_coro
-            return []
+            cover_response = await self._args._hondana_client.cover_art_list(limit=None, manga=[self._manga_args_obj.id])
+            self._manga_args_obj.cache.save_cache(covers=copy(cover_response))
+            covers = cover_response.covers
         else:
             covers = [hondana.Cover(self._args._hondana_client._http, c) for c in self._manga_args_obj.cache.cache.covers]
 
@@ -246,7 +240,7 @@ class TitleJson(JsonBase):
         # json_title["social"] = self.social
         return json_title
 
-    def core(self, save_type: int = 0) -> None:
+    async def core(self, save_type: int = 0) -> None:
         """Format the json for exporting.
 
         Args:
@@ -254,16 +248,16 @@ class TitleJson(JsonBase):
         """
         self.new_data = self._title_json
         self.new_data["externalLinks"] = self._links
-        
-        if self._cover_task is not None:
-            self._update_cover_cache(self._cover_task)
+
+        if self._covers is None:
+            self._covers = await self._get_covers()
 
         self.new_data["covers"] = [c._data for c in self._covers]
 
         if save_type and self._args.cover_download:
-            self._download_covers()
+            await self._download_covers()
 
-        super()._core(save_type)
+        await super()._core(save_type)
 
 
 class BulkJson(JsonBase):
@@ -271,18 +265,18 @@ class BulkJson(JsonBase):
         super().__init__(md_model)
         self.bulk_data = self._format_bulk_data()
 
-    def _format_bulk_data(self) -> dict:
+    async def _format_bulk_data(self) -> dict:
         """Get the download type's data and name."""
         json_account = {"id": self.id}
         json_account["link"] = f"{self.domain}/{self.type}/{self.id}"
         json_account["attributes"] = self.data
         return json_account
 
-    def core(self, save_type: int = 0) -> None:
+    async def core(self, save_type: int = 0) -> None:
         """Format the json for exporting.
 
         Args:
             save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
         """
         self.new_data = self.bulk_data
-        super()._core(save_type)
+        await super()._core(save_type)

@@ -24,7 +24,7 @@ def check_for_update(args) -> None:
     Args:
         args (argparse.ArgumentParser.parse_args): Command line arguments to parse.
     """
-    root_path = Path('.')
+    root_path = Path(".")
     excluded = ["components", ".env.example"]
     components_path = Path("components")
     vargs = vars(args)
@@ -96,8 +96,6 @@ def check_for_update(args) -> None:
                 )
 
                 if download_update.lower() == "y":
-                    [os.remove(i) for i in os.listdir("./components") if (i not in remote_components and i != "__pycache__")]
-
                     for f in components_data:
                         response = requests.get(f["download_url"])
                         contents = response.content
@@ -122,7 +120,7 @@ def check_for_update(args) -> None:
     announcement_response = requests.get("https://raw.githubusercontent.com/Rudoal/misc/main/mdl_msgs.txt")
 
     if announcement_response.status_code == 200:
-        announcement_message = (announcement_response.content).decode()
+        announcement_message = announcement_response.content.decode()
         announcement_message = announcement_message.rstrip("\n")
 
         if len(announcement_message) > 0:

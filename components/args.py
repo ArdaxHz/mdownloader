@@ -52,8 +52,6 @@ class ProcessArgs:
         self.rename_files = bool(unparsed_arguments["rename"])
         self.download_in_order = bool(unparsed_arguments["order"])
         self.search_manga = bool(unparsed_arguments["search"])
-        if unparsed_arguments["login"]:
-            self.login()
 
         self.naming_scheme_options = Literal["default", "original", "number"]
         self.naming_scheme = "default"
@@ -110,10 +108,10 @@ class ProcessArgs:
             raise MDownloaderError("The id argument entered is not recognised.")
         return to_return_id, to_return_type
 
-    def login(self):
+    async def _login(self):
         username = input("Your username: ")
         password = getpass.getpass(prompt="Your password: ", stream=None)
-        self._hondana_client.login(username=username, password=password)
+        await self._hondana_client.login(username=username, password=password)
 
     def _check_archive_extension(self, archive_extension: str) -> str:
         """Check if the file extension is an accepted format. Default: cbz.
@@ -143,6 +141,9 @@ class ProcessArgs:
         return manga_to_use
 
     async def process_args(self, download_id: str = None, _download_type: str = None) -> MDArgs:
+        if self._unparsed_arguments["login"]:
+            await self._login()
+
         if _download_type is None:
             _download_type = self._arg_type
 

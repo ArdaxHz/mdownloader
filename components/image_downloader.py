@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, AsyncGenerator, Optional, Union
 import hondana
 from tqdm.asyncio import tqdm
 
+from components.renamer import DownloadedFilesRenamer
+
 from .args import MDArgs, ProcessArgs
 from .cache import Cache, CacheRead
 from .constants import ImpVar
@@ -25,16 +27,18 @@ if TYPE_CHECKING:
 
 
 class ImageDownloader:
-    def __init__(self, args: ProcessArgs, manga_data: "hondana.Manga") -> None:
+    def __init__(self, args: ProcessArgs, manga_args_obj: MDArgs) -> None:
         self._args = args
         self._hondana_client = args._hondana_client
-        self._manga_data = manga_data
+        self._manga_args_obj = manga_args_obj
+        self._manga_data = manga_args_obj.data
         self._manga_title = self._format_title()
         self._download_route = self._format_save_route(self._manga_title)
 
         self.json_exporter: Optional[Union["TitleJson", "BulkJson"]] = None
-        # if self._args.rename_files:
-        #     self._check_downloaded_files()
+        if self._args.rename_files:
+            renamer_obj = DownloadedFilesRenamer(self, self._manga_args_obj)
+            renamer_obj.check_downloaded_files()
 
     def _strip_illegal_characters(self, name: str) -> str:
         """Remove illegal characters from the specified name."""
@@ -65,27 +69,27 @@ class ImageDownloader:
             return True
         return False
 
-    def _save_json(self) -> None:
+    async def _save_json(self) -> None:
         """Save the chapter data to the data json and save the json."""
         if self.json_exporter._manga_args_obj.type in ("manga",):
-            self.json_exporter.core()
+            await self.json_exporter.core()
 
         if self.json_exporter._manga_args_obj.type in ("group", "user"):
-            self.json_exporter.core()
+            await self.json_exporter.core()
 
-    def _before_download(self, exists: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
+    async def _before_download(self, exists: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
         """Skip chapter if its already downloaded."""
         if exists:
             # Add chapter data to the json for title, group or user downloads
-            self._save_json()
+            await self._save_json()
             exporter.close()
             raise MDownloaderError("File already downloaded.")
 
-    def _after_download(self, downloaded_all: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
+    async def _after_download(self, downloaded_all: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
         """Save json if all the images were downloaded and close the archive."""
         # If all the images are downloaded, save the json file with the latest downloaded chapter
         if downloaded_all:
-            self._save_json()
+            await self._save_json()
 
         # Close the archive
         exporter.close()
@@ -141,13 +145,7 @@ class ImageDownloader:
             yield page
 
     async def chapter_downloader(self, chapter_args_obj: MDArgs):
-        """Use the chapter data for image downloads and file name export.
-
-        download_type: 0 = chapter
-        download_type: 1 = manga
-        download_type: 2 = group|user|list
-        download_type: 3 = follows
-        """
+        """Use the chapter data for image downloads and file name export."""
         chapter_data: hondana.Chapter = chapter_args_obj.data
         chapter_id = chapter_data.id
         data_saver = False
@@ -183,6 +181,7 @@ class ImageDownloader:
             "download_path": self._download_route,
         }
         exporter = FolderExporter(**kwargs) if self._args.folder_download else ArchiveExporter(**kwargs)
+        exporter.groups = await exporter.get_groups()
 
         # Add chapter data to the json for title, group or user downloads
         if chapter_args_obj.json_obj is not None:
@@ -195,13 +194,14 @@ class ImageDownloader:
 
                 # Call MangaPlus downloader
                 print("External chapter. Connecting to MangaPlus to download.")
-                MangaPlus(self, chapter_args_obj, exporter).download_mplus_chap()
+                mangaplus_obj = MangaPlus(self, chapter_args_obj, exporter)
+                await mangaplus_obj.download_mplus_chap()
                 return
             raise MDownloaderError("Chapter external to MangaDex, unable to download. Skipping...")
 
         # Check if the chapter has been downloaded already
         exists = self.check_exist(at_home_data.data, exporter)
-        self._before_download(exists, exporter)
+        await self._before_download(exists, exporter)
 
         with tqdm(
             self._pages(chapter=chapter_data, at_home_data=at_home_data, data_saver=data_saver, ssl=ssl),
@@ -214,4 +214,4 @@ class ImageDownloader:
                 exporter.add_image(response=page_data, page_no=_image_index, ext=_ext, orig_name=page_name)
 
         downloaded_all = self.check_exist(at_home_data.data, exporter)
-        self._after_download(downloaded_all, exporter)
+        await self._after_download(downloaded_all, exporter)

@@ -1,12 +1,8 @@
 #!/usr/bin/python3
 import dataclasses
 from copy import copy
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-
-# import math
-# from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
 import hondana
@@ -91,21 +87,21 @@ async def manga_download(
     else:
         manga_data = hondana.Manga(args._hondana_client._http, manga_cache_obj.cache.data.copy())
 
-    image_downloader_obj = ImageDownloader(args, manga_data=manga_data)
     manga_args_obj.cache = manga_cache_obj
     manga_args_obj.data = manga_data
+    image_downloader_obj = ImageDownloader(args, manga_args_obj=manga_args_obj)
     # Initalise json classes and make series folders
     title_json_obj = TitleJson(args, manga_args_obj, image_downloader_obj)
     image_downloader_obj.json_exporter = title_json_obj
 
     manga_args_obj = dataclasses.replace(manga_args_obj, **{"cache": manga_cache_obj, "json_obj": title_json_obj})
+    image_downloader_obj._manga_args_obj = manga_args_obj
+    filtering_obj = Filtering()
 
     if download_type == "manga":
         json_chapters_ids = title_json_obj.downloaded_ids
 
         if refresh_cache or not bool(manga_cache_obj.cache.chapters):
-            filtering_obj = Filtering()
-
             feed_response = await manga_data.feed(
                 limit=None,
                 translated_language=[args.language],
@@ -136,6 +132,8 @@ async def manga_download(
         json_chapters_ids = bulk_json_obj.downloaded_ids
         download_type = f"{download_type}-manga"
 
+    chapters_to_download = []
+
     chapters_to_download = [
         MDArgs(id=x.id, type="chapter", data=x, json_obj=title_json_obj if download_type == "manga" else bulk_json_obj)
         for x in chapters
@@ -156,10 +154,10 @@ async def manga_download(
     # md_model.misc.download_message(1, download_type, title)
 
     # Save the json and covers if selected
-    title_json_obj.core(1)
+    await title_json_obj.core(1)
 
 
-# def bulk_download(md_model) -> None:
+# async def bulk_download(md_model) -> None:
 #     """Download group, user and list chapters."""
 #     download_type = md_model.download_type
 
@@ -248,10 +246,10 @@ async def manga_download(
 #     md_model.misc.download_message(1, download_type, md_model.name)
 
 #     # Save the json
-#     bulk_json.core(1)
+#     await bulk_json.core(1)
 
 
-# def follows_download(md_model) -> None:
+# async def follows_download(md_model) -> None:
 #     """Download logged in user follows."""
 #     if not md_model.auth.successful_login:
 #         raise NotLoggedInError('You need to be logged in to download your follows.')
@@ -296,13 +294,14 @@ async def chapter_download(args: ProcessArgs, chapter_args_obj: MDArgs) -> None:
         manga_cache_obj.update_cache_obj()
 
     manga_cache_obj.save_cache(cache_time=datetime.now(), data=chapter_response.manga)
+    manga_args_obj = MDArgs(id=manga_id, type="manga", data=chapter_response.manga, cache=manga_cache_obj)
 
     name = f"{chapter_response.manga.title}: Chapter {chapter_response.chapter}"
 
     # md_model.misc.download_message(0, download_type, name)
 
     chapter_args_obj = dataclasses.replace(chapter_args_obj, **{"data": chapter_response, "cache": chapter_cache_obj})
-    image_downloader_obj = ImageDownloader(args, chapter_response.manga)
+    image_downloader_obj = ImageDownloader(args, manga_args_obj)
     await image_downloader_obj.chapter_downloader(chapter_args_obj)
 
     # md_model.misc.download_message(1, download_type, name)

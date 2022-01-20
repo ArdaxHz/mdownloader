@@ -28,11 +28,11 @@ class MDParser:
             await chapter_download(self.args, to_download)
         elif to_download.type in ("title", "manga"):
             await manga_download(self.args, to_download)
-        elif to_download.type in ("group", "user", "list"):
-            bulk_download(to_download)
+        # elif to_download.type in ("group", "user", "list"):
+        #     bulk_download(to_download)
         # elif to_download.type in ('follows', 'feed'):
         #     md_model.type_id = 3
-            follows_download(to_download)
+        #     follows_download(to_download)
         else:
             raise MDownloaderError(
                 'Please enter a manga/chapter/group/user/list id. For non-chapter downloads, you must add the argument "--type [manga|user|group|list]".'

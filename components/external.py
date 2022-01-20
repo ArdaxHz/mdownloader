@@ -27,9 +27,9 @@ class ExternalBase:
         self._exporter = exporter
         self._extension = "jpg"
 
-    def download_chapter(self, pages: list, download_site: str) -> None:
+    async def download_chapter(self, pages: list, download_site: str) -> None:
         exists = self._image_downloader_obj.check_exist(pages)
-        self._image_downloader_obj.before_download(exists)
+        await self._image_downloader_obj.before_download(exists)
 
         # Decrypt then save each image
         for page in tqdm(pages, desc=(str(datetime.now(tz=None))[:-7])):
@@ -39,7 +39,7 @@ class ExternalBase:
             self._exporter.add_image(response=image, page_no=page_no, ext=self._extension, orig_name=None)
 
         downloaded_all = self._image_downloader_obj.check_exist(pages)
-        self._image_downloader_obj.after_download(downloaded_all)
+        await self._image_downloader_obj.after_download(downloaded_all)
 
 
 class MangaPlus(ExternalBase):
@@ -85,10 +85,10 @@ class MangaPlus(ExternalBase):
             data[s] ^= key[s % a]
         return data
 
-    def download_mplus_chap(self) -> None:
+    async def download_mplus_chap(self) -> None:
         """Get the images from the MangaPlus api."""
         response = requests.get(self.api_url)
         # if self.md_model.debug: print(response.url)
         viewer = Response.FromString(response.content).success.manga_viewer
         pages = [p.manga_page for p in viewer.pages if p.manga_page.image_url]
-        self.download_chapter(pages, "mangaplus")
+        await self.download_chapter(pages, "mangaplus")
