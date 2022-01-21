@@ -22,24 +22,24 @@ if TYPE_CHECKING:
 
 
 class JsonBase:
-    def __init__(self, args: ProcessArgs, manga_args_obj: MDArgs, img_dl_obj: Optional["ImageDownloader"] = None) -> None:
+    def __init__(self, args: ProcessArgs, args_obj: MDArgs, img_dl_obj: Optional["ImageDownloader"] = None) -> None:
         self._args = args
-        self._manga_args_obj = manga_args_obj
+        self._args_obj = args_obj
         self._img_dl_obj = img_dl_obj
         self.domain = ImpVar.MANGADEX_URL
         self.api_url = ImpVar.MANGADEX_API_URL
         self.new_data = {}
 
-        data = self._manga_args_obj.data
-        if self._manga_args_obj.type == "manga":
+        data = self._args_obj.data
+        if self._args_obj.type == "manga":
             file_prefix = ""
             self._route = self._img_dl_obj._download_route
         else:
-            file_prefix = f"{self._manga_args_obj.type}_"
+            file_prefix = f"{self._args_obj.type}_"
             self._route = self._args.directory
 
         self._route.mkdir(parents=True, exist_ok=True)
-        self.json_path = self._route.joinpath(f"{file_prefix}{self._manga_args_obj.id}_data").with_suffix(".json")
+        self.json_path = self._route.joinpath(f"{file_prefix}{self._args_obj.id}_data").with_suffix(".json")
 
         self.data_json = self._check_json_exist()
         self.downloaded_ids = self._get_downloaded_chapters()
@@ -100,7 +100,7 @@ class JsonBase:
                 if chapter["at-home"]["hash"] == chapter_data["at-home"]["hash"]:
                     self.chapters[self.chapters.index(chapter)] = self._add_exporter_type(chapter)
                 else:
-                    self.add_chapter_data(chapter_id, chapter_data)
+                    self._add_chapter_data(chapter_id, chapter_data)
 
     def remove_chapter(self, chapter_data: dict) -> None:
         """Remove the chapter data from the data json."""
@@ -128,7 +128,7 @@ class JsonBase:
 
 
 class TitleJson(JsonBase):
-    def __init__(self, args: ProcessArgs, manga_args_obj: MDArgs, img_dl_obj: "ImageDownloader") -> None:
+    def __init__(self, args: ProcessArgs, manga_args_obj: MDArgs, img_dl_obj: Optional["ImageDownloader"] = None) -> None:
         super().__init__(args, manga_args_obj, img_dl_obj)
         self._regex = re.compile(ImpVar.CHARA_REGEX)
         self._cover_route = self._route.joinpath("!covers")
@@ -138,7 +138,7 @@ class TitleJson(JsonBase):
 
     def _format_links(self) -> dict:
         """Formats the manga's external links by name and url."""
-        _links = self._manga_args_obj.data.links
+        _links = self._args_obj.data.links
         if _links is None:
             return {}
 
@@ -213,18 +213,18 @@ class TitleJson(JsonBase):
 
     async def _get_covers(self) -> List[hondana.Cover]:
         """Fetches a dict of the manga's covers."""
-        refresh_cache = self._manga_args_obj.cache.check_cache_time()
+        refresh_cache = self._args_obj.cache.check_cache_time()
 
-        if refresh_cache or not bool(self._manga_args_obj.cache.cache.covers):
-            cover_response = await self._args._hondana_client.cover_art_list(limit=None, manga=[self._manga_args_obj.id])
-            self._manga_args_obj.cache.save_cache(covers=copy(cover_response))
+        if refresh_cache or not bool(self._args_obj.cache.cache.covers):
+            cover_response = await self._args._hondana_client.cover_art_list(limit=None, manga=[self._args_obj.id])
+            self._args_obj.cache.save_cache(covers=copy(cover_response))
             covers = cover_response.covers
         else:
-            covers = [hondana.Cover(self._args._hondana_client._http, c) for c in self._manga_args_obj.cache.cache.covers]
+            covers = [hondana.Cover(self._args._hondana_client._http, c) for c in self._args_obj.cache.cache.covers]
 
         return covers
 
-    def _format_socials(self) -> dict:
+    async def _format_socials(self) -> dict:
         """The social data of the manga."""
         json_social = {"views": self.data["views"]}
         json_social["follows"] = self.data["follows"]
@@ -234,9 +234,9 @@ class TitleJson(JsonBase):
 
     def _title(self) -> dict:
         """General manga information."""
-        json_title = {"id": self._manga_args_obj.data.id}
-        json_title["url"] = self._manga_args_obj.data.url
-        json_title["attributes"] = self._manga_args_obj.data._attributes
+        json_title = {"id": self._args_obj.data.id}
+        json_title["url"] = self._args_obj.data.url
+        json_title["attributes"] = self._args_obj.data._attributes
         # json_title["social"] = self.social
         return json_title
 
@@ -261,15 +261,15 @@ class TitleJson(JsonBase):
 
 
 class BulkJson(JsonBase):
-    def __init__(self, md_model) -> None:
-        super().__init__(md_model)
+    def __init__(self, args: ProcessArgs, bulk_args_obj: MDArgs, img_dl_obj: Optional["ImageDownloader"] = None) -> None:
+        super().__init__(args, bulk_args_obj, img_dl_obj)
         self.bulk_data = self._format_bulk_data()
 
-    async def _format_bulk_data(self) -> dict:
+    def _format_bulk_data(self) -> dict:
         """Get the download type's data and name."""
-        json_account = {"id": self.id}
-        json_account["link"] = f"{self.domain}/{self.type}/{self.id}"
-        json_account["attributes"] = self.data
+        json_account = {"id": self._args_obj.id}
+        json_account["link"] = f"{self.domain}/{self._args_obj.type}/{self._args_obj.id}"
+        json_account["attributes"] = self._args_obj.cache.cache.data
         return json_account
 
     async def core(self, save_type: int = 0) -> None:

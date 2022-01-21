@@ -4,7 +4,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
 
 import hondana
 
@@ -25,7 +25,7 @@ class MDArgs:
     data: Optional[
         Union[hondana.Manga, hondana.Chapter, hondana.ScanlatorGroup, hondana.User, hondana.CustomList]
     ] = dataclasses.field(default=None)
-    chapters: Optional[hondana.ChapterFeed] = dataclasses.field(default=None)
+    chapters: Optional[List[hondana.Chapter]] = dataclasses.field(default=None)
     cache: Optional["CacheRead"] = dataclasses.field(default=None)
     json_obj: Optional[Union["TitleJson", "BulkJson"]] = dataclasses.field(default=None)
 

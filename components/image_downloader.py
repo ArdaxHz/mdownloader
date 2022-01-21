@@ -71,10 +71,10 @@ class ImageDownloader:
 
     async def _save_json(self) -> None:
         """Save the chapter data to the data json and save the json."""
-        if self.json_exporter._manga_args_obj.type in ("manga",):
+        if self.json_exporter._args_obj.type in ("manga",):
             await self.json_exporter.core()
 
-        if self.json_exporter._manga_args_obj.type in ("group", "user"):
+        if self.json_exporter._args_obj.type in ("group", "user"):
             await self.json_exporter.core()
 
     async def _before_download(self, exists: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:

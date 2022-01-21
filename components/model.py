@@ -19,7 +19,6 @@ from .errors import MDownloaderError, MDRequestError, NoChaptersError
 from .languages import get_lang_md
 
 
-
 class MDownloaderMisc:
     def download_message(self, status: bool, download_type: str, name: str) -> None:
         """Print the download message.
@@ -34,9 +33,6 @@ class MDownloaderMisc:
             message = f"Finished {message}"
 
         print(f'{"-"*69}\n{message} {download_type.title()}: {name}\n{"-"*69}')
-
-
-
 
 
 class MDownloader:

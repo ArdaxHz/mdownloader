@@ -24,7 +24,6 @@ def check_for_update(args) -> None:
     Args:
         args (argparse.ArgumentParser.parse_args): Command line arguments to parse.
     """
-    root_path = Path(".")
     excluded = ["components", ".env.example"]
     components_path = Path("components")
     vargs = vars(args)
@@ -88,8 +87,6 @@ def check_for_update(args) -> None:
             local_version = int(__version__.replace(".", ""))
             remote_version = int(remote_number.replace(".", ""))
 
-            remote_components = [f["name"] for f in components_data]
-
             if remote_version > local_version:
                 download_update = input(
                     f"Looks like update {remote_number} is available, do you want to download?\nThe update will remove the unnecessary files from the components folder, backup any changes made if needed.\n'y' or 'n' "
@@ -128,10 +125,11 @@ def check_for_update(args) -> None:
 
     try:
         asyncio.run(MDParser(vargs).main())
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt,):
         pass
-        # asyncio.get_running_loop().stop()
-        # asyncio.get_running_loop().close()
+        # tasks = asyncio.tasks.all_tasks()
+        # for task in tasks:
+        #     task.cancel()
 
 
 if __name__ == "__main__":

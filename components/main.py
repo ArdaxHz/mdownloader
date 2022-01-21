@@ -7,7 +7,7 @@ import hondana
 
 from .args import MDArgs, ProcessArgs
 from .constants import ImpVar
-from .downloader import chapter_download, MangaDownloader
+from .downloader import BulkDownloader, MangaDownloader, chapter_download
 from .errors import MDownloaderError
 
 
@@ -29,8 +29,10 @@ class MDParser:
             await chapter_download(self.args, to_download)
         elif to_download.type in ("title", "manga"):
             await MangaDownloader(self.args, to_download).manga_download()
-        # elif to_download.type in ("group", "user", "list"):
-        #     bulk_download(to_download)
+        elif to_download.type in ("group", "user", "list"):
+            bulk_args_obj = BulkDownloader(self.args, to_download)
+            if to_download.type == "group":
+                await bulk_args_obj.group_download()
         # elif to_download.type in ('follows', 'feed'):
         #     md_model.type_id = 3
         #     follows_download(to_download)
@@ -91,7 +93,5 @@ class MDParser:
                 await self._file_downloader(args_obj)
             else:
                 await self._download_type(args_obj)
-        except KeyboardInterrupt:
-            asyncio.get_running_loop().stop()
-            asyncio.get_running_loop().close()
+        except (KeyboardInterrupt,):
             await self.args._hondana_client.close()
