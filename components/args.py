@@ -1,5 +1,7 @@
 import dataclasses
 import getpass
+import json
+import os
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Optional, Tuple, Union
@@ -28,10 +30,85 @@ class MDArgs:
     json_obj: Optional[Union["TitleJson", "BulkJson"]] = dataclasses.field(default=None)
 
 
+class AuthMD:
+    def __init__(self, args: "ProcessArgs"):
+        self._args = args
+        self.first_login = True
+        self.successful_login = False
+        self.token = None
+        self.refresh_token = None
+        self.token_file = Path(".mdauth")
+
+    def _open_auth_file(self) -> Optional[str]:
+        try:
+            with open(self.token_file, "r") as login_file:
+                token = json.load(login_file)
+            return token
+        except (FileNotFoundError, json.JSONDecodeError):
+            # logging.error(
+            #     "Couldn't find the file, trying to login using your account details."
+            # )
+            return None
+
+    def _save_session(self, token: dict):
+        """Save the session and refresh tokens."""
+        with open(self.token_file, "w") as login_file:
+            login_file.write(json.dumps(token, indent=4))
+        # logging.debug("Saved .mdauth file.")
+
+    async def _login(self) -> bool:
+        username = input("Your username: ")
+        password = getpass.getpass(prompt="Your password: ", stream=None)
+        self._args._hondana_client.login(username=username, password=password)
+
+        try:
+            await self._args._hondana_client.static_login()
+        except hondana.APIException:
+            return False
+        else:
+            self.token = self._args._hondana_client._http._token
+            self.refresh_token = self._args._hondana_client._http.__refresh_token
+            return True
+
+    async def login(self, check_login=True):
+        """Login to MD account using details or saved token."""
+
+        if not check_login and self.successful_login:
+            # logging.info("Already logged in, not checking for login.")
+            return
+
+        # logging.info("Trying to login through the .mdauth file.")
+
+        if self.token is None or self.refresh_token is None:
+            token = self._open_auth_file()
+            if token is not None:
+                self.token = token["session"]
+                self.refresh_token = token["refresh"]
+
+                self._args._hondana_client._http.__refresh_token = self.refresh_token
+                try:
+                    self.token = await self._args._hondana_client._http._refresh_token()
+                except hondana.APIException:
+                    logged_in = False
+                else:
+                    logged_in = True
+            else:
+                logged_in = await self._login()
+        else:
+            logged_in = await self._login()
+
+        if logged_in:
+            self.successful_login = True
+        else:
+            self.successful_login = False
+            print("Couldn't login.")
+
+
 class ProcessArgs:
     def __init__(self, unparsed_arguments, hondana_client: hondana.Client) -> None:
         self._hondana_client = hondana_client
         self._unparsed_arguments = unparsed_arguments
+        self._login_obj = AuthMD(self)
         self._arg_id = unparsed_arguments["id"]
         self._arg_type = unparsed_arguments["type"]
         self.args: Optional[MDArgs] = None
@@ -108,11 +185,6 @@ class ProcessArgs:
             raise MDownloaderError("The id argument entered is not recognised.")
         return to_return_id, to_return_type
 
-    async def _login(self):
-        username = input("Your username: ")
-        password = getpass.getpass(prompt="Your password: ", stream=None)
-        await self._hondana_client.login(username=username, password=password)
-
     def _check_archive_extension(self, archive_extension: str) -> str:
         """Check if the file extension is an accepted format. Default: cbz.
 
@@ -142,7 +214,7 @@ class ProcessArgs:
 
     async def process_args(self, download_id: str = None, _download_type: str = None) -> MDArgs:
         if self._unparsed_arguments["login"]:
-            await self._login()
+            await self._login_obj.login()
 
         if _download_type is None:
             _download_type = self._arg_type

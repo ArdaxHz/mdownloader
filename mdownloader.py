@@ -126,7 +126,12 @@ def check_for_update(args) -> None:
         if len(announcement_message) > 0:
             print(announcement_message.capitalize())
 
-    asyncio.run(MDParser(vargs).main())
+    try:
+        asyncio.run(MDParser(vargs).main())
+    except KeyboardInterrupt:
+        pass
+        # asyncio.get_running_loop().stop()
+        # asyncio.get_running_loop().close()
 
 
 if __name__ == "__main__":

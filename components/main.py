@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import asyncio
 from pathlib import Path
 from typing import Dict, Union
 
@@ -6,7 +7,7 @@ import hondana
 
 from .args import MDArgs, ProcessArgs
 from .constants import ImpVar
-from .downloader import chapter_download, manga_download
+from .downloader import chapter_download, MangaDownloader
 from .errors import MDownloaderError
 
 
@@ -27,7 +28,7 @@ class MDParser:
         if to_download.type == "chapter":
             await chapter_download(self.args, to_download)
         elif to_download.type in ("title", "manga"):
-            await manga_download(self.args, to_download)
+            await MangaDownloader(self.args, to_download).manga_download()
         # elif to_download.type in ("group", "user", "list"):
         #     bulk_download(to_download)
         # elif to_download.type in ('follows', 'feed'):
@@ -85,7 +86,12 @@ class MDParser:
     async def main(self):
         args_obj = await self.args.process_args(self.args._arg_id, self.args._arg_type)
 
-        if isinstance(args_obj.id, Path):
-            await self._file_downloader(args_obj)
-        else:
-            await self._download_type(args_obj)
+        try:
+            if isinstance(args_obj.id, Path):
+                await self._file_downloader(args_obj)
+            else:
+                await self._download_type(args_obj)
+        except KeyboardInterrupt:
+            asyncio.get_running_loop().stop()
+            asyncio.get_running_loop().close()
+            await self.args._hondana_client.close()
