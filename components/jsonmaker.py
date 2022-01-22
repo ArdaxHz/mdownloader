@@ -1,15 +1,11 @@
 #!/usr/bin/python3
-import asyncio
 import json
 import os
 import re
 from copy import copy
-from datetime import datetime
-from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 from urllib.parse import quote
 
-import aiohttp
 import hondana
 import requests
 
@@ -41,12 +37,12 @@ class JsonBase:
         self._route.mkdir(parents=True, exist_ok=True)
         self.json_path = self._route.joinpath(f"{file_prefix}{self._args_obj.id}_data").with_suffix(".json")
 
-        self.data_json = self._check_json_exist()
-        self.downloaded_ids = self._get_downloaded_chapters()
+        self.data_json = self._check_json_exist() if not self._args.force_refresh else {}
+        self.chapters = self.data_json.get("chapters", []) if not self._args.force_refresh else []
+        self.downloaded_ids = self._get_downloaded_chapters() if not self._args.force_refresh else []
 
     def _get_downloaded_chapters(self) -> List[str]:
         downloaded_ids = []
-        self.chapters = self.data_json.get("chapters", [])
         self.json_ids = [c["id"] for c in self.chapters] if self.chapters else []
         self.chapters_archive = (
             [c["id"] for c in self.chapters if "chapters_archive" in c and c["chapters_archive"]] if self.chapters else []
@@ -112,6 +108,15 @@ class JsonBase:
         for chapter in chapter_data_json:
             self.chapters.remove(chapter)
 
+    def _format_data(self) -> Dict[str, str]:
+        data_json = {"id": self._args_obj.data.id}
+        try:
+            data_json["url"] = self._args_obj.data.url
+        except AttributeError:
+            data_json["url"] = f"{self.domain}/{self._args_obj.type}/{self._args_obj.id}"
+        data_json["attributes"] = self._args_obj.data._attributes
+        return data_json
+
     def _save_json(self) -> None:
         """Save the json."""
         with open(self.json_path, "w", encoding="utf8") as json_file:
@@ -134,7 +139,7 @@ class TitleJson(JsonBase):
         self._cover_route = self._route.joinpath("!covers")
         self._links = self._format_links()
         self._covers: Optional[List[hondana.Cover]] = None
-        self._title_json = self._title()
+        self._title_json = self._format_data()
 
     def _format_links(self) -> dict:
         """Formats the manga's external links by name and url."""
@@ -232,14 +237,6 @@ class TitleJson(JsonBase):
         json_social["rating"] = self.data["rating"]
         return json_social
 
-    def _title(self) -> dict:
-        """General manga information."""
-        json_title = {"id": self._args_obj.data.id}
-        json_title["url"] = self._args_obj.data.url
-        json_title["attributes"] = self._args_obj.data._attributes
-        # json_title["social"] = self.social
-        return json_title
-
     async def core(self, save_type: int = 0) -> None:
         """Format the json for exporting.
 
@@ -263,14 +260,7 @@ class TitleJson(JsonBase):
 class BulkJson(JsonBase):
     def __init__(self, args: ProcessArgs, bulk_args_obj: MDArgs, img_dl_obj: Optional["ImageDownloader"] = None) -> None:
         super().__init__(args, bulk_args_obj, img_dl_obj)
-        self.bulk_data = self._format_bulk_data()
-
-    def _format_bulk_data(self) -> dict:
-        """Get the download type's data and name."""
-        json_account = {"id": self._args_obj.id}
-        json_account["link"] = f"{self.domain}/{self._args_obj.type}/{self._args_obj.id}"
-        json_account["attributes"] = self._args_obj.cache.cache.data
-        return json_account
+        self.bulk_data = self._format_data()
 
     async def core(self, save_type: int = 0) -> None:
         """Format the json for exporting.

@@ -1,3 +1,4 @@
+from copy import copy
 import multiprocessing
 import os
 import re
@@ -34,6 +35,91 @@ class DownloadedFilesRenamer:
             [title_dict[key] for title_dict in alt_titles for key in title_dict if title_dict[key] != self.main_manga_title]
         )
         return manga_titles
+
+    def check_downloaded_files(self):
+        """Check if folders using other manga titles exist."""
+        main_title: str = copy(self.main_manga_title)
+        available_titles = [
+            self._image_downloader_obj._strip_illegal_characters(x)
+            for x in self.alt_titles
+            if self._image_downloader_obj._strip_illegal_characters(x)
+            in [
+                route
+                for route in os.listdir(self._downloads_route)
+                if os.path.isdir(os.path.join(self._downloads_route, route))
+            ]
+        ]
+        if not available_titles:
+            return
+
+        if main_title in available_titles:
+            for title in reversed(available_titles):
+                if title == main_title:
+                    available_titles.remove(title)
+
+            if not available_titles:
+                return
+
+        print(f"Renaming files and folders with {main_title}'s other titles.")
+
+        processes = []
+        for title in available_titles:
+            process = multiprocessing.Process(target=self._title_rename, args=(main_title, title))
+            process.start()
+            processes.append(process)
+
+        for process in processes:
+            process.join()
+
+        print(f"Finished renaming all the old titles.")
+
+    def _title_rename(self, new_title: str, title: str):
+        """Go through the files and folders in the directory and rename to use the new title."""
+        from .jsonmaker import TitleJson
+
+        new_title_path = self._image_downloader_obj._download_route
+        new_title_path.mkdir(parents=True, exist_ok=True)
+        old_title_path = self._image_downloader_obj._args.directory.joinpath(title)
+        old_title_files = os.listdir(old_title_path)
+        new_title_route = self._image_downloader_obj._download_route
+
+        archive_downloads = [route for route in old_title_files if os.path.isfile(old_title_path.joinpath(route))]
+        folder_downloads = [route for route in old_title_files if os.path.isdir(old_title_path.joinpath(route))]
+        archive_downloads.reverse()
+        folder_downloads.reverse()
+
+        process = multiprocessing.Process(
+            target=self._renaming_process,
+            args=(new_title, new_title_path, old_title_path, archive_downloads, folder_downloads),
+        )
+        process.start()
+        process.join()
+
+        old_title_json = TitleJson(self._image_downloader_obj._args, self._manga_args_obj, self._image_downloader_obj)
+        new_title_json = TitleJson(self._image_downloader_obj._args, self._manga_args_obj, self._image_downloader_obj)
+
+        for chapter in old_title_json.chapters:
+            new_title_json.add_chapter(chapter)
+
+        new_title_json.core()
+        old_cover_route = old_title_json._cover_route
+        new_cover_route = new_title_json._cover_route
+        old_cover_route.mkdir(parents=True, exist_ok=True)
+        new_cover_route.mkdir(parents=True, exist_ok=True)
+
+        for cover in os.listdir(old_cover_route):
+            old_cover_path = old_title_json._cover_route.joinpath(cover)
+            if cover not in os.listdir(new_cover_route):
+                new_cover_path = new_title_json._cover_route.joinpath(cover)
+                old_cover_path.rename(new_cover_path)
+            else:
+                old_cover_path.unlink()
+
+        old_title_json._cover_route.rmdir()
+        old_title_json.json_path.unlink()
+        del old_title_json
+        del new_title_json
+        old_title_path.rmdir()
 
     def _renaming_process(self, new_title, new_title_path, old_title_path, archive_downloads, folder_downloads):
         pool = multiprocessing.Pool()
@@ -103,87 +189,3 @@ class DownloadedFilesRenamer:
 
         # Delete old folder after moving
         old_folder_path.rmdir()
-
-    def _title_rename(self, new_title: str, title: str):
-        """Go through the files and folders in the directory and rename to use the new title."""
-        from .jsonmaker import TitleJson
-
-        new_title_path = self._image_downloader_obj._download_route
-        new_title_path.mkdir(parents=True, exist_ok=True)
-        old_title_path = self._image_downloader_obj._args.directory.joinpath(title)
-        old_title_files = os.listdir(old_title_path)
-        new_title_route = self._image_downloader_obj._download_route
-
-        archive_downloads = [route for route in old_title_files if os.path.isfile(old_title_path.joinpath(route))]
-        folder_downloads = [route for route in old_title_files if os.path.isdir(old_title_path.joinpath(route))]
-        archive_downloads.reverse()
-        folder_downloads.reverse()
-
-        process = multiprocessing.Process(
-            target=self._renaming_process,
-            args=(new_title, new_title_path, old_title_path, archive_downloads, folder_downloads),
-        )
-        process.start()
-        process.join()
-
-        old_title_json = TitleJson(self._image_downloader_obj._args, self._manga_args_obj, self._image_downloader_obj)
-        new_title_json = TitleJson(self._image_downloader_obj._args, self._manga_args_obj, self._image_downloader_obj)
-
-        for chapter in old_title_json.chapters:
-            new_title_json.add_chapter(chapter)
-
-        new_title_json.core()
-        old_cover_route = old_title_json._cover_route
-        new_cover_route = new_title_json._cover_route
-        old_cover_route.mkdir(parents=True, exist_ok=True)
-        new_cover_route.mkdir(parents=True, exist_ok=True)
-
-        for cover in os.listdir(old_cover_route):
-            old_cover_path = old_title_json._cover_route.joinpath(cover)
-            if cover not in os.listdir(new_cover_route):
-                new_cover_path = new_title_json._cover_route.joinpath(cover)
-                old_cover_path.rename(new_cover_path)
-            else:
-                old_cover_path.unlink()
-
-        old_title_json._cover_route.rmdir()
-        old_title_json.json_path.unlink()
-        del old_title_json
-        del new_title_json
-        old_title_path.rmdir()
-
-    def check_downloaded_files(self):
-        """Check if folders using other manga titles exist."""
-        available_titles = [
-            self._image_downloader_obj._strip_illegal_characters(x)
-            for x in self.alt_titles
-            if self._image_downloader_obj._strip_illegal_characters(x)
-            in [
-                route
-                for route in os.listdir(self._downloads_route)
-                if os.path.isdir(os.path.join(self._downloads_route, route))
-            ]
-        ]
-        if not available_titles:
-            return
-
-        if self.main_manga_title in available_titles:
-            for title in reversed(available_titles):
-                if title == self.main_manga_title:
-                    available_titles.remove(title)
-
-            if not available_titles:
-                return
-
-        print(f"Renaming files and folders with {self.main_manga_title}'s other titles.")
-
-        processes = []
-        for title in available_titles:
-            process = multiprocessing.Process(target=self._title_rename, args=(self.main_manga_title, title))
-            process.start()
-            processes.append(process)
-
-        for process in processes:
-            process.join()
-
-        print(f"Finished renaming all the old titles.")

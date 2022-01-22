@@ -57,9 +57,10 @@ async def download_chapters(
     """
     for chapter in chapters_to_download:
 
-        if image_downloader_obj is None:
+        if args_obj.type != "manga":
             manga_args_obj = sorted_chapters_to_download[chapter.data.manga_id]["manga_args_obj"]
             image_downloader_obj = ImageDownloader(args, manga_args_obj)
+            image_downloader_obj.json_exporter = args_obj.json_obj
 
         try:
             await image_downloader_obj.chapter_downloader(chapter)
@@ -329,39 +330,30 @@ class BulkDownloader:
         manga_args_obj.data = manga_data
         return manga_args_obj
 
-    async def _sort_by_manga(
-        self, chapters: List[hondana.Chapter]
-    ) -> Dict[str, Dict[str, Union[MDArgs, List[hondana.Chapter]]]]:
+    async def _sort_by_manga(self, chapters: List[hondana.Chapter]):
         titles = {}
         for chapter in chapters:
             manga_id = chapter.manga_id
-            manga_args_obj = MDArgs(id=manga_id, type="manga")
-            if self._args.download_in_order:
-                await self.get_manga_data(manga_args_obj)
 
             if manga_id in titles:
                 titles[manga_id]["chapters"].append(chapter)
             else:
-                titles[manga_id] = {"manga_args_obj": manga_args_obj, "chapters": [chapter]}
+                manga_args_obj = MDArgs(id=manga_id, type="manga")
+                if self._args.download_in_order:
+                    await self.get_manga_data(manga_args_obj)
+
+                titles[manga_id] = {
+                    "manga_args_obj": manga_args_obj,
+                    "chapters": [chapter],
+                }
         return titles
 
     async def bulk_downlading(self, chapters: List[hondana.Chapter]):
         bulk_json_obj = BulkJson(self._args, self.bulk_args_obj)
+        self.bulk_args_obj.json_obj = bulk_json_obj
         sorted_chapters_to_download = await self._sort_by_manga(chapters)
 
-        if not self._args.download_in_order:
-
-            for manga_id in sorted_chapters_to_download:
-                manga_args_obj = sorted_chapters_to_download[manga_id]["manga_args_obj"]
-                manga_args_obj.chapters = sorted_chapters_to_download[manga_id]["chapters"]
-                manga_dl_obj = MangaDownloader(
-                    self._args,
-                    manga_args_obj,
-                    chapters=sorted_chapters_to_download[manga_id]["chapters"],
-                    bulk_json_obj=bulk_json_obj,
-                )
-                await manga_dl_obj.manga_download()
-        else:
+        if self._args.download_in_order:
             chapters_to_download = [
                 MDArgs(id=x.id, type="chapter", data=x, json_obj=bulk_json_obj)
                 for x in chapters
@@ -374,6 +366,17 @@ class BulkDownloader:
                 chapters_to_download=chapters_to_download,
                 sorted_chapters_to_download=sorted_chapters_to_download,
             )
+        else:
+            for manga_id in sorted_chapters_to_download:
+                manga_args_obj = sorted_chapters_to_download[manga_id]["manga_args_obj"]
+                manga_args_obj.chapters = sorted_chapters_to_download[manga_id]["chapters"]
+                manga_dl_obj = MangaDownloader(
+                    self._args,
+                    manga_args_obj,
+                    chapters=sorted_chapters_to_download[manga_id]["chapters"],
+                    bulk_json_obj=bulk_json_obj,
+                )
+                await manga_dl_obj.manga_download()
 
     async def group_download(self):
         group_id = self.bulk_args_obj.id
@@ -405,9 +408,7 @@ class BulkDownloader:
                     hondana.ContentRating.erotica,
                     hondana.ContentRating.pornographic,
                 ],
-                order=hondana.query.FeedOrderQuery(
-                    volume=hondana.query.Order.descending, chapter=hondana.query.Order.descending
-                ),
+                order=hondana.query.FeedOrderQuery(created_at=hondana.query.Order.descending),
             )
             group_cache_obj.save_cache(cache_time=datetime.now(), chapters=copy(feed_response))
             chapters = feed_response.chapters

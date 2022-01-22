@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+from copy import copy
 import dataclasses
 import html
 import os
@@ -37,7 +38,7 @@ class ImageDownloader:
 
         self.json_exporter: Optional[Union["TitleJson", "BulkJson"]] = None
         if self._args.rename_files:
-            renamer_obj = DownloadedFilesRenamer(self, self._manga_args_obj)
+            renamer_obj = DownloadedFilesRenamer(copy(self), copy(self._manga_args_obj))
             renamer_obj.check_downloaded_files()
 
     def _strip_illegal_characters(self, name: str) -> str:
