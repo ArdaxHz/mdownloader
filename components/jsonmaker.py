@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 import json
+import multiprocessing
 import os
+from pathlib import Path
 import re
 from copy import copy
 from typing import TYPE_CHECKING, Dict, List, Optional
@@ -18,10 +20,18 @@ if TYPE_CHECKING:
 
 
 class JsonBase:
-    def __init__(self, args: ProcessArgs, args_obj: MDArgs, img_dl_obj: Optional["ImageDownloader"] = None) -> None:
+    def __init__(
+        self,
+        *,
+        args: ProcessArgs,
+        args_obj: MDArgs,
+        img_dl_obj: Optional["ImageDownloader"] = None,
+        json_path: Optional[Path] = None,
+    ) -> None:
         self._args = args
         self._args_obj = args_obj
         self._img_dl_obj = img_dl_obj
+        self.__json_path = json_path
         self.domain = ImpVar.MANGADEX_URL
         self.api_url = ImpVar.MANGADEX_API_URL
         self.new_data = {}
@@ -35,11 +45,18 @@ class JsonBase:
             self._route = self._args.directory
 
         self._route.mkdir(parents=True, exist_ok=True)
-        self.json_path = self._route.joinpath(f"{file_prefix}{self._args_obj.id}_data").with_suffix(".json")
+        self.json_path = (
+            self._route.joinpath(f"{file_prefix}{self._args_obj.id}_data").with_suffix(".json")
+            if self.__json_path is None
+            else self.__json_path
+        )
 
         self.data_json = self._check_json_exist() if not self._args.force_refresh else {}
-        self.chapters = self.data_json.get("chapters", []) if not self._args.force_refresh else []
+        self.chapters: List[dict] = self.data_json.get("chapters", []) if not self._args.force_refresh else []
         self.downloaded_ids = self._get_downloaded_chapters() if not self._args.force_refresh else []
+
+        if self.__json_path is None:
+            self._check_other_files()
 
     def _get_downloaded_chapters(self) -> List[str]:
         downloaded_ids = []
@@ -93,7 +110,7 @@ class JsonBase:
 
             # Update the chapter data if it exists
             for chapter in chapter_data_json:
-                if chapter["at-home"]["hash"] == chapter_data["at-home"]["hash"]:
+                if chapter["at-home"]["chapter"]["hash"] == chapter_data["at-home"]["chapter"]["hash"]:
                     self.chapters[self.chapters.index(chapter)] = self._add_exporter_type(chapter)
                 else:
                     self._add_chapter_data(chapter_id, chapter_data)
@@ -117,12 +134,33 @@ class JsonBase:
         data_json["attributes"] = self._args_obj.data._attributes
         return data_json
 
+    def _add_from_other_files(self, f: Path):
+        json_obj = JsonBase(args=self._args, args_obj=self._args_obj, img_dl_obj=self._img_dl_obj, json_path=f)
+        for chapter in json_obj.chapters:
+            self.add_chapter(chapter)
+        del json_obj
+        f.unlink()
+
+    def _check_other_files(self):
+        for f in self._route.iterdir():
+            if (
+                bool(
+                    re.search(
+                        pattern=r"[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}\_data\{v\d+\}\.json",
+                        string=f.name,
+                        flags=re.IGNORECASE,
+                    )
+                )
+                and f != self.json_path
+            ):
+                self._add_from_other_files(f)
+
     def _save_json(self) -> None:
         """Save the json."""
         with open(self.json_path, "w", encoding="utf8") as json_file:
             json.dump(self.new_data, json_file, indent=4, ensure_ascii=False)
 
-    async def _core(self, save_type: int = 0) -> None:
+    async def core(self, save_type: int = 0) -> None:
         """Format the json for exporting.
 
         Args:
@@ -133,8 +171,8 @@ class JsonBase:
 
 
 class TitleJson(JsonBase):
-    def __init__(self, args: ProcessArgs, manga_args_obj: MDArgs, img_dl_obj: Optional["ImageDownloader"] = None) -> None:
-        super().__init__(args, manga_args_obj, img_dl_obj)
+    def __init__(self, *, args: ProcessArgs, manga_args_obj: MDArgs, img_dl_obj: Optional["ImageDownloader"] = None) -> None:
+        super().__init__(args=args, args_obj=manga_args_obj, img_dl_obj=img_dl_obj)
         self._regex = re.compile(ImpVar.CHARA_REGEX)
         self._cover_route = self._route.joinpath("!covers")
         self._links = self._format_links()
@@ -254,12 +292,12 @@ class TitleJson(JsonBase):
         if save_type and self._args.cover_download:
             await self._download_covers()
 
-        await super()._core(save_type)
+        await super().core(save_type)
 
 
 class BulkJson(JsonBase):
-    def __init__(self, args: ProcessArgs, bulk_args_obj: MDArgs, img_dl_obj: Optional["ImageDownloader"] = None) -> None:
-        super().__init__(args, bulk_args_obj, img_dl_obj)
+    def __init__(self, *, args: ProcessArgs, bulk_args_obj: MDArgs, img_dl_obj: Optional["ImageDownloader"] = None) -> None:
+        super().__init__(args=args, args_obj=bulk_args_obj, img_dl_obj=img_dl_obj)
         self.bulk_data = self._format_data()
 
     async def core(self, save_type: int = 0) -> None:
@@ -269,4 +307,4 @@ class BulkJson(JsonBase):
             save_type (int, optional): Save the covers after all the manga's chapters have been downloaded. Defaults to 0.
         """
         self.new_data = self.bulk_data
-        await super()._core(save_type)
+        await super().core(save_type)

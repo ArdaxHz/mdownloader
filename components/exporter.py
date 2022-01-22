@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-import asyncio
 import html
 import json
 import os
@@ -7,7 +6,6 @@ import re
 import shutil
 import zipfile
 from datetime import datetime
-from optparse import Option
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
 
@@ -21,7 +19,6 @@ from .languages import get_lang_iso
 
 if TYPE_CHECKING:
     from .args import MDArgs, ProcessArgs
-    from .image_downloader import ImageDownloader
 
 
 class ExporterBase:
@@ -41,11 +38,16 @@ class ExporterBase:
         self.volume = self._format_volume_number()
         self.language = self._format_language()
         self.groups: Optional[str] = None
+        self.prefix: Optional[str] = None
+        self.suffix: Optional[str] = None
+        self.folder_name: Optional[str] = None
+
+        self.add_data = self._args.save_chapter_data
+
+    def update_fields(self):
         self.prefix = self._prefix_name()
         self.suffix = self._suffix_name()
         self.folder_name = self._folder_name()
-
-        self.add_data = self._args.save_chapter_data
 
     def _strip_illegal_characters(self, name: str) -> str:
         """Remove illegal characters from the specified name."""
@@ -199,11 +201,16 @@ class ArchiveExporter(ExporterBase):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        self.archive_extension = self._args.archive_extension
+        self.archive_extension: str = self._args.archive_extension
+        self.archive_path: Optional[str] = None
+        self.archive: Optional[zipfile.ZipFile] = None
+
+    def update_fields(self):
+        super().update_fields()
         self.archive_path = self._get_file_path(self.folder_name)
         self.archive = self._check_zip()
 
-    def _get_file_path(self, name: str) -> Path:
+    def _get_file_path(self, name: str) -> str:
         return os.path.join(self._download_path, f"{name}.{self.archive_extension}")
 
     def _make_zip(self) -> zipfile.ZipFile:
@@ -309,8 +316,12 @@ class FolderExporter(ExporterBase):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        self._folder_path = self._download_path.joinpath(self.folder_name)
+        self._folder_path: Optional[Path] = None
         self.check_folder()
+
+    def update_fields(self):
+        super().update_fields()
+        self._folder_path = self._download_path.joinpath(self.folder_name)
 
     def _make_folder(self) -> bool:
         """Make the folder.

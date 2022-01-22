@@ -1,19 +1,19 @@
 #!/usr/bin/python3
 from copy import copy
-import dataclasses
 import html
+import multiprocessing
 import os
 import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncGenerator, Optional, Union
+from typing import TYPE_CHECKING, AsyncGenerator, Dict, List, Optional, Union
+import zipfile
 
 import hondana
 from tqdm.asyncio import tqdm
 
-from components.renamer import DownloadedFilesRenamer
-
+from . import renamer
 from .args import MDArgs, ProcessArgs
 from .cache import Cache, CacheRead
 from .constants import ImpVar
@@ -28,17 +28,23 @@ if TYPE_CHECKING:
 
 
 class ImageDownloader:
-    def __init__(self, args: ProcessArgs, manga_args_obj: MDArgs) -> None:
+    def __init__(
+        self, args: ProcessArgs, manga_args_obj: MDArgs, json_exporter: Optional[Union["TitleJson", "BulkJson"]] = None
+    ) -> None:
         self._args = args
         self._hondana_client = args._hondana_client
         self._manga_args_obj = manga_args_obj
         self._manga_data = manga_args_obj.data
         self._manga_title = self._format_title()
         self._download_route = self._format_save_route(self._manga_title)
+        self.json_exporter = json_exporter
 
-        self.json_exporter: Optional[Union["TitleJson", "BulkJson"]] = None
-        if self._args.rename_files:
-            renamer_obj = DownloadedFilesRenamer(copy(self), copy(self._manga_args_obj))
+        if self._args.rename_files and self._args._arg_type != "chapter":
+            renamer_obj = renamer.DownloadedFilesRenamer(
+                manga_data=self._manga_args_obj.cache.cache.data,
+                manga_download_path=self._download_route,
+                downloads_root_path=self._args.directory,
+            )
             renamer_obj.check_downloaded_files()
 
     def _strip_illegal_characters(self, name: str) -> str:
@@ -183,6 +189,7 @@ class ImageDownloader:
         }
         exporter = FolderExporter(**kwargs) if self._args.folder_download else ArchiveExporter(**kwargs)
         exporter.groups = await exporter.get_groups()
+        exporter.update_fields()
 
         # Add chapter data to the json for title, group or user downloads
         if chapter_args_obj.json_obj is not None:

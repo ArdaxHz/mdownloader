@@ -238,7 +238,7 @@ class MangaDownloader:
         self.manga_args_obj.data = manga_data
         image_downloader_obj = ImageDownloader(self._args, manga_args_obj=self.manga_args_obj)
         # Initalise json classes and make series folders
-        title_json_obj = TitleJson(self._args, self.manga_args_obj, image_downloader_obj)
+        title_json_obj = TitleJson(args=self._args, manga_args_obj=self.manga_args_obj, img_dl_obj=image_downloader_obj)
         self.manga_args_obj.json_obj = title_json_obj
         image_downloader_obj.json_exporter = title_json_obj
         image_downloader_obj._manga_args_obj = self.manga_args_obj
@@ -349,7 +349,7 @@ class BulkDownloader:
         return titles
 
     async def bulk_downlading(self, chapters: List[hondana.Chapter]):
-        bulk_json_obj = BulkJson(self._args, self.bulk_args_obj)
+        bulk_json_obj = BulkJson(args=self._args, bulk_args_obj=self.bulk_args_obj)
         self.bulk_args_obj.json_obj = bulk_json_obj
         sorted_chapters_to_download = await self._sort_by_manga(chapters)
 
