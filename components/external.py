@@ -28,8 +28,8 @@ class ExternalBase:
         self._extension = "jpg"
 
     async def download_chapter(self, pages: list, download_site: str) -> None:
-        exists = self._image_downloader_obj.check_exist(pages)
-        await self._image_downloader_obj.before_download(exists)
+        exists = self._image_downloader_obj.check_exist(pages, self._exporter)
+        await self._image_downloader_obj.before_download(exists, self._exporter)
 
         # Decrypt then save each image
         for page in tqdm(pages, desc=(str(datetime.now(tz=None))[:-7])):
@@ -38,8 +38,8 @@ class ExternalBase:
             page_no = pages.index(page) + 1
             self._exporter.add_image(response=image, page_no=page_no, ext=self._extension, orig_name=None)
 
-        downloaded_all = self._image_downloader_obj.check_exist(pages)
-        await self._image_downloader_obj.after_download(downloaded_all)
+        downloaded_all = self._image_downloader_obj.check_exist(pages, self._exporter)
+        await self._image_downloader_obj.after_download(downloaded_all, self._exporter)
 
 
 class MangaPlus(ExternalBase):

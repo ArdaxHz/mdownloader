@@ -1,10 +1,9 @@
 import dataclasses
 import getpass
 import json
-import os
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
 
 import hondana
 
@@ -39,7 +38,7 @@ class AuthMD:
         self.refresh_token = None
         self.token_file = Path(".mdauth")
 
-    def _open_auth_file(self) -> Optional[str]:
+    def _open_auth_file(self) -> Optional[Dict[str, str]]:
         try:
             with open(self.token_file, "r") as login_file:
                 token = json.load(login_file)
@@ -120,8 +119,7 @@ class ProcessArgs:
             else Path(ImpVar.DOWNLOAD_PATH)
         )
         self.language = get_lang_md(unparsed_arguments["language"])
-        self.archive_extension = ImpVar.ARCHIVE_EXTENSION
-        self._check_archive_extension(self.archive_extension)
+        self.archive_extension = self._check_archive_extension(ImpVar.ARCHIVE_EXTENSION)
         self.folder_download = bool(unparsed_arguments["folder"])
         self.cover_download = bool(unparsed_arguments["covers"])
         self.save_chapter_data = bool(unparsed_arguments["json"])
@@ -135,10 +133,10 @@ class ProcessArgs:
 
     async def _check_legacy(self, download_id: str, download_type: str):
         if download_id.isdigit():
-            return await self._map_single_legacy_uuid(download_type, item_ids=download_id)
+            return await self._map_single_legacy_uuid(download_id, download_type)
         return download_id
 
-    async def _map_single_legacy_uuid(self, download_id: int, download_type: str) -> str:
+    async def _map_single_legacy_uuid(self, download_id: Union[str, int], download_type: str) -> str:
         download_id = int(download_id)
         response: hondana.LegacyMappingCollection = await self._hondana_client.legacy_id_mapping(
             download_type, item_ids=[download_id]
@@ -149,14 +147,14 @@ class ProcessArgs:
         """Check if the url given is a MangaDex one."""
         return ImpVar.MD_URL.match(url)
 
-    def parse_url(self, url: str) -> Tuple[str]:
+    def parse_url(self, url: str) -> Tuple[str, str]:
         """Get the id and download type from url."""
         md_url_match = self.check_url(url)
         if md_url_match is None:
             raise MDownloaderError("That url is not recognised.")
 
-        download_type_from_url = md_url_match.group(1)
-        id_from_url = md_url_match.group(2)
+        download_type_from_url: str = md_url_match.group(1)
+        id_from_url: str = md_url_match.group(2)
 
         if download_type_from_url == "title":
             download_type_from_url = "manga"
@@ -193,6 +191,7 @@ class ProcessArgs:
         """
         if archive_extension not in ("zip", "cbz"):
             raise MDownloaderError("This archive save format is not allowed.")
+        return archive_extension
 
     async def find_manga(self, search_term: str) -> hondana.Manga:
         """Search for a manga by title."""

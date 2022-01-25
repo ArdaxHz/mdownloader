@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-
 import re
 
 from .errors import MDownloaderError

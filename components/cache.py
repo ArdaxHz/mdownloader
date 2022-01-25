@@ -3,7 +3,7 @@ import gzip
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import List, Optional, Union
 
 import hondana
 

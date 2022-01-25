@@ -1,20 +1,17 @@
 #!/usr/bin/python3
-from copy import copy
 import html
-import multiprocessing
 import os
 import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncGenerator, Dict, List, Optional, Union
-import zipfile
+from typing import TYPE_CHECKING, AsyncGenerator, Optional, Union
 
 import hondana
 from tqdm.asyncio import tqdm
 
 from . import renamer
-from .args import MDArgs, ProcessArgs
+from .args import ProcessArgs, MDArgs
 from .cache import Cache, CacheRead
 from .constants import ImpVar
 from .errors import MDownloaderError
@@ -29,7 +26,11 @@ if TYPE_CHECKING:
 
 class ImageDownloader:
     def __init__(
-        self, args: ProcessArgs, manga_args_obj: MDArgs, json_exporter: Optional[Union["TitleJson", "BulkJson"]] = None
+        self,
+        args: ProcessArgs,
+        manga_args_obj: MDArgs,
+        manga_json_exporter: Optional["TitleJson"] = None,
+        bulk_json_exporter: Optional["BulkJson"] = None,
     ) -> None:
         self._args = args
         self._hondana_client = args._hondana_client
@@ -37,7 +38,8 @@ class ImageDownloader:
         self._manga_data = manga_args_obj.data
         self._manga_title = self._format_title()
         self._download_route = self._format_save_route(self._manga_title)
-        self.json_exporter = json_exporter
+        self.manga_json_exporter = manga_json_exporter
+        self.bulk_json_exporter = bulk_json_exporter
 
         if self._args.rename_files and self._args._arg_type != "chapter":
             renamer_obj = renamer.DownloadedFilesRenamer(
@@ -78,13 +80,12 @@ class ImageDownloader:
 
     async def _save_json(self) -> None:
         """Save the chapter data to the data json and save the json."""
-        if self.json_exporter._args_obj.type in ("manga",):
-            await self.json_exporter.core()
+        if self.manga_json_exporter is not None:
+            await self.manga_json_exporter.core()
+        if self.bulk_json_exporter is not None:
+            await self.bulk_json_exporter.core()
 
-        if self.json_exporter._args_obj.type in ("group", "user"):
-            await self.json_exporter.core()
-
-    async def _before_download(self, exists: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
+    async def before_download(self, exists: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
         """Skip chapter if its already downloaded."""
         if exists:
             # Add chapter data to the json for title, group or user downloads
@@ -92,7 +93,7 @@ class ImageDownloader:
             exporter.close()
             raise MDownloaderError("File already downloaded.")
 
-    async def _after_download(self, downloaded_all: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
+    async def after_download(self, downloaded_all: bool, exporter: Union[ArchiveExporter, FolderExporter]) -> None:
         """Save json if all the images were downloaded and close the archive."""
         # If all the images are downloaded, save the json file with the latest downloaded chapter
         if downloaded_all:
@@ -209,7 +210,7 @@ class ImageDownloader:
 
         # Check if the chapter has been downloaded already
         exists = self.check_exist(at_home_data.data, exporter)
-        await self._before_download(exists, exporter)
+        await self.before_download(exists, exporter)
 
         with tqdm(
             self._pages(chapter=chapter_data, at_home_data=at_home_data, data_saver=data_saver, ssl=ssl),
@@ -222,4 +223,4 @@ class ImageDownloader:
                 exporter.add_image(response=page_data, page_no=_image_index, ext=_ext, orig_name=page_name)
 
         downloaded_all = self.check_exist(at_home_data.data, exporter)
-        await self._after_download(downloaded_all, exporter)
+        await self.after_download(downloaded_all, exporter)

@@ -55,11 +55,8 @@ Pass the `-r` parameter to download a range of chapters for manga download. You 
 - --update (optional. Skip looking for an application update. Default: False)
 - --rename (optional. Skip renaming downloaded files if the title is wrong. Default: True)
 
-## Blacklisting and Whitelisting
-***Whitelisting takes priority with group filtering taking priority over user filtering.***
+## Blacklisting a Group or User
 To blacklist a group or user, create a file in the same folder as the download, it can be called whatever you want, default names are "group_blacklist.txt" and "user_blacklist.txt", however you will **need** to change the name of the files in the `.env` file if you want to use your own names. Add an id per line of the group or user's chapters you want to skip.
-
-To whitelist a group or user, create a file in the same folder as the download, it can be called whatever you want, default names are "group_whitelist.txt" and "user_whitelist.txt", however you will **need** to change the name of the files in the `.env` file if you want to use your own names. Add an id per line of the group or user's chapters you want to download. *If both group and user whitelists are specified, group whitelisting takes priority.*
 
 ## Naming
 Images will be downloaded in the download directory relative to the script location with the following structure:

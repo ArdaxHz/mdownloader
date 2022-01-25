@@ -1,11 +1,10 @@
 #!/usr/bin/python3
-import asyncio
 from pathlib import Path
 from typing import Dict, Union
 
 import hondana
 
-from .args import MDArgs, ProcessArgs
+from .args import ProcessArgs, MDArgs
 from .constants import ImpVar
 from .downloader import BulkDownloader, MangaDownloader, chapter_download
 from .errors import MDownloaderError
@@ -33,6 +32,10 @@ class MDParser:
             bulk_args_obj = BulkDownloader(self.args, to_download)
             if to_download.type == "group":
                 await bulk_args_obj.group_download()
+            elif to_download.type == "user":
+                await bulk_args_obj.user_download()
+            elif to_download.type == "list":
+                await bulk_args_obj.list_download()
         # elif to_download.type in ('follows', 'feed'):
         #     md_model.type_id = 3
         #     follows_download(to_download)
@@ -55,7 +58,7 @@ class MDParser:
         links = [
             line
             for line in unparsed_lines
-            if len(line) > 0 and (self.check_url(line) or self.check_uuid(line) or line.isdigit())
+            if len(line) > 0 and (self.args.check_url(line) or self.args.check_uuid(line) or line.isdigit())
         ]
         # md_model.misc.check_for_links(links, 'No MangaDex link or id found')
 
@@ -67,7 +70,7 @@ class MDParser:
             parsed.append(self.args.process_args(p))
 
         legacy_response: hondana.LegacyMappingCollection = await self.hondana_client.legacy_id_mapping(
-            self.args._arg_type, legacy_ids
+            self.args._arg_type, item_ids=legacy_ids
         )
 
         for ids in legacy_response.legacy_mappings:

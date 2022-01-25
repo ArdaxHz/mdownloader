@@ -22,9 +22,7 @@ class ImpVar:
     CACHE_REFRESH_TIME = int(os.getenv("CACHE_REFRESH_TIME", 24))
 
     GROUP_BLACKLIST_FILE = os.getenv("GROUP_BLACKLIST_FILE", "group_blacklist.txt")
-    GROUP_WHITELIST_FILE = os.getenv("GROUP_WHITELIST_FILE", "group_whitelist.txt")
     USER_BLACKLIST_FILE = os.getenv("USER_BLACKLIST_FILE", "user_blacklist.txt")
-    USER_WHITELIST_FILE = os.getenv("USER_WHITELIST_FILE", "user_whitelist.txt")
 
     ARCHIVE_EXTENSION = os.getenv("ARCHIVE_EXTENSION", "cbz")
 

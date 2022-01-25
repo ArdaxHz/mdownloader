@@ -1,11 +1,11 @@
-from copy import copy
 import html
 import multiprocessing
 import os
 import re
 import zipfile
+from copy import copy
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import Dict, List
 
 from .constants import ImpVar
 
