@@ -3,7 +3,7 @@ import getpass
 import json
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
 
 import hondana
 
@@ -38,10 +38,10 @@ class AuthMD:
         self.refresh_token = None
         self.token_file = Path(".mdauth")
 
-    def _open_auth_file(self) -> Optional[Dict[str, str]]:
+    def _open_auth_file(self) -> Optional[str]:
         try:
             with open(self.token_file, "r") as login_file:
-                token = json.load(login_file)
+                token = login_file.readline()
             return token
         except (FileNotFoundError, json.JSONDecodeError):
             # logging.error(
@@ -49,25 +49,27 @@ class AuthMD:
             # )
             return None
 
-    def _save_session(self, token: dict):
+    def _save_session(self):
         """Save the session and refresh tokens."""
-        with open(self.token_file, "w") as login_file:
-            login_file.write(json.dumps(token, indent=4))
+        self._args._hondana_client.dump_refresh_token(self.token_file)
         # logging.debug("Saved .mdauth file.")
+
+    async def _static_login(self) -> bool:
+        try:
+            await self._args._hondana_client.static_login()
+        except (hondana.APIException, ValueError):
+            return False
+        else:
+            self.refresh_token = self._args._hondana_client._http._refresh_token
+            self._save_session()
+            return True
 
     async def _login(self) -> bool:
         username = input("Your username: ")
         password = getpass.getpass(prompt="Your password: ", stream=None)
         self._args._hondana_client.login(username=username, password=password)
 
-        try:
-            await self._args._hondana_client.static_login()
-        except hondana.APIException:
-            return False
-        else:
-            self.token = self._args._hondana_client._http._token
-            self.refresh_token = self._args._hondana_client._http.__refresh_token
-            return True
+        return await self._static_login()
 
     async def login(self, check_login=True):
         """Login to MD account using details or saved token."""
@@ -78,28 +80,19 @@ class AuthMD:
 
         # logging.info("Trying to login through the .mdauth file.")
 
-        if self.token is None or self.refresh_token is None:
-            token = self._open_auth_file()
-            if token is not None:
-                self.token = token["session"]
-                self.refresh_token = token["refresh"]
-
-                self._args._hondana_client._http.__refresh_token = self.refresh_token
-                try:
-                    self.token = await self._args._hondana_client._http._refresh_token()
-                except hondana.APIException:
-                    logged_in = False
-                else:
-                    logged_in = True
+        if self.first_login or self.refresh_token is None:
+            refresh_token = self._open_auth_file()
+            if refresh_token is None:
+                self.successful_login = self._login()
             else:
-                logged_in = await self._login()
+                self._args._hondana_client.login(refresh_token=refresh_token)
+                self.successful_login = await self._static_login()
         else:
-            logged_in = await self._login()
+            self.successful_login = await self._static_login()
 
-        if logged_in:
-            self.successful_login = True
+        if self.successful_login:
+            print("Logged in.")
         else:
-            self.successful_login = False
             print("Couldn't login.")
 
 
@@ -211,12 +204,12 @@ class ProcessArgs:
         manga_to_use = manga_response.manga[manga_to_use_num - 1]
         return manga_to_use
 
-    async def process_args(self, download_id: str = None, _download_type: str = None) -> MDArgs:
+    async def process_args(self, *, download_id: Optional[str] = None, download_type: Optional[str] = None) -> MDArgs:
         if self._unparsed_arguments["login"]:
             await self._login_obj.login()
 
-        if _download_type is None:
-            _download_type = self._arg_type
+        if download_type is None:
+            download_type = self._arg_type
 
         if self.search_manga:
             found_manga = await self.find_manga(download_id)
@@ -225,10 +218,10 @@ class ProcessArgs:
             self.args = obj
             return obj
 
-        download_id, download_type = await self._parse_id(str(download_id), _download_type)
-        if download_type is None:
-            download_type = _download_type
-        self._arg_type = download_type
-        obj = MDArgs(id=download_id, type=download_type)
+        download_id, inner_download_type = await self._parse_id(str(download_id), download_type)
+        if inner_download_type is None:
+            inner_download_type = download_type
+        self._arg_type = inner_download_type
+        obj = MDArgs(id=download_id, type=inner_download_type)
         self.args = obj
         return obj

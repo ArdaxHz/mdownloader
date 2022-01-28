@@ -552,9 +552,8 @@ async def chapter_download(args: ProcessArgs, chapter_args_obj: MDArgs) -> None:
         chapter_response = hondana.Chapter(args._hondana_client._http, chapter_data.copy())
 
     manga_args_obj = await get_manga_data(args, MDArgs(id=chapter_response.manga_id, type="manga"))
-    chapter_response.__parent = manga_args_obj.data
 
-    name = f"{chapter_response.manga.title}: Chapter {chapter_response.chapter}"
+    name = f"{manga_args_obj.data.title}: Chapter {chapter_response.chapter}"
 
     download_message(False, download_type, name)
 

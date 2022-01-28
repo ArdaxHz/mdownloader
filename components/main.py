@@ -67,14 +67,14 @@ class MDParser:
         parsed = []
 
         for p in new_download_ids:
-            parsed.append(self.args.process_args(p))
+            parsed.append(await self.args.process_args(download_id=p))
 
         legacy_response: hondana.LegacyMappingCollection = await self.hondana_client.legacy_id_mapping(
             self.args._arg_type, item_ids=legacy_ids
         )
 
         for ids in legacy_response.legacy_mappings:
-            parsed.append(self.args.process_args(ids.obj_new_id))
+            parsed.append(await self.args.process_args(download_id=ids.obj_new_id))
 
         # md_model.wait()
 
@@ -89,7 +89,7 @@ class MDParser:
         print(f"All the ids in {filename} have been downloaded")
 
     async def main(self):
-        args_obj = await self.args.process_args(self.args._arg_id, self.args._arg_type)
+        args_obj = await self.args.process_args(download_id=self.args._arg_id, download_type=self.args._arg_type)
 
         try:
             if isinstance(args_obj.id, Path):
