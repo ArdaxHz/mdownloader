@@ -173,7 +173,8 @@ class ProcessArgs:
             download_id_path = Path(download_id)
             if download_id_path.exists():
                 to_return_id = download_id_path
-            raise MDownloaderError("The id argument entered is not recognised.")
+            else:
+                raise MDownloaderError("The id argument entered is not recognised.")
         return to_return_id, to_return_type
 
     def _check_archive_extension(self, archive_extension: str) -> str:

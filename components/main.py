@@ -62,15 +62,15 @@ class MDParser:
         ]
         # md_model.misc.check_for_links(links, 'No MangaDex link or id found')
 
-        legacy_ids = [int(legacy) for legacy in links if legacy.isdigit()]
-        new_download_ids = [x for x in links if int(x) not in legacy_ids]
+        legacy_ids = [legacy for legacy in links if legacy.isdigit()]
+        new_download_ids = [x for x in links if x not in legacy_ids]
         parsed = []
 
         for p in new_download_ids:
             parsed.append(await self.args.process_args(download_id=p))
 
         legacy_response: hondana.LegacyMappingCollection = await self.hondana_client.legacy_id_mapping(
-            self.args._arg_type, item_ids=legacy_ids
+            self.args._arg_type, item_ids=[int(x) for x in legacy_ids]
         )
 
         for ids in legacy_response.legacy_mappings:
