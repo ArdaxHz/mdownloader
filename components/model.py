@@ -549,6 +549,10 @@ class DataFormatter(ModelsBase):
 
     def format_title(self, data: dict) -> str:
         """Remove illegal characters from the manga title."""
+        try:
+            os.mkdir(self.model.directory) 
+        except FileExistsError:
+            pass
         title = self.get_title(data)
         title = self.strip_illegal_characters(title)
         self.model.title = title
@@ -876,7 +880,7 @@ class TitleDownloaderMisc(ModelsBase):
         for chapter in chap_list:
             if "-" in chapter:
                 chapter_range = chapter.split('-')
-                chapter_range = [None if v == 'oneshot' else v for v in chapter]
+                chapter_range = [None if v == 'oneshot' else v for v in chapter_range]
                 lower_bound = chapter_range[0].strip()
                 upper_bound = chapter_range[1].strip()
                 try:
@@ -908,9 +912,9 @@ class TitleDownloaderMisc(ModelsBase):
             list: The chapters to download.
         """
         chapters_list = [c["attributes"]["chapter"] for c in chapters]
-        chapters_list_str = ['oneshot' if c is None else c for c in chapters_list]
         chapters_list = list(set(chapters_list))
         chapters_list.sort(key=self._natsort)
+        chapters_list_str = ['oneshot' if c is None else c for c in chapters_list]
         remove_chapters = []
 
         if not chapters_list:
@@ -937,7 +941,8 @@ class TitleDownloaderMisc(ModelsBase):
 
         for i in remove_chapters:
             chapters_to_download.remove(i)
-        return [c for c in chapters if c["attributes"]["chapter"] in chapters_to_download]
+        
+        return [c for c in chapters if c["attributes"]["chapter"] in chapters_to_download] 
 
 
 
