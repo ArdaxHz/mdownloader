@@ -35,7 +35,9 @@ async def download_chapters(
     args_obj: MDArgs,
     chapters_to_download: List[MDArgs],
     image_downloader_obj: Optional[ImageDownloader] = None,
-    sorted_chapters_to_download: Optional[Dict[str, Dict[str, Union[MDArgs, List[hondana.Chapter]]]]] = None,
+    sorted_chapters_to_download: Optional[
+        Dict[str, Dict[str, Union[MDArgs, List[hondana.Chapter]]]]
+    ] = None,
 ) -> None:
     """Loop chapters and call the baseDownloader function.
 
@@ -46,7 +48,9 @@ async def download_chapters(
     for chapter in chapters_to_download:
 
         if args_obj.type != "manga":
-            manga_args_obj = sorted_chapters_to_download[chapter.data.manga_id]["manga_args_obj"]
+            manga_args_obj = sorted_chapters_to_download[chapter.data.manga_id][
+                "manga_args_obj"
+            ]
             image_downloader_obj: ImageDownloader = ImageDownloader(
                 args, manga_args_obj, bulk_json_exporter=args_obj.json_obj
             )
@@ -69,7 +73,9 @@ async def get_manga_data(args: ProcessArgs, manga_args_obj: MDArgs) -> MDArgs:
         manga_cache_obj.save_cache(cache_time=datetime.now(), data=manga_data)
         manga_cache_obj.cache.data
     else:
-        manga_data = hondana.Manga(args._hondana_client._http, manga_cache_obj.cache.data.copy())
+        manga_data = hondana.Manga(
+            args._hondana_client._http, manga_cache_obj.cache.data.copy()
+        )
 
     manga_args_obj.cache = manga_cache_obj
     manga_args_obj.data = manga_data
@@ -144,10 +150,14 @@ class MangaDownloader:
 
             try:
                 next_item = list_volume_dict[next_volume_index]
-                result = any(elem in volume_dict[next_item] for elem in volume_dict[volume])
+                result = any(
+                    elem in volume_dict[next_item] for elem in volume_dict[volume]
+                )
             except (KeyError, IndexError):
                 previous_volume = list_volume_dict[previous_volume_index]
-                result = any(elem in volume_dict[previous_volume] for elem in volume_dict[volume])
+                result = any(
+                    elem in volume_dict[previous_volume] for elem in volume_dict[volume]
+                )
 
             if volume is not None or volume != "":
                 if result:
@@ -166,7 +176,9 @@ class MangaDownloader:
         except ValueError:
             return x
 
-    def _get_chapters_range(self, chapters_list: List[str], chap_list: List[str]) -> List[Union[str, None]]:
+    def _get_chapters_range(
+        self, chapters_list: List[str], chap_list: List[str]
+    ) -> List[Union[str, None]]:
         """Loop through the lists and get the chapters between the upper and lower bounds.
 
         Args:
@@ -181,18 +193,22 @@ class MangaDownloader:
         for chapter in chap_list:
             if "-" in chapter:
                 chapter_range = chapter.split("-")
-                chapter_range = [None if v == "oneshot" else v for v in chapter]
+                chapter_range = [None if v == "oneshot" else v for v in chapter_range]
                 lower_bound = chapter_range[0].strip()
                 upper_bound = chapter_range[1].strip()
                 try:
                     lower_bound_i = chapters_list.index(lower_bound)
                 except ValueError:
-                    print(f"Chapter lower bound {lower_bound} does not exist. Skipping {chapter}.")
+                    print(
+                        f"Chapter lower bound {lower_bound} does not exist. Skipping {chapter}."
+                    )
                     continue
                 try:
                     upper_bound_i = chapters_list.index(upper_bound)
                 except ValueError:
-                    print(f"Chapter upper bound {upper_bound} does not exist. Skipping {chapter}.")
+                    print(
+                        f"Chapter upper bound {upper_bound} does not exist. Skipping {chapter}."
+                    )
                     continue
                 range = chapters_list[lower_bound_i : upper_bound_i + 1]
             else:
@@ -213,9 +229,11 @@ class MangaDownloader:
             list: The chapters to download.
         """
         chapters_numbers_list = [c.data.chapter for c in chapters]
-        chapters_list_str = ["oneshot" if c is None else c for c in chapters_numbers_list]
         chapters_numbers_list = list(set(chapters_numbers_list))
         chapters_numbers_list.sort(key=self._natsort)
+        chapters_list_str = [
+            "oneshot" if c is None else c for c in chapters_numbers_list
+        ]
         remove_chapters = []
 
         if not chapters_numbers_list:
@@ -233,12 +251,16 @@ class MangaDownloader:
 
         # Find which chapters to download
         if "all" not in input_chap_list:
-            chapters_to_download = self._get_chapters_range(chapters_numbers_list, input_chap_list)
+            chapters_to_download = self._get_chapters_range(
+                chapters_numbers_list, input_chap_list
+            )
         else:
             chapters_to_download = chapters_numbers_list
 
         # Get the chapters to remove from the download list
-        remove_chapters = self._get_chapters_range(chapters_numbers_list, chapters_to_remove)
+        remove_chapters = self._get_chapters_range(
+            chapters_numbers_list, chapters_to_remove
+        )
 
         for i in remove_chapters:
             chapters_to_download.remove(i)
@@ -252,22 +274,34 @@ class MangaDownloader:
         manga_cache_obj = CacheRead(self._args, cache_id=manga_id, cache_type="manga")
         refresh_cache = manga_cache_obj.check_cache_time()
 
-        if self.manga_args_obj.data or refresh_cache or not bool(manga_cache_obj.cache.data):
+        if (
+            self.manga_args_obj.data
+            or refresh_cache
+            or not bool(manga_cache_obj.cache.data)
+        ):
             if self.manga_args_obj.data:
                 manga_data: hondana.Manga = self.manga_args_obj.data
             else:
                 manga_data = await self._args._hondana_client.view_manga(manga_id)
             manga_cache_obj.save_cache(cache_time=datetime.now(), data=manga_data)
         else:
-            manga_data = hondana.Manga(self._args._hondana_client._http, manga_cache_obj.cache.data.copy())
+            manga_data = hondana.Manga(
+                self._args._hondana_client._http, manga_cache_obj.cache.data.copy()
+            )
 
         self.manga_args_obj.cache = manga_cache_obj
         self.manga_args_obj.data = manga_data
         image_downloader_obj = ImageDownloader(
-            self._args, manga_args_obj=self.manga_args_obj, bulk_json_exporter=self.bulk_json_obj
+            self._args,
+            manga_args_obj=self.manga_args_obj,
+            bulk_json_exporter=self.bulk_json_obj,
         )
         # Initalise json classes and make series folders
-        title_json_obj = TitleJson(args=self._args, manga_args_obj=self.manga_args_obj, img_dl_obj=image_downloader_obj)
+        title_json_obj = TitleJson(
+            args=self._args,
+            manga_args_obj=self.manga_args_obj,
+            img_dl_obj=image_downloader_obj,
+        )
         self.manga_args_obj.json_obj = title_json_obj
         image_downloader_obj.manga_json_exporter = title_json_obj
         image_downloader_obj._manga_args_obj = self.manga_args_obj
@@ -290,15 +324,19 @@ class MangaDownloader:
                         hondana.ContentRating.pornographic,
                     ],
                     order=hondana.query.FeedOrderQuery(
-                        volume=hondana.query.Order.descending, chapter=hondana.query.Order.descending
+                        volume=hondana.query.Order.descending,
+                        chapter=hondana.query.Order.descending,
                     ),
                 )
 
-                manga_cache_obj.save_cache(cache_time=datetime.now(), chapters=copy(feed_response))
+                manga_cache_obj.save_cache(
+                    cache_time=datetime.now(), chapters=copy(feed_response)
+                )
                 chapters = feed_response.chapters
             else:
                 chapters: List[hondana.Chapter] = [
-                    hondana.Chapter(self._args._hondana_client._http, x) for x in manga_cache_obj.cache.chapters
+                    hondana.Chapter(self._args._hondana_client._http, x)
+                    for x in manga_cache_obj.cache.chapters
                 ]
 
             self.manga_args_obj.chapters = chapters
@@ -311,7 +349,12 @@ class MangaDownloader:
 
         chapters_to_download = [
             MDArgs(
-                id=x.id, type="chapter", data=x, json_obj=title_json_obj if download_type == "manga" else self.bulk_json_obj
+                id=x.id,
+                type="chapter",
+                data=x,
+                json_obj=title_json_obj
+                if download_type == "manga"
+                else self.bulk_json_obj,
             )
             for x in chapters
             if x.id not in json_chapters_ids
@@ -344,7 +387,9 @@ class BulkDownloader:
         self._args = args
         self.bulk_args_obj = bulk_args_obj
         self._filter_obj = Filtering()
-        self._order_query = hondana.query.FeedOrderQuery(created_at=hondana.query.Order.descending)
+        self._order_query = hondana.query.FeedOrderQuery(
+            created_at=hondana.query.Order.descending
+        )
         self._content_rating_list = [
             hondana.ContentRating.safe,
             hondana.ContentRating.suggestive,
@@ -397,8 +442,12 @@ class BulkDownloader:
             )
         else:
             for manga_id in sorted_chapters_to_download:
-                manga_args_obj: MDArgs = sorted_chapters_to_download[manga_id]["manga_args_obj"]
-                manga_args_obj.chapters = sorted_chapters_to_download[manga_id]["chapters"]
+                manga_args_obj: MDArgs = sorted_chapters_to_download[manga_id][
+                    "manga_args_obj"
+                ]
+                manga_args_obj.chapters = sorted_chapters_to_download[manga_id][
+                    "chapters"
+                ]
                 manga_dl_obj = MangaDownloader(
                     self._args,
                     manga_args_obj,
@@ -418,10 +467,14 @@ class BulkDownloader:
         refresh_cache = group_cache_obj.check_cache_time()
 
         if refresh_cache or not bool(group_cache_obj.cache.data):
-            group_response = await self._args._hondana_client.get_scanlation_group(group_id)
+            group_response = await self._args._hondana_client.get_scanlation_group(
+                group_id
+            )
             group_cache_obj.save_cache(cache_time=datetime.now(), data=group_response)
         else:
-            group_response = hondana.ScanlatorGroup(self._args._hondana_client._http, group_cache_obj.cache.data.copy())
+            group_response = hondana.ScanlatorGroup(
+                self._args._hondana_client._http, group_cache_obj.cache.data.copy()
+            )
 
         self.bulk_args_obj.cache = group_cache_obj
         self.bulk_args_obj.data = group_response
@@ -436,11 +489,14 @@ class BulkDownloader:
                 content_rating=self._content_rating_list,
                 order=self._order_query,
             )
-            group_cache_obj.save_cache(cache_time=datetime.now(), chapters=copy(feed_response))
+            group_cache_obj.save_cache(
+                cache_time=datetime.now(), chapters=copy(feed_response)
+            )
             chapters = feed_response.chapters
         else:
             chapters: List[hondana.Chapter] = [
-                hondana.Chapter(self._args._hondana_client._http, x) for x in group_cache_obj.cache.chapters
+                hondana.Chapter(self._args._hondana_client._http, x)
+                for x in group_cache_obj.cache.chapters
             ]
 
         await self.bulk_downlading(chapters)
@@ -456,7 +512,9 @@ class BulkDownloader:
             user_response = await self._args._hondana_client.get_user(user_id)
             user_cache_obj.save_cache(cache_time=datetime.now(), data=user_response)
         else:
-            user_response = hondana.User(self._args._hondana_client._http, user_cache_obj.cache.data.copy())
+            user_response = hondana.User(
+                self._args._hondana_client._http, user_cache_obj.cache.data.copy()
+            )
 
         self.bulk_args_obj.cache = user_cache_obj
         self.bulk_args_obj.data = user_response
@@ -471,11 +529,14 @@ class BulkDownloader:
                 content_rating=self._content_rating_list,
                 order=self._order_query,
             )
-            user_cache_obj.save_cache(cache_time=datetime.now(), chapters=copy(feed_response))
+            user_cache_obj.save_cache(
+                cache_time=datetime.now(), chapters=copy(feed_response)
+            )
             chapters = feed_response.chapters
         else:
             chapters: List[hondana.Chapter] = [
-                hondana.Chapter(self._args._hondana_client._http, x) for x in user_cache_obj.cache.chapters
+                hondana.Chapter(self._args._hondana_client._http, x)
+                for x in user_cache_obj.cache.chapters
             ]
 
         await self.bulk_downlading(chapters)
@@ -491,7 +552,9 @@ class BulkDownloader:
             list_response = await self._args._hondana_client.get_custom_list(list_id)
             list_cache_obj.save_cache(cache_time=datetime.now(), data=list_response)
         else:
-            list_response = hondana.CustomList(self._args._hondana_client._http, list_cache_obj.cache.data.copy())
+            list_response = hondana.CustomList(
+                self._args._hondana_client._http, list_cache_obj.cache.data.copy()
+            )
 
         self.bulk_args_obj.cache = list_cache_obj
         self.bulk_args_obj.data = list_response
@@ -507,11 +570,14 @@ class BulkDownloader:
                 order=self._order_query,
             )
 
-            list_cache_obj.save_cache(cache_time=datetime.now(), chapters=copy(feed_response))
+            list_cache_obj.save_cache(
+                cache_time=datetime.now(), chapters=copy(feed_response)
+            )
             chapters = feed_response.chapters
         else:
             chapters: List[hondana.Chapter] = [
-                hondana.Chapter(self._args._hondana_client._http, x) for x in list_cache_obj.cache.chapters
+                hondana.Chapter(self._args._hondana_client._http, x)
+                for x in list_cache_obj.cache.chapters
             ]
 
         await self.bulk_downlading(chapters)
@@ -549,9 +615,13 @@ async def chapter_download(args: ProcessArgs, chapter_args_obj: MDArgs) -> None:
         )
         chapter_cache_obj.save_cache(cache_time=datetime.now(), data=chapter_response)
     else:
-        chapter_response = hondana.Chapter(args._hondana_client._http, chapter_data.copy())
+        chapter_response = hondana.Chapter(
+            args._hondana_client._http, chapter_data.copy()
+        )
 
-    manga_args_obj = await get_manga_data(args, MDArgs(id=chapter_response.manga_id, type="manga"))
+    manga_args_obj = await get_manga_data(
+        args, MDArgs(id=chapter_response.manga_id, type="manga")
+    )
 
     name = f"{manga_args_obj.data.title}: Chapter {chapter_response.chapter}"
 
