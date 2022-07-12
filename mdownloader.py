@@ -30,8 +30,8 @@ def check_for_update(args) -> None:
     if not vargs["update"]:
         print('Looking for program update.')
         # Call GitHub api to check if there are missing local files
-        root_response = requests.get('https://api.github.com/repos/Rudoal/mdownloader/contents')
-        components_response = requests.get('https://api.github.com/repos/Rudoal/mdownloader/contents/components')
+        root_response = requests.get('https://api.github.com/repos/ArdaxHz/mdownloader/contents')
+        components_response = requests.get('https://api.github.com/repos/ArdaxHz/mdownloader/contents/components')
 
         if root_response.status_code == 200 and components_response.status_code == 200:
             root_data = root_response.json()
@@ -72,7 +72,7 @@ def check_for_update(args) -> None:
                     print('Skipping download, this might result in program errors.')
 
             # Check the local version is the same as on GitHub
-            remote_version_info_response = requests.get('https://raw.githubusercontent.com/Rudoal/mdownloader/master/components/__version__.py')
+            remote_version_info_response = requests.get('https://raw.githubusercontent.com/ArdaxHz/mdownloader/master/components/__version__.py')
             remote_version_info = (remote_version_info_response.content).decode()
 
             version_info = remote_version_info.rsplit('\n')
@@ -113,7 +113,7 @@ def check_for_update(args) -> None:
                     print('Skipping update, this might result in program errors.')
 
     # Get announcement messages that can be added at any time
-    announcement_response = requests.get('https://raw.githubusercontent.com/Rudoal/misc/main/mdl_msgs.txt')
+    announcement_response = requests.get('https://raw.githubusercontent.com/ArdaxHz/misc/main/mdl_msgs.txt')
 
     if announcement_response.status_code == 200:
         announcement_message = (announcement_response.content).decode()
